@@ -74,18 +74,17 @@ message Trace {
 }
 
 message Service {
+    reserved 3;
+    reserved "comment";
+
     message User {
         string endpoint = 1;
     }
     message Video {
         string endpoint = 1;
     }
-    message Comment {
-        string endpoint = 1;
-    }
     User user       = 1;
     Video video     = 2;
-    Comment comment = 3;
 }
 
 message DTM {

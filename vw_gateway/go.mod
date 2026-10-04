@@ -25,7 +25,6 @@ require (
 	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.6
 	util v0.0.0-00010101000000-000000000000
-	vw_comment v0.0.0-00010101000000-000000000000
 	vw_user v0.0.0-00010101000000-000000000000
 	vw_video v0.0.0-00010101000000-000000000000
 )
@@ -121,7 +120,6 @@ require (
 replace (
 	common => ../util/common_proto
 	util => ../util
-	vw_comment => ../vw_comment
 	vw_user => ../vw_user
 	vw_video => ../vw_video
 )
