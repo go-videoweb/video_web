@@ -47,11 +47,12 @@ func (info *InfoService) GetVideoList(ctx context.Context, req *videoinfov1.GetV
 }
 
 func (info *InfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.UploadVideoInfoReq) (*videoinfov1.UploadVideoInfoResp, error) {
-	err := info.videoInfo.UploadVideoInfo(ctx, videoMetaInfoToDomain(req.VideoInfo))
+	videoID, err := info.videoInfo.UploadVideoInfo(ctx, videoMetaInfoToDomain(req.VideoInfo))
 	if err != nil {
 		return nil, err
 	}
 	return &videoinfov1.UploadVideoInfoResp{
+		VideoId: videoID,
 		Resp: &videoinfov1.CommonResp{
 			StatusCode: 200,
 			Message:    "success",

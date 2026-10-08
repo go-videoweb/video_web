@@ -18,7 +18,7 @@ service VideoInfo {
 
     rpc GetVideoCover(GetVideoCoverReq) returns (stream GetVideoCoverResp) {}
 
-    rpc UploadVideoInfo(UploadVideoInfoReq) returns (google.protobuf.Empty) {}
+    rpc UploadVideoInfo(UploadVideoInfoReq) returns (UploadVideoInfoResp) {}
 
     rpc UploadVideoFile(stream UploadVideoFileReq) returns (google.protobuf.Empty) {}
 
@@ -165,6 +165,10 @@ message GetVideoCoverResp {
 
 message UploadVideoInfoReq {
     VideoMetaInfo video_info = 1;
+}
+
+message UploadVideoInfoResp {
+    int64 video_id = 1;
 }
 
 message UploadVideoFileReq {

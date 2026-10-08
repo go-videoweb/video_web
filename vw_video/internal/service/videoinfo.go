@@ -51,12 +51,12 @@ func (s *VideoInfoService) GetVideoList(ctx context.Context, req *videoinfov1.Ge
 	return resp, nil
 }
 
-func (s *VideoInfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.UploadVideoInfoReq) (*emptypb.Empty, error) {
-	err := s.info.UploadVideoInfo(ctx, req.VideoInfo)
+func (s *VideoInfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.UploadVideoInfoReq) (*videoinfov1.UploadVideoInfoResp, error) {
+	videoID, err := s.info.UploadVideoInfo(ctx, req.VideoInfo)
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &videoinfov1.UploadVideoInfoResp{VideoId: videoID}, nil
 }
 
 func (s *VideoInfoService) UploadVideoFile(stream grpc.ClientStreamingServer[videoinfov1.UploadVideoFileReq, emptypb.Empty]) error {

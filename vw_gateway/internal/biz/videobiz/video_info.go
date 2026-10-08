@@ -24,7 +24,7 @@ type VideoInfoRepo interface {
 	GetVideoMpd(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
 	GetVideoSegment(ctx context.Context, segmentPath string) (*videoinfov1.FileResp, error)
 	GetVideoCover(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
-	UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) error
+	UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) (int64, error)
 	UploadVideoCover(ctx context.Context, publisherId, videoId int64, fh *multipart.FileHeader) error
 	UploadVideoFile(publisherId int64, videoId int64, fh *multipart.FileHeader) error
 }
@@ -72,7 +72,7 @@ func (uc *VideoInfoUsecase) GetVideoList(ctx context.Context, class []string, nu
 	return videoList, nil
 }
 
-func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) error {
+func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) (int64, error) {
 	return uc.repo.UploadVideoInfo(ctx, info)
 }
 

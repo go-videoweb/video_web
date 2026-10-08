@@ -170,7 +170,7 @@ func (uc *VideoInfoUsecase) GetVideoListByClass(ctx context.Context, class []str
 	return videoList, nil
 }
 
-func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *videoinfov1.VideoMetaInfo) error {
+func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *videoinfov1.VideoMetaInfo) (int64, error) {
 	videoInfo := &model.Video{
 		VideoID:       getid.GetID(),
 		Title:         info.Title,
@@ -183,9 +183,9 @@ func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *videoinfo
 	}
 	err := uc.repo.CreateBasicVideoInfo(ctx, videoInfo)
 	if err != nil {
-		return helper.HandleError(errdef.ErrUploadVideoInfoFailed, err)
+		return 0, helper.HandleError(errdef.ErrUploadVideoInfoFailed, err)
 	}
-	return nil
+	return videoInfo.VideoID, nil
 }
 
 func (uc *VideoInfoUsecase) UploadVideoFile(stream grpc.ClientStreamingServer[videoinfov1.UploadVideoFileReq, emptypb.Empty]) error {

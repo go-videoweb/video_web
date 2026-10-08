@@ -1502,6 +1502,8 @@ components:
             properties:
                 resp:
                     $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.CommonResp'
+                videoId:
+                    type: string
         gateway.api.v1.video.videoinfo.VideoMetaInfo:
             type: object
             properties:

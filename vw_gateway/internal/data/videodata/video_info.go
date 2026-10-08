@@ -3,6 +3,7 @@ package videodata
 import (
 	"context"
 	"fmt"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
@@ -57,8 +58,8 @@ func (v *videoInfoRepo) GetVideoList(ctx context.Context, class []string, num in
 	return resp.VideoSummary, nil
 }
 
-func (v *videoInfoRepo) UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) error {
-	_, err := v.data.videoInfoClient.UploadVideoInfo(ctx, &videoinfov1.UploadVideoInfoReq{
+func (v *videoInfoRepo) UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) (int64, error) {
+	resp, err := v.data.videoInfoClient.UploadVideoInfo(ctx, &videoinfov1.UploadVideoInfoReq{
 		VideoInfo: &videoinfov1.VideoMetaInfo{
 			PublisherId:   info.PublisherId,
 			PublisherName: info.PublisherName,
@@ -70,7 +71,13 @@ func (v *videoInfoRepo) UploadVideoInfo(ctx context.Context, info *domain.VideoD
 			Duration:      info.Duration,
 		},
 	})
-	return err
+	if err != nil {
+		return 0, err
+	}
+	if resp.GetVideoId() <= 0 {
+		return 0, kerrors.InternalServer("VIDEO_ID_MISSING", "video service returned an invalid video ID; verify deployment before retrying")
+	}
+	return resp.VideoId, nil
 }
 
 func (v *videoInfoRepo) UploadVideoCover(ctx context.Context, publisherId, videoId int64, fh *multipart.FileHeader) error {
