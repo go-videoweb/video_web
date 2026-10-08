@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
 	"io"
 	"os"
@@ -37,7 +38,7 @@ type VideoInfoRepo interface {
 	GetDBAndCollection() (db, collection string)
 
 	GetVideoInfoById(ctx context.Context, videoId int64) (*model.Video, error)
-	GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.VideoSummary, error)
+	GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.Video, error)
 	GetVideoFilePathById(ctx context.Context, videoId int64) (string, error)
 	AddVideoCntView(ctx context.Context, videoId int64) error
 	SetCoverPath(ctx context.Context, videoId int64, coverPath string) error
@@ -97,9 +98,10 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 				CntViewed:    uint32(videoDetail.CntViewed),
 				CntFavorited: uint32(videoDetail.CntFavorited),
 			},
-			VideoPath: videoDetail.VideoPath,
-			CoverPath: videoDetail.CoverPath,
-			Size:      videoDetail.Size,
+			VideoPath:   videoDetail.VideoPath,
+			CoverPath:   videoDetail.CoverPath,
+			Size:        videoDetail.Size,
+			CreatedTime: timestamppb.New(videoDetail.CreatedAt),
 		}
 
 		// 2. Get barrages of the video
@@ -162,7 +164,7 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 	return ret, nil
 }
 
-func (uc *VideoInfoUsecase) GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.VideoSummary, error) {
+func (uc *VideoInfoUsecase) GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.Video, error) {
 	videoList, err := uc.repo.GetVideoListByClass(ctx, class, pageNum, pageSize)
 	if err != nil {
 		return nil, helper.HandleError(errdef.ErrGetVideoListFailed, err)

@@ -67,6 +67,9 @@ func (uc *VideoInfoUsecase) GetVideoList(ctx context.Context, class []string, nu
 			Duration:      v.Duration,
 			PublisherName: v.PublisherName,
 			CoverPath:     v.CoverPath,
+			Description:   v.Description,
+			VideoPath:     v.VideoPath,
+			CreatedTime:   v.CreatedTime,
 		})
 	}
 	return videoList, nil

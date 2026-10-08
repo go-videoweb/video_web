@@ -128,6 +128,7 @@ func videoMetaInfoToDomain(detail *videoinfov1.VideoMetaInfo) *domain.VideoDetai
 		Hot:           detail.Hot,
 		Duration:      detail.Duration,
 		CoverPath:     detail.CoverPath,
+		CreatedTime:   detail.CreatedTime,
 	}
 
 	if detail.Records != nil {
@@ -158,8 +159,9 @@ func domainToVideoMetaInfo(detail *domain.VideoDetail) *videoinfov1.VideoMetaInf
 			CntViewed:    detail.Records.CntViewed,
 			CntFavorites: detail.Records.CntFavorites,
 		},
-		Duration:  detail.Duration,
-		CoverPath: detail.CoverPath,
+		Duration:    detail.Duration,
+		CoverPath:   detail.CoverPath,
+		CreatedTime: detail.CreatedTime,
 	}
 }
 
@@ -172,5 +174,8 @@ func domainToVideoSummary(detail *domain.VideoSummary) *videoinfov1.VideoSummary
 		Duration:      detail.Duration,
 		PublisherName: detail.PublisherName,
 		CoverPath:     detail.CoverPath,
+		Description:   detail.Description,
+		VideoPath:     detail.VideoPath,
+		CreatedTime:   detail.CreatedTime,
 	}
 }

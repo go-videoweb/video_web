@@ -5,6 +5,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	videoinfov1 "vw_video/api/v1/videoinfo"
 	"vw_video/internal/biz"
 )
@@ -39,13 +40,16 @@ func (s *VideoInfoService) GetVideoList(ctx context.Context, req *videoinfov1.Ge
 	}
 	for i, vs := range videoSummary {
 		resp.VideoSummary[i] = &videoinfov1.VideoSummary{
-			VideoId:       vs.VideoId,
+			VideoId:       vs.VideoID,
 			CntBarrages:   vs.CntBarrages,
 			Title:         vs.Title,
 			Duration:      vs.Duration,
 			PublisherName: vs.PublisherName,
 			CntViewed:     vs.CntViewed,
 			CoverPath:     vs.CoverPath,
+			Description:   vs.Description,
+			VideoPath:     vs.VideoPath,
+			CreatedTime:   timestamppb.New(vs.CreatedAt),
 		}
 	}
 	return resp, nil

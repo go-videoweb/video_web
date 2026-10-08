@@ -134,6 +134,9 @@ message VideoSummary {
     string duration       = 5;
     string publisher_name = 6;
     string cover_path     = 7;
+    string description    = 8;
+    string video_path     = 9;
+    google.protobuf.Timestamp created_time = 10;
 }
 
 message GetVideoInfoReq {

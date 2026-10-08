@@ -1570,6 +1570,13 @@ components:
                     type: string
                 coverPath:
                     type: string
+                description:
+                    type: string
+                videoPath:
+                    type: string
+                createdTime:
+                    type: string
+                    format: date-time
 tags:
     - name: Captcha
     - name: Favorite

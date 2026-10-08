@@ -518,13 +518,16 @@ type VideoSummary struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	VideoId       int64  `protobuf:"varint,1,opt,name=video_id,json=videoId,proto3" json:"video_id,omitempty"`
-	CntBarrages   int64  `protobuf:"varint,2,opt,name=cnt_barrages,json=cntBarrages,proto3" json:"cnt_barrages,omitempty"`
-	CntViewed     int64  `protobuf:"varint,3,opt,name=cnt_viewed,json=cntViewed,proto3" json:"cnt_viewed,omitempty"`
-	Title         string `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
-	Duration      string `protobuf:"bytes,5,opt,name=duration,proto3" json:"duration,omitempty"`
-	PublisherName string `protobuf:"bytes,6,opt,name=publisher_name,json=publisherName,proto3" json:"publisher_name,omitempty"`
-	CoverPath     string `protobuf:"bytes,7,opt,name=cover_path,json=coverPath,proto3" json:"cover_path,omitempty"`
+	VideoId       int64                  `protobuf:"varint,1,opt,name=video_id,json=videoId,proto3" json:"video_id,omitempty"`
+	CntBarrages   int64                  `protobuf:"varint,2,opt,name=cnt_barrages,json=cntBarrages,proto3" json:"cnt_barrages,omitempty"`
+	CntViewed     int64                  `protobuf:"varint,3,opt,name=cnt_viewed,json=cntViewed,proto3" json:"cnt_viewed,omitempty"`
+	Title         string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
+	Duration      string                 `protobuf:"bytes,5,opt,name=duration,proto3" json:"duration,omitempty"`
+	PublisherName string                 `protobuf:"bytes,6,opt,name=publisher_name,json=publisherName,proto3" json:"publisher_name,omitempty"`
+	CoverPath     string                 `protobuf:"bytes,7,opt,name=cover_path,json=coverPath,proto3" json:"cover_path,omitempty"`
+	Description   string                 `protobuf:"bytes,8,opt,name=description,proto3" json:"description,omitempty"`
+	VideoPath     string                 `protobuf:"bytes,9,opt,name=video_path,json=videoPath,proto3" json:"video_path,omitempty"`
+	CreatedTime   *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_time,json=createdTime,proto3" json:"created_time,omitempty"`
 }
 
 func (x *VideoSummary) Reset() {
@@ -606,6 +609,27 @@ func (x *VideoSummary) GetCoverPath() string {
 		return x.CoverPath
 	}
 	return ""
+}
+
+func (x *VideoSummary) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *VideoSummary) GetVideoPath() string {
+	if x != nil {
+		return x.VideoPath
+	}
+	return ""
+}
+
+func (x *VideoSummary) GetCreatedTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedTime
+	}
+	return nil
 }
 
 type GetVideoInfoReq struct {
@@ -1337,7 +1361,7 @@ var file_v1_video_videoinfo_videoinfo_proto_rawDesc = []byte{
 	0x77, 0x65, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x09, 0x63, 0x6e, 0x74, 0x56, 0x69,
 	0x65, 0x77, 0x65, 0x64, 0x12, 0x23, 0x0a, 0x0d, 0x63, 0x6e, 0x74, 0x5f, 0x66, 0x61, 0x76, 0x6f,
 	0x72, 0x69, 0x74, 0x65, 0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0c, 0x63, 0x6e, 0x74,
-	0x46, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74, 0x65, 0x73, 0x22, 0xe3, 0x01, 0x0a, 0x0c, 0x56, 0x69,
+	0x46, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74, 0x65, 0x73, 0x22, 0xe3, 0x02, 0x0a, 0x0c, 0x56, 0x69,
 	0x64, 0x65, 0x6f, 0x53, 0x75, 0x6d, 0x6d, 0x61, 0x72, 0x79, 0x12, 0x19, 0x0a, 0x08, 0x76, 0x69,
 	0x64, 0x65, 0x6f, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x07, 0x76, 0x69,
 	0x64, 0x65, 0x6f, 0x49, 0x64, 0x12, 0x21, 0x0a, 0x0c, 0x63, 0x6e, 0x74, 0x5f, 0x62, 0x61, 0x72,
@@ -1351,7 +1375,15 @@ var file_v1_video_videoinfo_videoinfo_proto_rawDesc = []byte{
 	0x6c, 0x69, 0x73, 0x68, 0x65, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x06, 0x20, 0x01, 0x28,
 	0x09, 0x52, 0x0d, 0x70, 0x75, 0x62, 0x6c, 0x69, 0x73, 0x68, 0x65, 0x72, 0x4e, 0x61, 0x6d, 0x65,
 	0x12, 0x1d, 0x0a, 0x0a, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x5f, 0x70, 0x61, 0x74, 0x68, 0x18, 0x07,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x50, 0x61, 0x74, 0x68, 0x22,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x50, 0x61, 0x74, 0x68, 0x12,
+	0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x08,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f,
+	0x6e, 0x12, 0x1d, 0x0a, 0x0a, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x5f, 0x70, 0x61, 0x74, 0x68, 0x18,
+	0x09, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x50, 0x61, 0x74, 0x68,
+	0x12, 0x3d, 0x0a, 0x0c, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x74, 0x69, 0x6d, 0x65,
+	0x18, 0x0a, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
+	0x6d, 0x70, 0x52, 0x0b, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x54, 0x69, 0x6d, 0x65, 0x22,
 	0x2c, 0x0a, 0x0f, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x6e, 0x66, 0x6f, 0x52,
 	0x65, 0x71, 0x12, 0x19, 0x0a, 0x08, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x5f, 0x69, 0x64, 0x18, 0x01,
 	0x20, 0x01, 0x28, 0x03, 0x52, 0x07, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x64, 0x22, 0x64, 0x0a,
@@ -1548,36 +1580,37 @@ var file_v1_video_videoinfo_videoinfo_proto_depIdxs = []int32{
 	19, // 0: gateway.api.v1.video.videoinfo.FileResp.headers:type_name -> gateway.api.v1.video.videoinfo.FileResp.HeadersEntry
 	21, // 1: gateway.api.v1.video.videoinfo.VideoMetaInfo.created_time:type_name -> google.protobuf.Timestamp
 	20, // 2: gateway.api.v1.video.videoinfo.VideoMetaInfo.records:type_name -> gateway.api.v1.video.videoinfo.VideoMetaInfo.Records
-	6,  // 3: gateway.api.v1.video.videoinfo.GetVideoInfoResp.video_detail:type_name -> gateway.api.v1.video.videoinfo.VideoMetaInfo
-	7,  // 4: gateway.api.v1.video.videoinfo.GetVideoListResp.VideoSummary:type_name -> gateway.api.v1.video.videoinfo.VideoSummary
-	6,  // 5: gateway.api.v1.video.videoinfo.UploadVideoInfoReq.video_info:type_name -> gateway.api.v1.video.videoinfo.VideoMetaInfo
-	0,  // 6: gateway.api.v1.video.videoinfo.UploadVideoInfoResp.resp:type_name -> gateway.api.v1.video.videoinfo.CommonResp
-	0,  // 7: gateway.api.v1.video.videoinfo.UploadVideoFileResp.resp:type_name -> gateway.api.v1.video.videoinfo.CommonResp
-	0,  // 8: gateway.api.v1.video.videoinfo.UploadVideoCoverResp.resp:type_name -> gateway.api.v1.video.videoinfo.CommonResp
-	18, // 9: gateway.api.v1.video.videoinfo.FileResp.HeadersEntry.value:type_name -> gateway.api.v1.video.videoinfo.FileResp.HeaderValues
-	2,  // 10: gateway.api.v1.video.videoinfo.VideoInfo.GetMpd:input_type -> gateway.api.v1.video.videoinfo.ProvideMpdReq
-	3,  // 11: gateway.api.v1.video.videoinfo.VideoInfo.GetSegments:input_type -> gateway.api.v1.video.videoinfo.ProvideSegmentsReq
-	4,  // 12: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoCover:input_type -> gateway.api.v1.video.videoinfo.GetVideoCoverReq
-	5,  // 13: gateway.api.v1.video.videoinfo.VideoInfo.DownloadVideo:input_type -> gateway.api.v1.video.videoinfo.DownloadVideoReq
-	12, // 14: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoInfo:input_type -> gateway.api.v1.video.videoinfo.UploadVideoInfoReq
-	14, // 15: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoFile:input_type -> gateway.api.v1.video.videoinfo.UploadVideoFileReq
-	16, // 16: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoCover:input_type -> gateway.api.v1.video.videoinfo.UploadVideoCoverReq
-	8,  // 17: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoInfo:input_type -> gateway.api.v1.video.videoinfo.GetVideoInfoReq
-	10, // 18: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoList:input_type -> gateway.api.v1.video.videoinfo.GetVideoListReq
-	1,  // 19: gateway.api.v1.video.videoinfo.VideoInfo.GetMpd:output_type -> gateway.api.v1.video.videoinfo.FileResp
-	1,  // 20: gateway.api.v1.video.videoinfo.VideoInfo.GetSegments:output_type -> gateway.api.v1.video.videoinfo.FileResp
-	1,  // 21: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoCover:output_type -> gateway.api.v1.video.videoinfo.FileResp
-	1,  // 22: gateway.api.v1.video.videoinfo.VideoInfo.DownloadVideo:output_type -> gateway.api.v1.video.videoinfo.FileResp
-	13, // 23: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoInfo:output_type -> gateway.api.v1.video.videoinfo.UploadVideoInfoResp
-	15, // 24: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoFile:output_type -> gateway.api.v1.video.videoinfo.UploadVideoFileResp
-	17, // 25: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoCover:output_type -> gateway.api.v1.video.videoinfo.UploadVideoCoverResp
-	9,  // 26: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoInfo:output_type -> gateway.api.v1.video.videoinfo.GetVideoInfoResp
-	11, // 27: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoList:output_type -> gateway.api.v1.video.videoinfo.GetVideoListResp
-	19, // [19:28] is the sub-list for method output_type
-	10, // [10:19] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	21, // 3: gateway.api.v1.video.videoinfo.VideoSummary.created_time:type_name -> google.protobuf.Timestamp
+	6,  // 4: gateway.api.v1.video.videoinfo.GetVideoInfoResp.video_detail:type_name -> gateway.api.v1.video.videoinfo.VideoMetaInfo
+	7,  // 5: gateway.api.v1.video.videoinfo.GetVideoListResp.VideoSummary:type_name -> gateway.api.v1.video.videoinfo.VideoSummary
+	6,  // 6: gateway.api.v1.video.videoinfo.UploadVideoInfoReq.video_info:type_name -> gateway.api.v1.video.videoinfo.VideoMetaInfo
+	0,  // 7: gateway.api.v1.video.videoinfo.UploadVideoInfoResp.resp:type_name -> gateway.api.v1.video.videoinfo.CommonResp
+	0,  // 8: gateway.api.v1.video.videoinfo.UploadVideoFileResp.resp:type_name -> gateway.api.v1.video.videoinfo.CommonResp
+	0,  // 9: gateway.api.v1.video.videoinfo.UploadVideoCoverResp.resp:type_name -> gateway.api.v1.video.videoinfo.CommonResp
+	18, // 10: gateway.api.v1.video.videoinfo.FileResp.HeadersEntry.value:type_name -> gateway.api.v1.video.videoinfo.FileResp.HeaderValues
+	2,  // 11: gateway.api.v1.video.videoinfo.VideoInfo.GetMpd:input_type -> gateway.api.v1.video.videoinfo.ProvideMpdReq
+	3,  // 12: gateway.api.v1.video.videoinfo.VideoInfo.GetSegments:input_type -> gateway.api.v1.video.videoinfo.ProvideSegmentsReq
+	4,  // 13: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoCover:input_type -> gateway.api.v1.video.videoinfo.GetVideoCoverReq
+	5,  // 14: gateway.api.v1.video.videoinfo.VideoInfo.DownloadVideo:input_type -> gateway.api.v1.video.videoinfo.DownloadVideoReq
+	12, // 15: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoInfo:input_type -> gateway.api.v1.video.videoinfo.UploadVideoInfoReq
+	14, // 16: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoFile:input_type -> gateway.api.v1.video.videoinfo.UploadVideoFileReq
+	16, // 17: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoCover:input_type -> gateway.api.v1.video.videoinfo.UploadVideoCoverReq
+	8,  // 18: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoInfo:input_type -> gateway.api.v1.video.videoinfo.GetVideoInfoReq
+	10, // 19: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoList:input_type -> gateway.api.v1.video.videoinfo.GetVideoListReq
+	1,  // 20: gateway.api.v1.video.videoinfo.VideoInfo.GetMpd:output_type -> gateway.api.v1.video.videoinfo.FileResp
+	1,  // 21: gateway.api.v1.video.videoinfo.VideoInfo.GetSegments:output_type -> gateway.api.v1.video.videoinfo.FileResp
+	1,  // 22: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoCover:output_type -> gateway.api.v1.video.videoinfo.FileResp
+	1,  // 23: gateway.api.v1.video.videoinfo.VideoInfo.DownloadVideo:output_type -> gateway.api.v1.video.videoinfo.FileResp
+	13, // 24: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoInfo:output_type -> gateway.api.v1.video.videoinfo.UploadVideoInfoResp
+	15, // 25: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoFile:output_type -> gateway.api.v1.video.videoinfo.UploadVideoFileResp
+	17, // 26: gateway.api.v1.video.videoinfo.VideoInfo.UploadVideoCover:output_type -> gateway.api.v1.video.videoinfo.UploadVideoCoverResp
+	9,  // 27: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoInfo:output_type -> gateway.api.v1.video.videoinfo.GetVideoInfoResp
+	11, // 28: gateway.api.v1.video.videoinfo.VideoInfo.GetVideoList:output_type -> gateway.api.v1.video.videoinfo.GetVideoListResp
+	20, // [20:29] is the sub-list for method output_type
+	11, // [11:20] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_v1_video_videoinfo_videoinfo_proto_init() }
