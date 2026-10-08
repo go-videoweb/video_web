@@ -1094,7 +1094,9 @@ components:
                     type: string
                 refreshToken:
                     type: string
-            description: when users login successfully, return two tokens to them
+                userId:
+                    type: string
+            description: when users login successfully, return their ID and two tokens
         gateway.api.v1.user.id.LogoutRequest:
             type: object
             properties:
