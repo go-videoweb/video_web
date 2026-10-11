@@ -805,6 +805,63 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.UploadVideoCoverResp'
+    /api/v1/{userId}/video/{videoId}/dash/mpd:
+        get:
+            tags:
+                - VideoInfo
+            operationId: VideoInfo_GetMpd
+            parameters:
+                - name: userId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: videoId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.FileResp'
+    /api/v1/{userId}/video/{videoId}/dash/{segmentName}:
+        get:
+            tags:
+                - VideoInfo
+            operationId: VideoInfo_GetSegments
+            parameters:
+                - name: userId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: videoId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: segmentName
+                  in: path
+                  description: MPD 中的单个 .m4s 文件名，不包含目录或 URL。
+                  required: true
+                  schema:
+                    type: string
+                - name: segmentPath
+                  in: query
+                  description: 保留旧字段编号以识别旧请求；非空时拒绝，不再接受服务器文件路径。
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.FileResp'
     /api/v1/{userId}/video/{videoId}/file:
         get:
             tags:
@@ -856,59 +913,6 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.UploadVideoFileResp'
-    /api/v1/{userId}/video/{videoId}/mpd:
-        get:
-            tags:
-                - VideoInfo
-            operationId: VideoInfo_GetMpd
-            parameters:
-                - name: userId
-                  in: path
-                  required: true
-                  schema:
-                    type: string
-                - name: videoId
-                  in: path
-                  required: true
-                  schema:
-                    type: string
-            responses:
-                "200":
-                    description: OK
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.FileResp'
-    /api/v1/{userId}/video/{videoId}/segments:
-        get:
-            tags:
-                - VideoInfo
-            operationId: VideoInfo_GetSegments
-            parameters:
-                - name: userId
-                  in: path
-                  description: |-
-                    segment_path is the path of the segment file(.m4s)
-                     It is parsed by the front-end, using the mpd file
-                  required: true
-                  schema:
-                    type: string
-                - name: videoId
-                  in: path
-                  required: true
-                  schema:
-                    type: string
-                - name: segmentPath
-                  in: query
-                  schema:
-                    type: string
-            responses:
-                "200":
-                    description: OK
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.FileResp'
 components:
     schemas:
         gateway.api.v1.user.captcha.GetCodeCaptchaResp:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	stderr "errors"
+	"fmt"
 	"github.com/dtm-labs/dtm/client/dtmcli"
 	"github.com/dtm-labs/dtm/client/dtmgrpc"
 	"github.com/go-kratos/kratos/v2/log"
@@ -17,6 +18,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -397,8 +399,11 @@ func (uc *VideoInfoUsecase) UploadVideoCover(stream grpc.ClientStreamingServer[v
 	return nil
 }
 
+// GetVideoFile 查询视频文件并发送下载流。
+// 输入：videoId 为目标视频；stream.Context() 传递请求取消和超时。
+// 输出：查询或传输错误；文件在流发送结束后关闭。
 func (uc *VideoInfoUsecase) GetVideoFile(videoId int64, stream grpc.ServerStreamingServer[videoinfov1.GetVideoFileResp]) error {
-	videoFilePath, err := uc.repo.GetVideoFilePathById(context.Background(), videoId)
+	videoFilePath, err := uc.repo.GetVideoFilePathById(stream.Context(), videoId)
 	if err != nil {
 		return helper.HandleError(errdef.ErrGetVideoFileFailed, err)
 	}
@@ -463,11 +468,19 @@ func (uc *VideoInfoUsecase) GetVideoFile(videoId int64, stream grpc.ServerStream
 	return err
 }
 
+// GetVideoMpd 从实际发布者的视频目录读取 DASH 清单。
+// 输入：videoId 必须为正数；stream.Context() 用于查询发布者并传递取消和超时。
+// 输出：依次发送清单文件名和内容；参数、查询或传输失败时返回错误。
 func (uc *VideoInfoUsecase) GetVideoMpd(videoId int64, stream grpc.ServerStreamingServer[videoinfov1.GetVideoMpdResp]) error {
-	// TODO: 设置 context 限制超时时间，目前先不设置
-	publisherId, err := uc.repo.GetPublisherIdByVideoId(utilCtx.NewBaseContext(), videoId)
+	if videoId <= 0 {
+		return status.Error(codes.InvalidArgument, "video_id must be positive")
+	}
+	publisherId, err := uc.repo.GetPublisherIdByVideoId(stream.Context(), videoId)
 	if err != nil {
-		return helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
+		return helper.HandleError(errdef.ErrGetVideoMpdFailed, err)
+	}
+	if publisherId <= 0 {
+		return errdef.ErrVideoNotFound
 	}
 	mpdPath := filepath.Join(
 		resourcePath,
@@ -475,7 +488,7 @@ func (uc *VideoInfoUsecase) GetVideoMpd(videoId int64, stream grpc.ServerStreami
 		videoPath,
 		strconv.FormatInt(videoId, 10),
 		dashPath,
-		"dash.mpd")
+		dashName)
 
 	filenameMsgFn := func(filename string) *videoinfov1.GetVideoMpdResp {
 		return &videoinfov1.GetVideoMpdResp{
@@ -503,12 +516,41 @@ func (uc *VideoInfoUsecase) GetVideoMpd(videoId int64, stream grpc.ServerStreami
 	return nil
 }
 
-func (uc *VideoInfoUsecase) GetVideoSegment(videoSegmentPath string, stream grpc.ServerStreamingServer[videoinfov1.GetVideoSegmentResp]) error {
+var dashSegmentNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*\.m4s$`)
+
+// GetVideoSegment 在实际发布者的视频 DASH 目录中定位并发送分片。
+// 输入：videoId 为正数；segmentName 为单个 .m4s 文件名，仅允许 ASCII 字母、数字、下划线和连字符作为主文件名。
+// 输出：依次发送真实文件名和内容；非法参数在访问仓储前拒绝，查询、路径或传输错误向上传递。
+// 不接受客户端路径，并校验符号链接解析后的文件仍位于目标 DASH 目录；上下文沿用下载流。
+func (uc *VideoInfoUsecase) GetVideoSegment(videoId int64, segmentName string, stream grpc.ServerStreamingServer[videoinfov1.GetVideoSegmentResp]) error {
+	if videoId <= 0 || len(segmentName) > 255 || !filepath.IsLocal(segmentName) || !dashSegmentNamePattern.MatchString(segmentName) {
+		return status.Error(codes.InvalidArgument, "invalid video_id or DASH segment name")
+	}
+	publisherId, err := uc.repo.GetPublisherIdByVideoId(stream.Context(), videoId)
+	if err != nil {
+		return helper.HandleError(errdef.ErrGetVideoSegmentFailed, err)
+	}
+	if publisherId <= 0 {
+		return errdef.ErrVideoNotFound
+	}
+	dir := filepath.Join(resourcePath, strconv.FormatInt(publisherId, 10), videoPath, strconv.FormatInt(videoId, 10), dashPath)
+	realDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return helper.HandleError(errdef.ErrGetVideoSegmentFailed, err)
+	}
+	segmentPath, err := filepath.EvalSymlinks(filepath.Join(realDir, segmentName))
+	if err != nil {
+		return helper.HandleError(errdef.ErrGetVideoSegmentFailed, err)
+	}
+	rel, err := filepath.Rel(realDir, segmentPath)
+	if err != nil || !filepath.IsLocal(rel) {
+		return status.Error(codes.PermissionDenied, "DASH segment resolves outside the video directory")
+	}
 	filenameMsgFn := func(filename string) *videoinfov1.GetVideoSegmentResp {
 		return &videoinfov1.GetVideoSegmentResp{
 			SegmentFile: &videoinfov1.FileResp{
 				File: &videoinfov1.FileResp_Filename{
-					Filename: filepath.Base(videoSegmentPath),
+					Filename: filename,
 				},
 			},
 		}
@@ -523,18 +565,26 @@ func (uc *VideoInfoUsecase) GetVideoSegment(videoSegmentPath string, stream grpc
 			},
 		}
 	}
-	err := sendFileStream(stream, videoSegmentPath, filenameMsgFn, fileDataMsgFn)
+	err = sendFileStream(stream, segmentPath, filenameMsgFn, fileDataMsgFn)
 	if err != nil {
 		return helper.HandleError(errdef.ErrGetVideoSegmentFailed, err)
 	}
 	return nil
 }
 
+// GetVideoCover 从实际发布者的视频目录查找封面并发送下载流。
+// 输入：videoId 必须为正数；stream.Context() 用于仓储查询和取消传递。
+// 输出：真实封面文件名及内容；参数、查询、查找或传输失败时返回错误。
 func (uc *VideoInfoUsecase) GetVideoCover(videoId int64, stream grpc.ServerStreamingServer[videoinfov1.GetVideoCoverResp]) error {
-	// TODO: 设置 context 限制超时时间，目前先不设置
-	publisherId, err := uc.repo.GetPublisherIdByVideoId(utilCtx.NewBaseContext(), videoId)
+	if videoId <= 0 {
+		return status.Error(codes.InvalidArgument, "video_id must be positive")
+	}
+	publisherId, err := uc.repo.GetPublisherIdByVideoId(stream.Context(), videoId)
 	if err != nil {
 		return helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
+	}
+	if publisherId <= 0 {
+		return errdef.ErrVideoNotFound
 	}
 	coverDirPath := filepath.Join(
 		resourcePath,
@@ -542,12 +592,15 @@ func (uc *VideoInfoUsecase) GetVideoCover(videoId int64, stream grpc.ServerStrea
 		videoPath,
 		strconv.FormatInt(videoId, 10))
 	coverFilePath, err := file.NewFileSearcher().Find(coverDirPath, coverName)
+	if err != nil {
+		return helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
+	}
 
 	filenameMsgFn := func(filename string) *videoinfov1.GetVideoCoverResp {
 		return &videoinfov1.GetVideoCoverResp{
 			CoverFile: &videoinfov1.FileResp{
 				File: &videoinfov1.FileResp_Filename{
-					Filename: filepath.Base(coverFilePath),
+					Filename: filename,
 				},
 			},
 		}
@@ -593,38 +646,51 @@ func (uc *VideoInfoUsecase) UpdateVideoCntShare(ctx context.Context, videoId int
 	return nil
 }
 
+// sendFileStream 以文件名、数据块的顺序发送本地普通文件。
+// 输入：stream 提供取消上下文；filePath 来自可信的业务定位；两个回调分别构造元信息和数据消息。
+// 输出：文件打开、读取、取消或任一发送失败时返回错误，成功返回 nil；文件始终关闭。
+// 先打开文件再发送元信息，避免不存在的文件产生成功响应；每轮读取前检查取消状态。
 func sendFileStream[resT any, streamT grpc.ServerStreamingServer[resT]](
 	stream streamT,
 	filePath string,
 	fileMetaMsgFn func(filename string) *resT,
 	fileDataMsgFn func(data []byte) *resT,
 ) error {
-	filename := filepath.Base(filePath)
-	// 1. Send the file name to the client.
-	if err := stream.Send(fileMetaMsgFn(filename)); err != nil {
-		return nil
+	if err := stream.Context().Err(); err != nil {
+		return err
 	}
-
-	// 2. Send the file data to the client.
 	f, err := os.Open(filePath)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("not a regular file")
+	}
+	if err := stream.Send(fileMetaMsgFn(filepath.Base(filePath))); err != nil {
+		return err
+	}
 
 	buf := make([]byte, 1*mb)
 	for {
-		n, err := f.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
+		if err := stream.Context().Err(); err != nil {
 			return err
 		}
-		err = stream.Send(fileDataMsgFn(buf[:n]))
+		n, err := f.Read(buf)
+		if n > 0 {
+			if sendErr := stream.Send(fileDataMsgFn(buf[:n])); sendErr != nil {
+				return sendErr
+			}
+		}
+		if err == io.EOF {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
 	}
-	return nil
 }

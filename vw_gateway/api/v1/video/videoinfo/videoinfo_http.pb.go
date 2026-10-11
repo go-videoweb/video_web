@@ -47,8 +47,8 @@ type VideoInfoHTTPServer interface {
 
 func RegisterVideoInfoHTTPServer(s *http.Server, srv VideoInfoHTTPServer) {
 	r := s.Route("/")
-	r.GET("/api/v1/{user_id}/video/{video_id}/mpd", _VideoInfo_GetMpd0_HTTP_Handler(srv))
-	r.GET("/api/v1/{user_id}/video/{video_id}/segments", _VideoInfo_GetSegments0_HTTP_Handler(srv))
+	r.GET("/api/v1/{user_id}/video/{video_id}/dash/mpd", _VideoInfo_GetMpd0_HTTP_Handler(srv))
+	r.GET("/api/v1/{user_id}/video/{video_id}/dash/{segment_name}", _VideoInfo_GetSegments0_HTTP_Handler(srv))
 	r.GET("/api/v1/{user_id}/video/{video_id}/cover", _VideoInfo_GetVideoCover0_HTTP_Handler(srv))
 	r.GET("/api/v1/{user_id}/video/{video_id}/file", _VideoInfo_DownloadVideo0_HTTP_Handler(srv))
 	r.POST("/api/v1/{user_id}/video/metaInfo", _VideoInfo_UploadVideoInfo0_HTTP_Handler(srv))
@@ -297,7 +297,7 @@ func (c *VideoInfoHTTPClientImpl) DownloadVideo(ctx context.Context, in *Downloa
 
 func (c *VideoInfoHTTPClientImpl) GetMpd(ctx context.Context, in *ProvideMpdReq, opts ...http.CallOption) (*FileResp, error) {
 	var out FileResp
-	pattern := "/api/v1/{user_id}/video/{video_id}/mpd"
+	pattern := "/api/v1/{user_id}/video/{video_id}/dash/mpd"
 	path := binding.EncodeURL(pattern, in, true)
 	opts = append(opts, http.Operation(OperationVideoInfoGetMpd))
 	opts = append(opts, http.PathTemplate(pattern))
@@ -310,7 +310,7 @@ func (c *VideoInfoHTTPClientImpl) GetMpd(ctx context.Context, in *ProvideMpdReq,
 
 func (c *VideoInfoHTTPClientImpl) GetSegments(ctx context.Context, in *ProvideSegmentsReq, opts ...http.CallOption) (*FileResp, error) {
 	var out FileResp
-	pattern := "/api/v1/{user_id}/video/{video_id}/segments"
+	pattern := "/api/v1/{user_id}/video/{video_id}/dash/{segment_name}"
 	path := binding.EncodeURL(pattern, in, true)
 	opts = append(opts, http.Operation(OperationVideoInfoGetSegments))
 	opts = append(opts, http.PathTemplate(pattern))

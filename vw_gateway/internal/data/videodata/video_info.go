@@ -10,12 +10,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"io"
+	"mime"
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 	utilCtx "util/context"
-	"util/getid"
 	"util/helper"
 	"vw_gateway"
 	videoinfov2 "vw_gateway/api/v1/video/videoinfo"
@@ -211,13 +212,13 @@ func (v *videoInfoRepo) GetVideoFile(ctx context.Context, videoId int64) (fileRe
 	}
 
 	getFilenameFn := func(resp *videoinfov1.GetVideoFileResp) (string, error) {
-		if name, ok := resp.VideoFile.File.(*videoinfov1.FileResp_Filename); ok {
+		if name, ok := resp.GetVideoFile().GetFile().(*videoinfov1.FileResp_Filename); ok {
 			return name.Filename, nil
 		}
 		return "", fmt.Errorf("invalid response: %v", resp)
 	}
 	getFileDataFn := func(resp *videoinfov1.GetVideoFileResp) ([]byte, error) {
-		if data, ok := resp.VideoFile.File.(*videoinfov1.FileResp_FileData); ok {
+		if data, ok := resp.GetVideoFile().GetFile().(*videoinfov1.FileResp_FileData); ok {
 			return data.FileData, nil
 		}
 		return nil, fmt.Errorf("invalid response: %v", resp)
@@ -242,6 +243,9 @@ func (v *videoInfoRepo) GetVideoFile(ctx context.Context, videoId int64) (fileRe
 	return fileResp, nil
 }
 
+// GetVideoMpd 获取清单 RPC 流并转换为临时文件响应。
+// 输入：ctx 保留追踪、取消和超时；videoId 指定视频，不使用路由 user_id 定位文件。
+// 输出：带 application/dash+xml 类型的文件响应，成功后由 HTTP 编码器清理；失败时返回包装错误。
 func (v *videoInfoRepo) GetVideoMpd(ctx context.Context, videoId int64) (*videoinfov2.FileResp, error) {
 	md := metadata.New(nil)
 	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(md))
@@ -254,13 +258,13 @@ func (v *videoInfoRepo) GetVideoMpd(ctx context.Context, videoId int64) (*videoi
 	}
 
 	getFilenameFn := func(resp *videoinfov1.GetVideoMpdResp) (string, error) {
-		if name, ok := resp.MpdFile.File.(*videoinfov1.FileResp_Filename); ok {
+		if name, ok := resp.GetMpdFile().GetFile().(*videoinfov1.FileResp_Filename); ok {
 			return name.Filename, nil
 		}
 		return "", fmt.Errorf("invalid response: %v", resp)
 	}
 	getFileDataFn := func(resp *videoinfov1.GetVideoMpdResp) ([]byte, error) {
-		if data, ok := resp.MpdFile.File.(*videoinfov1.FileResp_FileData); ok {
+		if data, ok := resp.GetMpdFile().GetFile().(*videoinfov1.FileResp_FileData); ok {
 			return data.FileData, nil
 		}
 		return nil, fmt.Errorf("invalid response: %v", resp)
@@ -271,25 +275,32 @@ func (v *videoInfoRepo) GetVideoMpd(ctx context.Context, videoId int64) (*videoi
 		return nil, helper.HandleError(errdef.ErrGetVideoMpdFailed, err)
 	}
 
+	fileResp.Headers = map[string]*videoinfov2.FileResp_HeaderValues{
+		"Content-Type": {Value: []string{"application/dash+xml"}},
+	}
 	return fileResp, nil
 }
 
-func (v *videoInfoRepo) GetVideoSegment(ctx context.Context, segmentPath string) (*videoinfov2.FileResp, error) {
+// GetVideoSegment 向视频服务请求指定视频的分片，并接收为网关临时文件。
+// 输入：ctx 保留请求取消和超时；videoId、segmentName 标识目标分片，不发送旧路径字段。
+// 输出：文件响应或包装后的下载错误；成功文件由 HTTP 编码器负责删除。
+func (v *videoInfoRepo) GetVideoSegment(ctx context.Context, videoId int64, segmentName string) (*videoinfov2.FileResp, error) {
 	stream, err := v.data.videoInfoClient.GetVideoSegments(ctx, &videoinfov1.GetVideoSegmentReq{
-		VideoSegmentPath: segmentPath,
+		VideoId:     videoId,
+		SegmentName: segmentName,
 	})
 	if err != nil {
 		return nil, helper.HandleError(errdef.ErrGetVideoSegmentFailed, err)
 	}
 
 	getFilenameFn := func(resp *videoinfov1.GetVideoSegmentResp) (string, error) {
-		if name, ok := resp.SegmentFile.File.(*videoinfov1.FileResp_Filename); ok {
+		if name, ok := resp.GetSegmentFile().GetFile().(*videoinfov1.FileResp_Filename); ok {
 			return name.Filename, nil
 		}
 		return "", fmt.Errorf("invalid response: %v", resp)
 	}
 	getFileDataFn := func(resp *videoinfov1.GetVideoSegmentResp) ([]byte, error) {
-		if data, ok := resp.SegmentFile.File.(*videoinfov1.FileResp_FileData); ok {
+		if data, ok := resp.GetSegmentFile().GetFile().(*videoinfov1.FileResp_FileData); ok {
 			return data.FileData, nil
 		}
 		return nil, fmt.Errorf("invalid response: %v", resp)
@@ -303,6 +314,9 @@ func (v *videoInfoRepo) GetVideoSegment(ctx context.Context, segmentPath string)
 	return fileResp, nil
 }
 
+// GetVideoCover 获取封面 RPC 流并转换为临时文件响应。
+// 输入：ctx 传递请求取消和超时；videoId 指定视频。
+// 输出：保留真实文件名并按扩展名设置媒体类型的响应；失败时返回包装错误，成功文件由 HTTP 编码器清理。
 func (v *videoInfoRepo) GetVideoCover(ctx context.Context, videoId int64) (*videoinfov2.FileResp, error) {
 	stream, err := v.data.videoInfoClient.GetVideoCover(ctx, &videoinfov1.GetVideoCoverReq{
 		VideoId: videoId,
@@ -312,13 +326,13 @@ func (v *videoInfoRepo) GetVideoCover(ctx context.Context, videoId int64) (*vide
 	}
 
 	getFilenameFn := func(resp *videoinfov1.GetVideoCoverResp) (string, error) {
-		if name, ok := resp.CoverFile.File.(*videoinfov1.FileResp_Filename); ok {
+		if name, ok := resp.GetCoverFile().GetFile().(*videoinfov1.FileResp_Filename); ok {
 			return name.Filename, nil
 		}
 		return "", fmt.Errorf("invalid response: %v", resp)
 	}
 	getFileDataFn := func(resp *videoinfov1.GetVideoCoverResp) ([]byte, error) {
-		if data, ok := resp.CoverFile.File.(*videoinfov1.FileResp_FileData); ok {
+		if data, ok := resp.GetCoverFile().GetFile().(*videoinfov1.FileResp_FileData); ok {
 			return data.FileData, nil
 		}
 		return nil, fmt.Errorf("invalid response: %v", resp)
@@ -329,20 +343,28 @@ func (v *videoInfoRepo) GetVideoCover(ctx context.Context, videoId int64) (*vide
 		return nil, helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
 	}
 
+	if contentType := mime.TypeByExtension(filepath.Ext(fileResp.Filename)); contentType != "" {
+		fileResp.Headers = map[string]*videoinfov2.FileResp_HeaderValues{
+			"Content-Type": {Value: []string{contentType}},
+		}
+	}
 	return fileResp, nil
 
 }
 
-// receiveStreamFile receives a stream of file data from the grpc server, and save the file content to a temporary file.
-// The grpc server always return file name first, and then file data.
+// receiveStreamFile 接收先文件名、后数据块的 RPC 流，并保存为独立临时文件。
+// 输入：stream 传递请求上下文，两个回调分别提取文件名和数据块。
+// 输出：成功时返回已关闭的临时文件响应，由 HTTP 编码器删除；接收、写入或关闭失败时返回错误并删除文件。
 func receiveStreamFile[resT any, streamT grpc.ServerStreamingClient[resT]](
 	stream streamT,
 	getFilenameFn func(*resT) (filename string, err error),
 	getFileDataFn func(*resT) (fileData []byte, err error),
-) (*videoinfov2.FileResp, error) {
+) (_ *videoinfov2.FileResp, retErr error) {
 	fileResp := &videoinfov2.FileResp{}
 
-	// 1. Receive the file name
+	if err := stream.Context().Err(); err != nil {
+		return nil, err
+	}
 	resp, err := stream.Recv()
 	if err != nil {
 		return nil, err
@@ -351,21 +373,23 @@ func receiveStreamFile[resT any, streamT grpc.ServerStreamingClient[resT]](
 	if err != nil {
 		return nil, err
 	}
+	if fileResp.Filename == "" || fileResp.Filename == "." || fileResp.Filename == ".." || strings.ContainsAny(fileResp.Filename, "/\\\r\n") {
+		return nil, fmt.Errorf("invalid stream filename")
+	}
 
-	// 2. Create a temporary file to store the file data.
-	// If occurs error, return the error and remove the temporary file.
-	// Else, Remove the temporary file by codecs.ResponseEncoder.
-	tmpFileName := "video_" + getid.GetUUID() + filepath.Ext(fileResp.Filename)
-	tempFile, err := os.Create(filepath.Join(vw_gateway.ResourcePath, "/tmp", tmpFileName))
+	tmpDir := filepath.Join(vw_gateway.ResourcePath, "tmp")
+	if err := os.MkdirAll(tmpDir, 0700); err != nil {
+		return nil, err
+	}
+	tempFile, err := os.CreateTemp(tmpDir, "video_*"+filepath.Ext(fileResp.Filename))
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() {
-		tempFile.Close()
-		// if error occurs, remove the temporary file.
-		//TODO: if remove failed, use message queue to retry later.
-		if err != nil {
+		_ = tempFile.Close()
+		// 使用实际返回错误判断清理，避免循环内局部 err 遮蔽导致残留文件。
+		if retErr != nil {
 			_ = os.Remove(tempFile.Name())
 		}
 	}()
@@ -374,8 +398,10 @@ func receiveStreamFile[resT any, streamT grpc.ServerStreamingClient[resT]](
 		return nil, err
 	}
 
-	// 3. Receive the file data
 	for {
+		if err := stream.Context().Err(); err != nil {
+			return nil, err
+		}
 		resp, err := stream.Recv()
 		if err == io.EOF {
 			break
@@ -393,6 +419,9 @@ func receiveStreamFile[resT any, streamT grpc.ServerStreamingClient[resT]](
 		if err != nil {
 			return nil, err
 		}
+	}
+	if err := tempFile.Close(); err != nil {
+		return nil, err
 	}
 	return fileResp, nil
 }

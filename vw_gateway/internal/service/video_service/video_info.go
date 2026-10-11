@@ -2,6 +2,7 @@ package video
 
 import (
 	"context"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	videoinfov1 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/biz/videobiz"
@@ -107,8 +108,14 @@ func (info *InfoService) GetMpd(ctx context.Context, req *videoinfov1.ProvideMpd
 	return resp, nil
 }
 
+// GetSegments 按视频 ID 和分片名转发下载请求，拒绝旧的路径参数。
+// 输入：req 提供 video_id 和 segment_name；路由中的 user_id 不作为身份或存储位置使用。
+// 输出：分片文件响应；旧 segment_path 非空时返回参数错误，不调用下游。
 func (info *InfoService) GetSegments(ctx context.Context, req *videoinfov1.ProvideSegmentsReq) (*videoinfov1.FileResp, error) {
-	resp, err := info.videoInfo.GetSegment(ctx, req.SegmentPath)
+	if req.SegmentPath != "" {
+		return nil, kerrors.BadRequest("SEGMENT_PATH_UNSUPPORTED", "use video_id and segment_name instead of segment_path")
+	}
+	resp, err := info.videoInfo.GetSegment(ctx, req.VideoId, req.SegmentName)
 	if err != nil {
 		return nil, err
 	}

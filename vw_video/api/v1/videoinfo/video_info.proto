@@ -120,7 +120,10 @@ message GetVideoMpdResp {
 }
 
 message GetVideoSegmentReq {
-    string video_segment_path = 1;
+    // 保留旧字段编号以识别旧客户端；非空时拒绝，不再读取任意路径。
+    string video_segment_path = 1 [deprecated = true];
+    int64 video_id = 2;
+    string segment_name = 3;
 }
 message GetVideoSegmentResp {
     FileResp segment_file = 1;
