@@ -21,8 +21,16 @@ func NewVideoInfoService(videoInfo *videobiz.VideoInfoUsecase, logger log.Logger
 	}
 }
 
+// GetVideoInfo 使用鉴权上下文中的身份获取视频详情。
+// 输入：ctx 的 user_id 为鉴权确认的 int64 用户 ID；req 提供视频 ID，不从请求参数接受用户身份。
+// 输出：成功时返回视频详情响应；下游获取失败时返回 nil 和原错误。
+// 身份缺失、类型不符或非正数时传入 user_id=0，由下游跳过个人互动状态和观看历史操作。
+// 当前网关响应仅映射视频详情，不透传下游的个人互动状态。
 func (info *InfoService) GetVideoInfo(ctx context.Context, req *videoinfov1.GetVideoInfoReq) (*videoinfov1.GetVideoInfoResp, error) {
-	userId := ctx.Value(userIdKey).(int64)
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		userId = 0
+	}
 	detail, err := info.videoInfo.GetVideoDetail(ctx, req.VideoId, userId)
 	if err != nil {
 		return nil, err

@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
@@ -68,11 +69,17 @@ func NewVideoInfoUsecase(repo VideoInfoRepo, tx mysqlutil.Transaction, logger lo
 	}
 }
 
+// GetVideoInfoById 获取视频公共详情和弹幕，并按身份处理个人数据。
+// 输入：ctx 为请求上下文；videoId 为目标视频 ID；userId 为 0 表示游客，正数须由可信调用方验证。
+// 输出：游客返回公共详情和弹幕，不包含个人互动状态；登录用户额外返回个人互动状态。
+// userId 为负数时返回 InvalidArgument，且不访问仓储；查询或更新失败时返回 nil 和包装后的业务错误。
+// 游客和登录用户均沿用增加播放量和热度的行为，只有登录用户写入观看历史。
 func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userId int64) (*videoinfov1.GetVideoInfoResp, error) {
+	if userId < 0 {
+		return nil, status.Error(codes.InvalidArgument, "user_id must not be negative")
+	}
 	var ret = new(videoinfov1.GetVideoInfoResp)
 	err := uc.tx.WithTx(ctx, func(ctx context.Context) error {
-		// 1. Get video detail by video id
-		//1.1 Get video info from database by video id
 		videoDetail, err := uc.repo.GetVideoInfoById(ctx, videoId)
 		if err != nil {
 			if stderr.Is(err, gorm.ErrRecordNotFound) {
@@ -81,7 +88,6 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 			return err
 		}
 
-		// 1.2 Add user video information to the response
 		ret.VideoDetail = &videoinfov1.VideoMetaInfo{
 			VideoId:       videoDetail.VideoID,
 			Title:         videoDetail.Title,
@@ -104,14 +110,11 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 			CreatedTime: timestamppb.New(videoDetail.CreatedAt),
 		}
 
-		// 2. Get barrages of the video
-		// 2.1 Get barrages from database of the video
 		barrages, err := uc.repo.GetBarragesByVideoId(ctx, videoId)
 		if err != nil {
 			return err
 		}
 
-		// 2.2 Add barrages' information to the response
 		ret.Barrages = make([]*videoinfov1.GetVideoInfoResp_BarrageInfo, 0)
 		for _, barrage := range barrages {
 			ret.Barrages = append(ret.Barrages, &videoinfov1.GetVideoInfoResp_BarrageInfo{
@@ -122,28 +125,30 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 			})
 		}
 
-		// 3. Get user video status
-		// 3.1 Get user video status from MongoDB
-		status, err := uc.repo.GetUserVideoStatus(ctx, videoId, userId)
-		if err != nil {
-			return err
+		// 游客不访问个人状态仓储，避免读取或初始化 user_id=0 的互动记录。
+		if userId > 0 {
+			status, err := uc.repo.GetUserVideoStatus(ctx, videoId, userId)
+			if err != nil {
+				return err
+			}
+			ret.UserVideoStatus = &videoinfov1.GetVideoInfoResp_UserVideoStatus{
+				IsFavorited:    checkIsFavorited(status),
+				IsShared:       checkIsShared(status),
+				IsUpvoted:      checkIsUpvoted(status),
+				IsThrownShells: checkIsThrownShell(status),
+			}
 		}
 
-		// 3.2 Add user video status to the response
-		ret.UserVideoStatus = &videoinfov1.GetVideoInfoResp_UserVideoStatus{
-			IsFavorited:    checkIsFavorited(status),
-			IsShared:       checkIsShared(status),
-			IsUpvoted:      checkIsUpvoted(status),
-			IsThrownShells: checkIsThrownShell(status),
-		}
-
-		// 4. Increment video's view count and hot to video detail
+		// 公共统计不依赖登录身份，必须在游客提前返回前更新。
 		err = uc.repo.AddVideoCntView(ctx, videoId)
 		if err != nil {
 			return err
 		}
 
-		// 5. Add user-watch history
+		// 游客没有个人观看历史，不写入 user_id=0 的历史记录。
+		if userId == 0 {
+			return nil
+		}
 		err = uc.repo.UpdateUserVideoHistory(ctx, videoId, userId, &model.VideoSummary{
 			VideoId:       videoDetail.VideoID,
 			CntBarrages:   videoDetail.CntBarrages,
