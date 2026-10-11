@@ -37,7 +37,7 @@ bin/
 .idea/
 *.swp
 
-# private info file
-configs
-!configs/config-demo.yaml
+# Local configuration; keep only the demo tracked.
+**/configs/*
+!/configs/config-demo.yaml
 *private*.*

@@ -67,24 +67,24 @@ func (uc *UserIdentityUsecase) Register(ctx context.Context, registerInfo *Regis
 	return accessToken, RefreshToken, err
 }
 
-func (uc *UserIdentityUsecase) Login(ctx context.Context, username, password string) (accessToken, refreshToken string, err error) {
+func (uc *UserIdentityUsecase) Login(ctx context.Context, username, password string) (userID int64, accessToken, refreshToken string, err error) {
 	resp, err := uc.identityRepo.Login(ctx, username, password)
 	if err != nil {
-		return "", "", err
+		return 0, "", "", err
 	}
 
 	atoken, rtoken, err := uc.jwt.CreateToken(resp.UserId, resp.Username, resp.IsAdmin)
 	if err != nil {
-		return "", "", err
+		return 0, "", "", err
 	}
 
 	err = uc.identityRepo.CacheAccessToken(ctx, strconv.FormatInt(resp.UserId, 10), atoken, uc.jwt.RefreshExpireTime)
 	if err != nil {
 		// TODO: 做异步处理
-		return "", "", err
+		return 0, "", "", err
 	}
 
-	return atoken, rtoken, nil
+	return resp.UserId, atoken, rtoken, nil
 }
 
 func (uc *UserIdentityUsecase) Logout(ctx context.Context, userId string) error {

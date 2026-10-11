@@ -42,10 +42,11 @@ message LoginResp {
     //app response message,The same below
     string msg = 2;
 
-    //when users login successfully, return two tokens to them
+    //when users login successfully, return their ID and two tokens
     message Data {
         string access_token  = 3;
         string refresh_token = 4;
+        int64 user_id        = 5;
     }
     Data data = 3;
 }

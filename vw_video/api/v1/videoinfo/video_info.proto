@@ -3,6 +3,7 @@ syntax = "proto3";
 package video.v1.videoinfo;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 option go_package = "vw_video/api/video/v1/video_info;videoinfo";
 
 service VideoInfo {
@@ -18,7 +19,7 @@ service VideoInfo {
 
     rpc GetVideoCover(GetVideoCoverReq) returns (stream GetVideoCoverResp) {}
 
-    rpc UploadVideoInfo(UploadVideoInfoReq) returns (google.protobuf.Empty) {}
+    rpc UploadVideoInfo(UploadVideoInfoReq) returns (UploadVideoInfoResp) {}
 
     rpc UploadVideoFile(stream UploadVideoFileReq) returns (google.protobuf.Empty) {}
 
@@ -57,6 +58,7 @@ message VideoMetaInfo {
     string duration   = 11;
     string cover_path = 12;
     int64 size        = 13;
+    google.protobuf.Timestamp created_time = 14;
 }
 message VideoSummary {
     int64 video_id        = 1;
@@ -66,6 +68,9 @@ message VideoSummary {
     string duration       = 5;
     string publisher_name = 6;
     string cover_path     = 7;
+    string description    = 8;
+    string video_path     = 9;
+    google.protobuf.Timestamp created_time = 10;
 }
 
 message GetVideoInfoReq {
@@ -115,7 +120,10 @@ message GetVideoMpdResp {
 }
 
 message GetVideoSegmentReq {
-    string video_segment_path = 1;
+    // 保留旧字段编号以识别旧客户端；非空时拒绝，不再读取任意路径。
+    string video_segment_path = 1 [deprecated = true];
+    int64 video_id = 2;
+    string segment_name = 3;
 }
 message GetVideoSegmentResp {
     FileResp segment_file = 1;
@@ -165,6 +173,10 @@ message GetVideoCoverResp {
 
 message UploadVideoInfoReq {
     VideoMetaInfo video_info = 1;
+}
+
+message UploadVideoInfoResp {
+    int64 video_id = 1;
 }
 
 message UploadVideoFileReq {

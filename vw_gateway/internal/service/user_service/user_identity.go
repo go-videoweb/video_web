@@ -47,11 +47,11 @@ func (uid *IdentityService) Register(ctx context.Context, req *idv1.RegisterRequ
 			AccessToken:  atoken,
 			RefreshToken: rtoken,
 		},
-	}, err
+	}, nil
 }
 
 func (uid *IdentityService) Login(ctx context.Context, req *idv1.LoginRequest) (*idv1.LoginResp, error) {
-	atoken, rtoken, err := uid.identity.Login(ctx, req.Username, req.Password)
+	userID, atoken, rtoken, err := uid.identity.Login(ctx, req.Username, req.Password)
 	resp := &idv1.LoginResp{
 		StatusCode: 200,
 		Msg:        "login successfully",
@@ -63,6 +63,7 @@ func (uid *IdentityService) Login(ctx context.Context, req *idv1.LoginRequest) (
 		return nil, err
 	}
 	resp.Data = &idv1.LoginResp_Data{
+		UserId:       userID,
 		AccessToken:  atoken,
 		RefreshToken: rtoken,
 	}

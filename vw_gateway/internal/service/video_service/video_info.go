@@ -2,6 +2,7 @@ package video
 
 import (
 	"context"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	videoinfov1 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/biz/videobiz"
@@ -21,8 +22,16 @@ func NewVideoInfoService(videoInfo *videobiz.VideoInfoUsecase, logger log.Logger
 	}
 }
 
+// GetVideoInfo 使用鉴权上下文中的身份获取视频详情。
+// 输入：ctx 的 user_id 为鉴权确认的 int64 用户 ID；req 提供视频 ID，不从请求参数接受用户身份。
+// 输出：成功时返回视频详情响应；下游获取失败时返回 nil 和原错误。
+// 身份缺失、类型不符或非正数时传入 user_id=0，由下游跳过个人互动状态和观看历史操作。
+// 当前网关响应仅映射视频详情，不透传下游的个人互动状态。
 func (info *InfoService) GetVideoInfo(ctx context.Context, req *videoinfov1.GetVideoInfoReq) (*videoinfov1.GetVideoInfoResp, error) {
-	userId := ctx.Value(userIdKey).(int64)
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		userId = 0
+	}
 	detail, err := info.videoInfo.GetVideoDetail(ctx, req.VideoId, userId)
 	if err != nil {
 		return nil, err
@@ -47,11 +56,12 @@ func (info *InfoService) GetVideoList(ctx context.Context, req *videoinfov1.GetV
 }
 
 func (info *InfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.UploadVideoInfoReq) (*videoinfov1.UploadVideoInfoResp, error) {
-	err := info.videoInfo.UploadVideoInfo(ctx, videoMetaInfoToDomain(req.VideoInfo))
+	videoID, err := info.videoInfo.UploadVideoInfo(ctx, videoMetaInfoToDomain(req.VideoInfo))
 	if err != nil {
 		return nil, err
 	}
 	return &videoinfov1.UploadVideoInfoResp{
+		VideoId: videoID,
 		Resp: &videoinfov1.CommonResp{
 			StatusCode: 200,
 			Message:    "success",
@@ -98,8 +108,14 @@ func (info *InfoService) GetMpd(ctx context.Context, req *videoinfov1.ProvideMpd
 	return resp, nil
 }
 
+// GetSegments 按视频 ID 和分片名转发下载请求，拒绝旧的路径参数。
+// 输入：req 提供 video_id 和 segment_name；路由中的 user_id 不作为身份或存储位置使用。
+// 输出：分片文件响应；旧 segment_path 非空时返回参数错误，不调用下游。
 func (info *InfoService) GetSegments(ctx context.Context, req *videoinfov1.ProvideSegmentsReq) (*videoinfov1.FileResp, error) {
-	resp, err := info.videoInfo.GetSegment(ctx, req.SegmentPath)
+	if req.SegmentPath != "" {
+		return nil, kerrors.BadRequest("SEGMENT_PATH_UNSUPPORTED", "use video_id and segment_name instead of segment_path")
+	}
+	resp, err := info.videoInfo.GetSegment(ctx, req.VideoId, req.SegmentName)
 	if err != nil {
 		return nil, err
 	}
@@ -127,6 +143,7 @@ func videoMetaInfoToDomain(detail *videoinfov1.VideoMetaInfo) *domain.VideoDetai
 		Hot:           detail.Hot,
 		Duration:      detail.Duration,
 		CoverPath:     detail.CoverPath,
+		CreatedTime:   detail.CreatedTime,
 	}
 
 	if detail.Records != nil {
@@ -157,8 +174,9 @@ func domainToVideoMetaInfo(detail *domain.VideoDetail) *videoinfov1.VideoMetaInf
 			CntViewed:    detail.Records.CntViewed,
 			CntFavorites: detail.Records.CntFavorites,
 		},
-		Duration:  detail.Duration,
-		CoverPath: detail.CoverPath,
+		Duration:    detail.Duration,
+		CoverPath:   detail.CoverPath,
+		CreatedTime: detail.CreatedTime,
 	}
 }
 
@@ -171,5 +189,8 @@ func domainToVideoSummary(detail *domain.VideoSummary) *videoinfov1.VideoSummary
 		Duration:      detail.Duration,
 		PublisherName: detail.PublisherName,
 		CoverPath:     detail.CoverPath,
+		Description:   detail.Description,
+		VideoPath:     detail.VideoPath,
+		CreatedTime:   detail.CreatedTime,
 	}
 }

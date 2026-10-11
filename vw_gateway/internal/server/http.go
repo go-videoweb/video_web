@@ -27,20 +27,22 @@ import (
 	"vw_gateway/internal/service/video_service"
 )
 
+// NewWhitelistMatcher 创建决定是否执行 JwtAuth 的匹配器。
+// 输入：返回的匹配函数接收请求上下文和 Kratos operation（/包名.服务名/方法名），不按 HTTP URL 匹配。
+// 输出：白名单接口返回 false，完全跳过鉴权；其他接口返回 true，执行 JwtAuth。
+// 示例：登录接口返回 false，视频详情接口返回 true，后者是否允许游客由匿名访问匹配器决定。
 func NewWhitelistMatcher() selector.MatchFunc {
 	whiteList := make(map[string]struct{})
 
-	/*以下摘自kratos文档：
-	注意：定制中间件是通过 operation 匹配，并不是 http 本身的路由
-	operation 是 HTTP 及 gRPC 统一的 gRPC path。
-	gRPC path 的拼接规则为 /包名.服务名/方法名(/package.Service/Method)。
-	*/
 	whiteList["/gateway.api.v1.user.id.Identity/Register"] = struct{}{}
 	whiteList["/gateway.api.v1.user.id.Identity/Login"] = struct{}{}
 	whiteList["/gateway.api.v1.user.id.Identity/Logout"] = struct{}{}
 	whiteList["/gateway.api.v1.user.captcha.Captcha/GetImageCaptcha"] = struct{}{}
 	whiteList["/gateway.api.v1.user.captcha.Captcha/GetCodeCaptcha"] = struct{}{}
 	whiteList["/gateway.api.v1.user.file.FileService/UploadAvatar"] = struct{}{}
+	whiteList[videoinfov1.OperationVideoInfoGetMpd] = struct{}{}
+	whiteList[videoinfov1.OperationVideoInfoGetSegments] = struct{}{}
+	whiteList[videoinfov1.OperationVideoInfoGetVideoCover] = struct{}{}
 	return func(ctx context.Context, operation string) bool {
 		if _, ok := whiteList[operation]; ok {
 			return false
@@ -49,7 +51,20 @@ func NewWhitelistMatcher() selector.MatchFunc {
 	}
 }
 
-// NewHTTPServer new an HTTP server.
+// NewAnonymousAllowedMatcher 创建允许凭证缺失或失效时按游客访问的匹配器。
+// 输入：返回的匹配函数接收请求上下文和 Kratos operation，不按 HTTP URL 匹配。
+// 输出：目前仅视频详情接口返回 true，其他接口返回 false。
+// 命中后仍执行 JwtAuth：有效凭证保留用户身份，凭证缺失或失效按游客放行，基础设施故障仍返回错误。
+func NewAnonymousAllowedMatcher() selector.MatchFunc {
+	return func(_ context.Context, operation string) bool {
+		return operation == videoinfov1.OperationVideoInfoGetVideoInfo
+	}
+}
+
+// NewHTTPServer 创建网关 HTTP 服务，注册业务路由、分级鉴权和统一编解码。
+// 输入：c、jwt 为服务及鉴权配置，redis 提供登录态缓存，各业务服务提供路由实现，logger 用于请求日志。
+// 输出：已完成配置和路由注册的 HTTP 服务，不在本函数中启动监听。
+// 鉴权先由跳过白名单决定是否执行 JwtAuth，再由匿名访问匹配器决定凭证失效时能否按游客访问。
 func NewHTTPServer(
 	c *conf.Server,
 	jwt *conf.JWT,
@@ -70,7 +85,7 @@ func NewHTTPServer(
 			tracing.Server(),
 			logging.Server(logger),
 			selector.Server(
-				auth.JwtAuth(jwt.Secret, time.Duration(jwt.AccessTokenExpiration)*time.Hour, redis),
+				auth.JwtAuth(jwt.Secret, time.Duration(jwt.AccessTokenExpiration)*time.Hour, redis, NewAnonymousAllowedMatcher()),
 			).Match(NewWhitelistMatcher()).Build(),
 		),
 		// 跨域

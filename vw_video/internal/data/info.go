@@ -124,21 +124,16 @@ func (v *videoInfoRepo) UpdateVideoCntShareCompensation(ctx context.Context, tx 
 	}).Error
 }
 
-func (v *videoInfoRepo) GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.VideoSummary, error) {
+func (v *videoInfoRepo) GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.Video, error) {
 	video := getQuery(ctx).Video
 	videoDo := video.WithContext(ctx)
 
-	var summary []*model.VideoSummary
-	videoDo.UnderlyingDB().
-		Debug().
-		Select(video.VideoID, video.Title, video.CoverPath, video.Duration, video.CntBarrages, video.Hot, video.CntViewed, video.Class).
+	return videoDo.
 		Where(video.Class.In(class...)).
 		Order(video.Hot.Desc()).
 		Offset(int((pageNum - 1) * pageSize)).
 		Limit(int(pageSize)).
-		Find(&summary)
-
-	return summary, nil
+		Find()
 }
 
 func (v *videoInfoRepo) GetVideoFilePathById(ctx context.Context, videoId int64) (string, error) {

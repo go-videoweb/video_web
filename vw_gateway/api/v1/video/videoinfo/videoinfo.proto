@@ -9,13 +9,13 @@ option go_package = "vw_gateway/api/v1/video/videoinfo;videoinfo";
 service VideoInfo {
     rpc GetMpd(ProvideMpdReq) returns (FileResp) {
         option (google.api.http) = {
-            get: "/api/v1/{user_id}/video/{video_id}/mpd"
+            get: "/api/v1/{user_id}/video/{video_id}/dash/mpd"
         };
     }
 
     rpc GetSegments(ProvideSegmentsReq) returns (FileResp) {
         option (google.api.http) = {
-            get: "/api/v1/{user_id}/video/{video_id}/segments"
+            get: "/api/v1/{user_id}/video/{video_id}/dash/{segment_name}"
         };
     }
 
@@ -88,11 +88,12 @@ message ProvideMpdReq {
 }
 
 message ProvideSegmentsReq {
-    // segment_path is the path of the segment file(.m4s)
-    // It is parsed by the front-end, using the mpd file
     int64 user_id       = 1;
     int64 video_id      = 2;
-    string segment_path = 3;
+    // 保留旧字段编号以识别旧请求；非空时拒绝，不再接受服务器文件路径。
+    string segment_path = 3 [deprecated = true];
+    // MPD 中的单个 .m4s 文件名，不包含目录或 URL。
+    string segment_name = 4;
 }
 
 message GetVideoCoverReq {
@@ -134,6 +135,9 @@ message VideoSummary {
     string duration       = 5;
     string publisher_name = 6;
     string cover_path     = 7;
+    string description    = 8;
+    string video_path     = 9;
+    google.protobuf.Timestamp created_time = 10;
 }
 
 message GetVideoInfoReq {
@@ -158,6 +162,7 @@ message UploadVideoInfoReq {
 }
 message UploadVideoInfoResp {
     CommonResp resp = 1;
+    int64 video_id = 2;
 }
 
 message UploadVideoFileReq {

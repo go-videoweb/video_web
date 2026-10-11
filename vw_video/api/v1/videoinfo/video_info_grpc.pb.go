@@ -44,7 +44,7 @@ type VideoInfoClient interface {
 	GetVideoMpd(ctx context.Context, in *GetVideoMpdReq, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetVideoMpdResp], error)
 	GetVideoSegments(ctx context.Context, in *GetVideoSegmentReq, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetVideoSegmentResp], error)
 	GetVideoCover(ctx context.Context, in *GetVideoCoverReq, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetVideoCoverResp], error)
-	UploadVideoInfo(ctx context.Context, in *UploadVideoInfoReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UploadVideoInfo(ctx context.Context, in *UploadVideoInfoReq, opts ...grpc.CallOption) (*UploadVideoInfoResp, error)
 	UploadVideoFile(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UploadVideoFileReq, emptypb.Empty], error)
 	UploadVideoCover(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UploadVideoCoverReq, emptypb.Empty], error)
 	GetPublisherIdByVideoId(ctx context.Context, in *GetPublisherIdByVideoIdReq, opts ...grpc.CallOption) (*GetPublisherIdByVideoIdResp, error)
@@ -156,9 +156,9 @@ func (c *videoInfoClient) GetVideoCover(ctx context.Context, in *GetVideoCoverRe
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type VideoInfo_GetVideoCoverClient = grpc.ServerStreamingClient[GetVideoCoverResp]
 
-func (c *videoInfoClient) UploadVideoInfo(ctx context.Context, in *UploadVideoInfoReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *videoInfoClient) UploadVideoInfo(ctx context.Context, in *UploadVideoInfoReq, opts ...grpc.CallOption) (*UploadVideoInfoResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
+	out := new(UploadVideoInfoResp)
 	err := c.cc.Invoke(ctx, VideoInfo_UploadVideoInfo_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -232,7 +232,7 @@ type VideoInfoServer interface {
 	GetVideoMpd(*GetVideoMpdReq, grpc.ServerStreamingServer[GetVideoMpdResp]) error
 	GetVideoSegments(*GetVideoSegmentReq, grpc.ServerStreamingServer[GetVideoSegmentResp]) error
 	GetVideoCover(*GetVideoCoverReq, grpc.ServerStreamingServer[GetVideoCoverResp]) error
-	UploadVideoInfo(context.Context, *UploadVideoInfoReq) (*emptypb.Empty, error)
+	UploadVideoInfo(context.Context, *UploadVideoInfoReq) (*UploadVideoInfoResp, error)
 	UploadVideoFile(grpc.ClientStreamingServer[UploadVideoFileReq, emptypb.Empty]) error
 	UploadVideoCover(grpc.ClientStreamingServer[UploadVideoCoverReq, emptypb.Empty]) error
 	GetPublisherIdByVideoId(context.Context, *GetPublisherIdByVideoIdReq) (*GetPublisherIdByVideoIdResp, error)
@@ -266,7 +266,7 @@ func (UnimplementedVideoInfoServer) GetVideoSegments(*GetVideoSegmentReq, grpc.S
 func (UnimplementedVideoInfoServer) GetVideoCover(*GetVideoCoverReq, grpc.ServerStreamingServer[GetVideoCoverResp]) error {
 	return status.Errorf(codes.Unimplemented, "method GetVideoCover not implemented")
 }
-func (UnimplementedVideoInfoServer) UploadVideoInfo(context.Context, *UploadVideoInfoReq) (*emptypb.Empty, error) {
+func (UnimplementedVideoInfoServer) UploadVideoInfo(context.Context, *UploadVideoInfoReq) (*UploadVideoInfoResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UploadVideoInfo not implemented")
 }
 func (UnimplementedVideoInfoServer) UploadVideoFile(grpc.ClientStreamingServer[UploadVideoFileReq, emptypb.Empty]) error {

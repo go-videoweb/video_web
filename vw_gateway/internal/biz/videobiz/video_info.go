@@ -22,9 +22,9 @@ type VideoInfoRepo interface {
 	GetVideoList(ctx context.Context, class []string, num int32, size int32) ([]*videoinfov2.VideoSummary, error)
 	GetVideoFile(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
 	GetVideoMpd(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
-	GetVideoSegment(ctx context.Context, segmentPath string) (*videoinfov1.FileResp, error)
+	GetVideoSegment(ctx context.Context, videoId int64, segmentName string) (*videoinfov1.FileResp, error)
 	GetVideoCover(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
-	UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) error
+	UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) (int64, error)
 	UploadVideoCover(ctx context.Context, publisherId, videoId int64, fh *multipart.FileHeader) error
 	UploadVideoFile(publisherId int64, videoId int64, fh *multipart.FileHeader) error
 }
@@ -67,12 +67,15 @@ func (uc *VideoInfoUsecase) GetVideoList(ctx context.Context, class []string, nu
 			Duration:      v.Duration,
 			PublisherName: v.PublisherName,
 			CoverPath:     v.CoverPath,
+			Description:   v.Description,
+			VideoPath:     v.VideoPath,
+			CreatedTime:   v.CreatedTime,
 		})
 	}
 	return videoList, nil
 }
 
-func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) error {
+func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) (int64, error) {
 	return uc.repo.UploadVideoInfo(ctx, info)
 }
 
@@ -132,8 +135,11 @@ func (uc *VideoInfoUsecase) GetMpd(ctx context.Context, videoId int64) (*videoin
 	return uc.repo.GetVideoMpd(ctx, videoId)
 }
 
-func (uc *VideoInfoUsecase) GetSegment(ctx context.Context, segmentPath string) (*videoinfov1.FileResp, error) {
-	return uc.repo.GetVideoSegment(ctx, segmentPath)
+// GetSegment 按视频 ID 和分片名获取 DASH 分片，不接受服务器路径。
+// 输入：ctx 传递取消和超时；videoId 指定视频；segmentName 为 MPD 中的单个文件名。
+// 输出：网关临时文件响应或下游错误，路径和文件名校验由视频服务执行。
+func (uc *VideoInfoUsecase) GetSegment(ctx context.Context, videoId int64, segmentName string) (*videoinfov1.FileResp, error) {
+	return uc.repo.GetVideoSegment(ctx, videoId, segmentName)
 }
 
 func (uc *VideoInfoUsecase) GetVideoCover(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error) {

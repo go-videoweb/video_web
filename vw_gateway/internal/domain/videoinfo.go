@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"google.golang.org/protobuf/types/known/timestamppb"
 	videoinfov1 "vw_video/api/v1/videoinfo"
 )
 
@@ -23,6 +24,7 @@ type VideoDetail struct {
 	Records       *Records
 	Duration      string
 	CoverPath     string
+	CreatedTime   *timestamppb.Timestamp
 }
 
 type VideoSummary struct {
@@ -33,6 +35,9 @@ type VideoSummary struct {
 	Duration      string
 	PublisherName string
 	CoverPath     string
+	Description   string
+	VideoPath     string
+	CreatedTime   *timestamppb.Timestamp
 }
 
 // NewVideoDetail creates a new VideoDetail object from video grpc service GetVideoInfo's response.
@@ -53,7 +58,8 @@ func NewVideoDetail(videoInfo *videoinfov1.GetVideoInfoResp) *VideoDetail {
 			CntViewed:    videoInfo.VideoDetail.Records.CntViewed,
 			CntFavorites: videoInfo.VideoDetail.Records.CntFavorited,
 		},
-		Duration:  videoInfo.VideoDetail.Duration,
-		CoverPath: videoInfo.VideoDetail.CoverPath,
+		Duration:    videoInfo.VideoDetail.Duration,
+		CoverPath:   videoInfo.VideoDetail.CoverPath,
+		CreatedTime: videoInfo.VideoDetail.CreatedTime,
 	}
 }
