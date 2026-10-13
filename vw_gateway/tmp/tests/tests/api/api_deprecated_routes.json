@@ -1,0 +1,122 @@
+[
+  {
+    "method": "GET",
+    "path": "/model/translate/status",
+    "reason": "实际未使用，接口测试不再覆盖"
+  },
+  {
+    "method": "GET",
+    "path": "/simulation/solver/list",
+    "reason": "求解器列表接口已不再使用"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v2/simulation/state/get/all",
+    "reason": "已由 /user/userspace/change/poll 替代"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v3/simulation/state/get",
+    "reason": "已由 /user/userspace/change/poll 替代"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v3/simulation/simulate",
+    "reason": "SimulateV3 已弃用，仿真启动改用 /api/v4/simulation/simulate-with-translate"
+  },
+  {
+    "method": "GET",
+    "path": "/simulation/animation/visual/get",
+    "reason": "动画相关接口仅项目需要，yslab 产品不需要该功能，不纳入接口测试覆盖"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v2/simulation/result/play",
+    "reason": "动画相关接口仅项目需要，yslab 产品不需要该功能，不纳入接口测试覆盖"
+  },
+  {
+    "method": "POST",
+    "path": "/simulation/result/play",
+    "reason": "动画相关接口仅项目需要，yslab 产品不需要该功能，不纳入接口测试覆盖"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v2/user/userspace/get",
+    "reason": "已弃用。现改用 /api/v2/user/userspace/usage 获取空间列表信息"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v3/model/state/get",
+    "reason": "该接口已弃用。现在改用 /user/userspace/change/poll 接口统一获取状态信息"
+  },
+  {
+    "method": "POST",
+    "path": "/model/component/batch/update",
+    "reason": "已弃用，现在通过调用 /model/component/update 接口批量更新组件"
+  },
+  {
+    "method": "POST",
+    "path": "/model/icon/graphics/new",
+    "reason": "已弃用，现在通过调用 /api/v2/model/icon/graphics 接口获取模型图标信息"
+  },
+  {
+    "method": "POST",
+    "path": "/file/package",
+    "reason": "已弃用，当前业务流程已不再使用"
+  },
+  {
+    "method": "GET",
+    "path": "/pipenet/info/get",
+    "reason": "已弃用，当前业务流程已不再使用"
+  },
+  {
+    "method": "POST",
+    "path": "/pipenet/info/update",
+    "reason": "已弃用，当前业务流程已不再使用"
+  },
+  {
+    "method": "GET",
+    "path": "/pipenet/model/instance_mapping/log/get",
+    "reason": "已弃用，当前业务流程已不再使用"
+  },
+  {
+    "method": "POST",
+    "path": "/simulation/experiment/edit",
+    "reason": "该接口已弃用。其功能已被其他多个接口实现"
+  },
+  {
+    "method": "GET",
+    "path": "/simulation/experiment/parameters",
+    "reason": "该接口已弃用。该接口获取实验记录表中的 ModelVar 字段，该字段目前没有使用"
+  },
+  {
+    "method": "POST",
+    "path": "/simulation/record/rename",
+    "reason": "该接口已弃用。仿真记录表中的 another_name 字段已被弃用"
+  },
+  {
+    "method": "GET",
+    "path": "/simulation/record/delete",
+    "reason": "已弃用，当前业务流程已不再使用"
+  },
+  {
+    "method": "GET",
+    "path": "/simulation/record/tree",
+    "reason": "该接口已弃用。其功能已由 /api/v2/simulation/record/tree 代替"
+  },
+  {
+    "method": "GET",
+    "path": "/simulation/result/variable/unitconvert",
+    "reason": "该接口已弃用。仿真结果变量的单位转换现在由前端实现"
+  },
+  {
+    "method": "POST",
+    "path": "/user/service/start",
+    "reason": "该接口已弃用。目前使用 /user/service/restart 接口重启工作空间"
+  },
+  {
+    "method": "POST",
+    "path": "/user/service/stop",
+    "reason": "目前没有使用到该接口来关闭工作空间"
+  }
+]

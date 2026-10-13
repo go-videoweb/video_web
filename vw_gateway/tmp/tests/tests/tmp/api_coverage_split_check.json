@@ -1,0 +1,589 @@
+{
+  "repo_root": "D:\\code\\projects\\yslab\\ModelingAndSimulation-tc-ci-test\\tests",
+  "coverage_source": "executed API_MARK from go test json",
+  "summary": {
+    "current_routes": 0,
+    "covered_routes": 0,
+    "missing_routes": 0,
+    "deprecated_routes": 0,
+    "coverage_percent": 100,
+    "unknown_primary_marks": 138,
+    "non_current_primary_marks": 0,
+    "duplicate_primary_routes": 0,
+    "unbound_primary_marks": 0,
+    "warning_count": 1,
+    "error_count": 0
+  },
+  "route_classification": {
+    "deprecated_blacklisted": 0,
+    "internal_test": 0,
+    "legacy_shadowed": 0,
+    "versioned_current": 0,
+    "versioned_superseded": 0,
+    "versionless_current": 0
+  },
+  "warnings": [
+    "primary marks not found in router declarations: 138"
+  ],
+  "errors": null,
+  "covered_current_routes": [],
+  "missing_current_routes": [],
+  "unknown_primary_marks": [
+    {
+      "method": "POST",
+      "path": "/api/v2/model/component/add"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/model/component/copy"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/model/icon/graphics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/model/root_library/sys"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/model/userspace/model/load"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/resource/delete"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/resource/edit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/resource/file/content/get"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/resource/file/content/parse"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/resource/file/resources/copy"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/resource/file/upload"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/resource/folder/create"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/resource/list/get"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/resource/root/list/get"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/resource/search"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/simulation/experiment/create"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/simulation/experiment/delete"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/simulation/experiment/export_variables/set"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/simulation/experiment/export_variables/unset"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/simulation/experiment/list"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/simulation/experiment/options/set"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/simulation/experiment/parameters/delete"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/simulation/experiment/parameters/set"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/simulation/log/get"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/simulation/record/list"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/simulation/record/tree"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/simulation/result"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/simulation/result/singular"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/model/icon/connectors/update"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/model/icon/get"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/model/icon/info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/model/icon/instance/get"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/model/icon/shapes/update"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/model/information/get"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/model/instance"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/model/subparameters/get"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/simulation/experiment/new-model/save"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/simulation/experiment/original-model/save"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/simulation/record/terminate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/storage/experiment/result/cleanup"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/storage/experiment/result/count"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v4/simulation/simulate-with-translate"
+    },
+    {
+      "method": "POST",
+      "path": "/calibration/create"
+    },
+    {
+      "method": "POST",
+      "path": "/calibration/data/columns/parse"
+    },
+    {
+      "method": "POST",
+      "path": "/calibration/data/upload"
+    },
+    {
+      "method": "POST",
+      "path": "/calibration/delete"
+    },
+    {
+      "method": "GET",
+      "path": "/calibration/detail"
+    },
+    {
+      "method": "POST",
+      "path": "/calibration/edit"
+    },
+    {
+      "method": "POST",
+      "path": "/calibration/experiment/parameter/save"
+    },
+    {
+      "method": "POST",
+      "path": "/calibration/experiment/parameter/save/new"
+    },
+    {
+      "method": "GET",
+      "path": "/calibration/list"
+    },
+    {
+      "method": "POST",
+      "path": "/calibration/start"
+    },
+    {
+      "method": "POST",
+      "path": "/calibration/stop"
+    },
+    {
+      "method": "POST",
+      "path": "/calibration/translate/fmu"
+    },
+    {
+      "method": "GET",
+      "path": "/calibration/tree"
+    },
+    {
+      "method": "POST",
+      "path": "/file/code/save"
+    },
+    {
+      "method": "POST",
+      "path": "/file/create/package"
+    },
+    {
+      "method": "POST",
+      "path": "/file/icon/set"
+    },
+    {
+      "method": "GET",
+      "path": "/file/package/encrypt/export"
+    },
+    {
+      "method": "POST",
+      "path": "/file/package/get"
+    },
+    {
+      "method": "GET",
+      "path": "/file/package/list"
+    },
+    {
+      "method": "GET",
+      "path": "/file/package/resources/data/get"
+    },
+    {
+      "method": "POST",
+      "path": "/file/package/resources/dir/create"
+    },
+    {
+      "method": "POST",
+      "path": "/file/package/resources/dir/delete"
+    },
+    {
+      "method": "POST",
+      "path": "/file/package/resources/download"
+    },
+    {
+      "method": "POST",
+      "path": "/file/package/resources/get"
+    },
+    {
+      "method": "GET",
+      "path": "/file/package/resources/images/get"
+    },
+    {
+      "method": "POST",
+      "path": "/file/package/resources/images/path/get"
+    },
+    {
+      "method": "POST",
+      "path": "/file/package/resources/upload"
+    },
+    {
+      "method": "POST",
+      "path": "/file/update/package"
+    },
+    {
+      "method": "POST",
+      "path": "/file/upload/icon"
+    },
+    {
+      "method": "POST",
+      "path": "/file/upload/package"
+    },
+    {
+      "method": "POST",
+      "path": "/file/upload/var"
+    },
+    {
+      "method": "POST",
+      "path": "/model/class/copy"
+    },
+    {
+      "method": "POST",
+      "path": "/model/class/move"
+    },
+    {
+      "method": "GET",
+      "path": "/model/code"
+    },
+    {
+      "method": "POST",
+      "path": "/model/collection/create"
+    },
+    {
+      "method": "GET",
+      "path": "/model/collection/delete"
+    },
+    {
+      "method": "GET",
+      "path": "/model/collection/get"
+    },
+    {
+      "method": "POST",
+      "path": "/model/component/delete"
+    },
+    {
+      "method": "GET",
+      "path": "/model/component/name"
+    },
+    {
+      "method": "POST",
+      "path": "/model/component/update"
+    },
+    {
+      "method": "GET",
+      "path": "/model/components/get"
+    },
+    {
+      "method": "POST",
+      "path": "/model/connection/create"
+    },
+    {
+      "method": "POST",
+      "path": "/model/connection/delete"
+    },
+    {
+      "method": "POST",
+      "path": "/model/connection/name"
+    },
+    {
+      "method": "POST",
+      "path": "/model/connection/update"
+    },
+    {
+      "method": "GET",
+      "path": "/model/document/get"
+    },
+    {
+      "method": "POST",
+      "path": "/model/document/set"
+    },
+    {
+      "method": "GET",
+      "path": "/model/exists"
+    },
+    {
+      "method": "GET",
+      "path": "/model/extend/get"
+    },
+    {
+      "method": "GET",
+      "path": "/model/function/search"
+    },
+    {
+      "method": "GET",
+      "path": "/model/list_library"
+    },
+    {
+      "method": "POST",
+      "path": "/model/package/delete"
+    },
+    {
+      "method": "POST",
+      "path": "/model/package/load"
+    },
+    {
+      "method": "POST",
+      "path": "/model/package/unload"
+    },
+    {
+      "method": "POST",
+      "path": "/model/parameters/add"
+    },
+    {
+      "method": "POST",
+      "path": "/model/parameters/delete"
+    },
+    {
+      "method": "GET",
+      "path": "/model/parameters/options/get"
+    },
+    {
+      "method": "POST",
+      "path": "/model/parameters/set"
+    },
+    {
+      "method": "POST",
+      "path": "/model/properties/set"
+    },
+    {
+      "method": "POST",
+      "path": "/model/reference/resources"
+    },
+    {
+      "method": "POST",
+      "path": "/model/rename"
+    },
+    {
+      "method": "GET",
+      "path": "/model/root_library/user"
+    },
+    {
+      "method": "GET",
+      "path": "/model/search"
+    },
+    {
+      "method": "GET",
+      "path": "/model/uml/get"
+    },
+    {
+      "method": "POST",
+      "path": "/model/units/convert"
+    },
+    {
+      "method": "GET",
+      "path": "/model/user/get"
+    },
+    {
+      "method": "GET",
+      "path": "/simulation/experiment/case-info"
+    },
+    {
+      "method": "POST",
+      "path": "/simulation/experiment/copy"
+    },
+    {
+      "method": "GET",
+      "path": "/simulation/experiment/detail"
+    },
+    {
+      "method": "POST",
+      "path": "/simulation/experiment/exists"
+    },
+    {
+      "method": "POST",
+      "path": "/simulation/experiment/name/edit"
+    },
+    {
+      "method": "GET",
+      "path": "/simulation/options/get"
+    },
+    {
+      "method": "POST",
+      "path": "/simulation/options/set"
+    },
+    {
+      "method": "POST",
+      "path": "/simulation/realtime-fmu/parameters/set"
+    },
+    {
+      "method": "POST",
+      "path": "/simulation/realtime-fmu/variables/set"
+    },
+    {
+      "method": "GET",
+      "path": "/simulation/record/details"
+    },
+    {
+      "method": "POST",
+      "path": "/simulation/snapshot/create"
+    },
+    {
+      "method": "POST",
+      "path": "/simulation/snapshot/delete"
+    },
+    {
+      "method": "GET",
+      "path": "/simulation/snapshot/detail"
+    },
+    {
+      "method": "POST",
+      "path": "/simulation/snapshot/edit"
+    },
+    {
+      "method": "GET",
+      "path": "/simulation/snapshot/list"
+    },
+    {
+      "method": "POST",
+      "path": "/user/background/upload"
+    },
+    {
+      "method": "GET",
+      "path": "/user/examples"
+    },
+    {
+      "method": "POST",
+      "path": "/user/service/restart"
+    },
+    {
+      "method": "GET",
+      "path": "/user/settings/get"
+    },
+    {
+      "method": "POST",
+      "path": "/user/settings/set"
+    },
+    {
+      "method": "GET",
+      "path": "/user/userspace/change/poll"
+    },
+    {
+      "method": "POST",
+      "path": "/user/userspace/collect"
+    },
+    {
+      "method": "POST",
+      "path": "/user/userspace/create"
+    },
+    {
+      "method": "POST",
+      "path": "/user/userspace/delete"
+    },
+    {
+      "method": "POST",
+      "path": "/user/userspace/edit"
+    },
+    {
+      "method": "GET",
+      "path": "/user/userspace/get"
+    },
+    {
+      "method": "GET",
+      "path": "/user/userspace/get/new"
+    },
+    {
+      "method": "GET",
+      "path": "/user/userspace/model/loadstatus/get"
+    },
+    {
+      "method": "POST",
+      "path": "/user/userspace/model/loadstatus/set"
+    },
+    {
+      "method": "GET",
+      "path": "/user/userspace/recent"
+    }
+  ],
+  "non_current_primary_marks": [],
+  "duplicate_primary_tests": [],
+  "deprecated_routes": [],
+  "routes": []
+}
