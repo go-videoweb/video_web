@@ -1,0 +1,14 @@
+# 仅用于本项目新卷，两个数据副本不等于数据库高可用；需确认两个可用的 Longhorn 存储节点。
+apiVersion: "storage.k8s.io/v1"
+kind: "StorageClass"
+metadata:
+  name: "videoweb-longhorn"
+provisioner: "driver.longhorn.io"
+allowVolumeExpansion: true
+reclaimPolicy: "Retain"
+volumeBindingMode: "Immediate"
+parameters:
+  numberOfReplicas: "2"
+  fsType: "ext4"
+  dataLocality: "disabled"
+  replicaSoftAntiAffinity: "disabled"

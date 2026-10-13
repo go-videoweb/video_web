@@ -1,5 +1,7 @@
 # 本地中间件部署
 
+Kubernetes/k3s 的独立服务清单见 [k8s/README.md](k8s/README.md)，采用 `infrastructure` 与 `videoweb` 两个命名空间，与下文 Compose 配置分别维护。
+
 这份 Compose 是开发环境示例，只定义 MongoDB、DTM、Jaeger、RabbitMQ、三个 Elasticsearch 节点和 Kibana；不包含 MySQL、Redis、Consul，也没有接通异步消费或视频搜索业务。2026-10-12 已将第五步的 Compose 与根忽略规则恢复到工作树，与本目录的环境示例、bootstrap 文件和校验脚本配套；原 stash 保留，文件尚未提交。验证范围仅为静态配置，没有启动容器或访问数据。
 
 以下命令均从 `video_web_backend/` 执行，需要 Docker Compose v2 或更新版本。

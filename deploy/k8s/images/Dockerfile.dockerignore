@@ -1,0 +1,23 @@
+# 仅给这份 Dockerfile 使用的构建上下文，排除本机配置、资源和未交付草稿。
+**
+!util/
+!util/**
+!vw_user/
+!vw_user/**
+!vw_video/
+!vw_video/**
+!vw_gateway/
+!vw_gateway/**
+!resources/
+!resources/default/
+!resources/default/avatar.jpg
+**/configs/**
+**/deploy/**
+**/bin/**
+**/.git/**
+**/.idea/**
+**/*_test.go
+vw_gateway/img.png
+vw_gateway/internal/service/user_service/const.go
+vw_user/internal/data/const.go
+vw_video/internal/data/dal/model/es__video.go

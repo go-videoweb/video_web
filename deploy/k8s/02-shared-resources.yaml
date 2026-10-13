@@ -1,0 +1,13 @@
+# 跨节点共享头像与媒体资源，Longhorn RWX 需要各工作节点具备 NFS 客户端。
+apiVersion: "v1"
+kind: "PersistentVolumeClaim"
+metadata:
+  name: "videoweb-resources"
+  namespace: "videoweb"
+spec:
+  accessModes:
+    - "ReadWriteMany"
+  storageClassName: "videoweb-longhorn"
+  resources:
+    requests:
+      storage: "30Gi"

@@ -1,0 +1,62 @@
+# 首次创建空 Redis Cluster；不会执行 reset、删除数据或修复部分集群。
+apiVersion: "batch/v1"
+kind: "Job"
+metadata:
+  name: "redis-cluster-init"
+  namespace: "infrastructure"
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "redis-cluster-init"
+        app.kubernetes.io/part-of: "videoweb"
+    spec:
+      nodeSelector:
+        workload: "heavy"
+      automountServiceAccountToken: false
+      restartPolicy: "OnFailure"
+      containers:
+        -
+          name: "redis-cluster-init"
+          image: "redis:7.4.2-alpine"
+          command:
+            - "sh"
+            - "-ec"
+            - |-
+              # 仅为空节点分配槽；已有完整集群直接退出，部分集群拒绝重建。
+              endpoints=""
+              ready=0
+              for i in 0 1 2 3 4 5; do
+                host="redis-$i.redis-headless.infrastructure.svc.cluster.local"
+                until redis-cli -h "$host" ping | grep -q PONG; do sleep 3; done
+                info="$(redis-cli -h "$host" cluster info | tr -d '\r')"
+                if echo "$info" | grep -q '^cluster_state:ok$'; then ready=$((ready + 1)); fi
+                endpoints="$endpoints $host:6379"
+              done
+              if [ "$ready" -eq 6 ]; then exit 0; fi
+              for endpoint in $endpoints; do
+                host="${endpoint%:6379}"
+                info="$(redis-cli -h "$host" cluster info | tr -d '\r')"
+                echo "$info" | grep -q '^cluster_known_nodes:1$' || { echo "Existing or partial cluster; inspect manually" >&2; exit 1; }
+                echo "$info" | grep -q '^cluster_slots_assigned:0$' || { echo "Existing slot assignment; inspect manually" >&2; exit 1; }
+              done
+              redis-cli --cluster create $endpoints --cluster-replicas 1 --cluster-yes
+              for i in 0 1 2 3 4 5; do
+                until redis-cli -h "redis-$i.redis-headless.infrastructure.svc.cluster.local" cluster info | tr -d '\r' | grep -q '^cluster_state:ok$'; do sleep 3; done
+              done
+          env:
+            -
+              name: "REDISCLI_AUTH"
+              valueFrom:
+                secretKeyRef:
+                  name: "redis-auth"
+                  key: "password"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

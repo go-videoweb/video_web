@@ -1,0 +1,195 @@
+# 单成员 rs0，支持事务但不具备 MongoDB 副本集容错；密钥只调整容器内副本权限。
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata:
+  name: "mongodb-bootstrap"
+  namespace: "infrastructure"
+data:
+  01-app-user.js: |-
+    // 在 admin 库创建应用账号，视频业务与 DTM Mongo barrier 使用各自数据库。
+    db.getSiblingDB("admin").createUser({
+      user: "videoweb",
+      pwd: process.env.MONGO_APP_PASSWORD,
+      roles: [
+        { role: "readWrite", db: "video_web" },
+        { role: "readWrite", db: "dtm_barrier" }
+      ]
+    });
+---
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "mongodb-headless"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "mongodb"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "mongodb"
+      port: 27017
+      targetPort: "mongodb"
+  clusterIP: "None"
+  publishNotReadyAddresses: true
+---
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "mongodb"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "mongodb"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "mongodb"
+      port: 27017
+      targetPort: "mongodb"
+---
+apiVersion: "apps/v1"
+kind: "StatefulSet"
+metadata:
+  name: "mongodb"
+  namespace: "infrastructure"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "mongodb"
+      app.kubernetes.io/part-of: "videoweb"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "mongodb"
+        app.kubernetes.io/part-of: "videoweb"
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        workload: "heavy"
+      terminationGracePeriodSeconds: 60
+      containers:
+        -
+          name: "mongodb"
+          imagePullPolicy: "IfNotPresent"
+          image: "mongo:8.0"
+          args:
+            - "mongod"
+            - "--bind_ip_all"
+            - "--replSet"
+            - "rs0"
+            - "--keyFile"
+            - "/run/mongo-keyfile/keyfile"
+          ports:
+            -
+              name: "mongodb"
+              containerPort: 27017
+          env:
+            -
+              name: "MONGO_INITDB_ROOT_USERNAME"
+              value: "admin"
+            -
+              name: "MONGO_INITDB_ROOT_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: "mongodb-auth"
+                  key: "root-password"
+            -
+              name: "MONGO_APP_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: "mongodb-auth"
+                  key: "app-password"
+          volumeMounts:
+            -
+              name: "keyfile"
+              mountPath: "/run/mongo-keyfile"
+              readOnly: true
+            -
+              name: "bootstrap"
+              mountPath: "/docker-entrypoint-initdb.d"
+              readOnly: true
+            -
+              name: "data"
+              mountPath: "/data/db"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"
+          startupProbe:
+            tcpSocket:
+              port: "mongodb"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 90
+          readinessProbe:
+            exec:
+              command:
+                - "sh"
+                - "-ec"
+                - "mongosh --quiet --host 127.0.0.1 --username admin --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'quit(db.adminCommand({hello:1}).isWritablePrimary ? 0 : 1)'"
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: "mongodb"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+      volumes:
+        -
+          name: "key-source"
+          secret:
+            secretName: "mongodb-auth"
+            items:
+              -
+                key: "keyfile"
+                path: "keyfile"
+        -
+          name: "keyfile"
+          emptyDir: {}
+        -
+          name: "bootstrap"
+          configMap:
+            name: "mongodb-bootstrap"
+      initContainers:
+        -
+          name: "prepare-keyfile"
+          image: "busybox:1.37.0"
+          command:
+            - "sh"
+            - "-ec"
+            - "cp /source/keyfile /target/keyfile; chown 999:999 /target/keyfile; chmod 400 /target/keyfile"
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+            limits:
+              cpu: "100m"
+              memory: "32Mi"
+          volumeMounts:
+            -
+              name: "key-source"
+              mountPath: "/source"
+              readOnly: true
+            -
+              name: "keyfile"
+              mountPath: "/target"
+  serviceName: "mongodb-headless"
+  podManagementPolicy: "Parallel"
+  volumeClaimTemplates:
+    -
+      metadata:
+        name: "data"
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        storageClassName: "videoweb-longhorn"
+        resources:
+          requests:
+            storage: "10Gi"

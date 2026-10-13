@@ -1,0 +1,159 @@
+# 新建项目专用 MySQL，不连接已有 MySQL；仍需导入业务表、种子数据和 DTM barrier 表。
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata:
+  name: "mysql-bootstrap"
+  namespace: "infrastructure"
+data:
+  01-databases.sh: |-
+    #!/bin/sh
+    # 只在官方镜像首次初始化空数据目录时创建项目库和应用账号。
+    set -eu
+    case "$MYSQL_APP_PASSWORD" in *[!a-zA-Z0-9_-]*|"") echo "Use an alphanumeric MYSQL_APP_PASSWORD" >&2; exit 1;; esac
+    MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot <<SQL
+    CREATE DATABASE IF NOT EXISTS vw_user CHARACTER SET utf8mb4;
+    CREATE DATABASE IF NOT EXISTS vw_video CHARACTER SET utf8mb4;
+    CREATE DATABASE IF NOT EXISTS dtm_barrier CHARACTER SET utf8mb4;
+    CREATE USER IF NOT EXISTS 'videoweb'@'%' IDENTIFIED BY '${MYSQL_APP_PASSWORD}';
+    GRANT ALL ON vw_user.* TO 'videoweb'@'%';
+    GRANT ALL ON vw_video.* TO 'videoweb'@'%';
+    GRANT ALL ON dtm_barrier.* TO 'videoweb'@'%';
+    SQL
+---
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "mysql-headless"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "mysql"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "mysql"
+      port: 3306
+      targetPort: "mysql"
+  clusterIP: "None"
+  publishNotReadyAddresses: true
+---
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "mysql"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "mysql"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "mysql"
+      port: 3306
+      targetPort: "mysql"
+---
+apiVersion: "apps/v1"
+kind: "StatefulSet"
+metadata:
+  name: "mysql"
+  namespace: "infrastructure"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "mysql"
+      app.kubernetes.io/part-of: "videoweb"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "mysql"
+        app.kubernetes.io/part-of: "videoweb"
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        workload: "heavy"
+      terminationGracePeriodSeconds: 60
+      containers:
+        -
+          name: "mysql"
+          imagePullPolicy: "IfNotPresent"
+          image: "mysql:8.0.42"
+          args:
+            - "--datadir=/var/lib/mysql/data"
+            - "--innodb-buffer-pool-size=256M"
+            - "--max-connections=100"
+          ports:
+            -
+              name: "mysql"
+              containerPort: 3306
+          env:
+            -
+              name: "MYSQL_ROOT_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: "mysql-auth"
+                  key: "root-password"
+            -
+              name: "MYSQL_APP_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: "mysql-auth"
+                  key: "app-password"
+          volumeMounts:
+            -
+              name: "bootstrap"
+              mountPath: "/docker-entrypoint-initdb.d"
+              readOnly: true
+            -
+              name: "data"
+              mountPath: "/var/lib/mysql"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1500m"
+              memory: "1Gi"
+          startupProbe:
+            exec:
+              command:
+                - "sh"
+                - "-ec"
+                - "MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" mysql -h 127.0.0.1 -uroot -Nse \"SELECT 1\""
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command:
+                - "sh"
+                - "-ec"
+                - "MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" mysql -h 127.0.0.1 -uroot -Nse \"SELECT 1\""
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: "mysql"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+            initialDelaySeconds: 30
+      volumes:
+        -
+          name: "bootstrap"
+          configMap:
+            name: "mysql-bootstrap"
+  serviceName: "mysql-headless"
+  podManagementPolicy: "Parallel"
+  volumeClaimTemplates:
+    -
+      metadata:
+        name: "data"
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        storageClassName: "videoweb-longhorn"
+        resources:
+          requests:
+            storage: "10Gi"
