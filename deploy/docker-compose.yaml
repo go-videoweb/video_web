@@ -1,0 +1,209 @@
+# 本地中间件示例；启动前先阅读 deploy/README.md。
+x-es-environment: &es-environment
+  cluster.name: es-docker-cluster
+  discovery.seed_hosts: es01,es02,es03
+  bootstrap.memory_lock: "true"
+  ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms512m -Xmx512m}
+  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD in .env}
+  xpack.security.enabled: "true"
+  xpack.security.transport.ssl.enabled: "true"
+  xpack.security.transport.ssl.verification_mode: full
+  xpack.security.transport.ssl.certificate_authorities: certs/ca/ca.crt
+  xpack.security.http.ssl.enabled: "true"
+  xpack.security.http.ssl.certificate_authorities: certs/ca/ca.crt
+
+x-es-common: &es-common
+  image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-8.17.0}
+  restart: unless-stopped
+  mem_limit: ${ES_MEMORY_LIMIT:-1g}
+  ulimits:
+    memlock: {soft: -1, hard: -1}
+  healthcheck:
+    test: [CMD-SHELL, 'curl --fail --silent --cacert config/certs/ca/ca.crt -u "elastic:$${ELASTIC_PASSWORD}" "https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" > /dev/null']
+    interval: 15s
+    timeout: 10s
+    retries: 20
+    start_period: 60s
+
+x-es-certs: &es-certs
+  type: bind
+  source: ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/certs
+  target: /usr/share/elasticsearch/config/certs
+  read_only: true
+  bind: {create_host_path: false}
+
+services:
+  mongodb:
+    image: mongo:8.0
+    container_name: mongoDB
+    restart: unless-stopped
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${MONGO_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Set MONGO_PASSWORD in .env}
+    volumes:
+      - ${MONGO_ROOT:-./deploy/data/mongodb}/logs:/var/log/mongodb
+      - ${MONGO_ROOT:-./deploy/data/mongodb}/data:/data/db
+      - type: bind
+        source: ${MONGO_ROOT:-./deploy/data/mongodb}/config/mongod.conf
+        target: /etc/mongod.conf
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${MONGO_ROOT:-./deploy/data/mongodb}/config/mongo-keyfile
+        target: /run/secrets/mongo-keyfile
+        read_only: true
+        bind: {create_host_path: false}
+    # 只调整容器内 keyfile 副本的权限，保留宿主机原文件。
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        cp /run/secrets/mongo-keyfile /tmp/mongo-keyfile
+        chmod 400 /tmp/mongo-keyfile
+        chown mongodb:mongodb /tmp/mongo-keyfile
+        exec docker-entrypoint.sh mongod --config /etc/mongod.conf --replSet rs0 --keyFile /tmp/mongo-keyfile --bind_ip_all
+
+  dtm:
+    image: yedf/dtm:1.19.0
+    restart: unless-stopped
+    working_dir: /var/lib/dtm
+    environment:
+      STORE_DRIVER: boltdb
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${DTM_HTTP_PORT:-36789}:36789"
+      - "${BIND_HOST:-127.0.0.1}:${DTM_GRPC_PORT:-36790}:36790"
+    volumes:
+      - ${DTM_ROOT:-./deploy/data/dtm}:/var/lib/dtm
+
+  jaeger-alo:
+    image: jaegertracing/all-in-one:1.67.0
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      COLLECTOR_ZIPKIN_HOST_PORT: ":9411"
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${JAEGER_GRPC_PORT:-14250}:14250"
+      - "${BIND_HOST:-127.0.0.1}:${JAEGER_HTTP_PORT:-14268}:14268"
+      - "${BIND_HOST:-127.0.0.1}:${JAEGER_UI_PORT:-16686}:16686"
+      - "${BIND_HOST:-127.0.0.1}:${OTLP_GRPC_PORT:-4317}:4317"
+      - "${BIND_HOST:-127.0.0.1}:${OTLP_HTTP_PORT:-4318}:4318"
+      - "${BIND_HOST:-127.0.0.1}:${ZIPKIN_PORT:-9411}:9411"
+
+  rabbitmq:
+    image: rabbitmq:4.1.0-management
+    hostname: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-videoweb}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-video_web}
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${RABBITMQ_PORT:-5672}:5672"
+      - "${BIND_HOST:-127.0.0.1}:${RABBITMQ_UI_PORT:-15672}:15672"
+    volumes:
+      - ${RABBITMQ_ROOT:-./deploy/data/rabbitmq}/data:/var/lib/rabbitmq
+      - ${RABBITMQ_ROOT:-./deploy/data/rabbitmq}/logs:/var/log/rabbitmq
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  es01:
+    <<: *es-common
+    environment:
+      <<: *es-environment
+      node.name: es01
+      xpack.security.http.ssl.key: certs/es01/es01.key
+      xpack.security.http.ssl.certificate: certs/es01/es01.crt
+      xpack.security.transport.ssl.key: certs/es01/es01.key
+      xpack.security.transport.ssl.certificate: certs/es01/es01.crt
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${ES01_HTTP_PORT:-9201}:9200"
+      - "${BIND_HOST:-127.0.0.1}:${ES01_TRANSPORT_PORT:-9301}:9300"
+    volumes:
+      - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es01/data:/usr/share/elasticsearch/data
+      - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es01/plugins:/usr/share/elasticsearch/plugins
+      - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es01/logs:/usr/share/elasticsearch/logs
+      - *es-certs
+    networks:
+      elastic:
+        ipv4_address: ${ES01_IP:-172.18.0.11}
+
+  es02:
+    <<: *es-common
+    environment:
+      <<: *es-environment
+      node.name: es02
+      xpack.security.http.ssl.key: certs/es02/es02.key
+      xpack.security.http.ssl.certificate: certs/es02/es02.crt
+      xpack.security.transport.ssl.key: certs/es02/es02.key
+      xpack.security.transport.ssl.certificate: certs/es02/es02.crt
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${ES02_HTTP_PORT:-9202}:9200"
+      - "${BIND_HOST:-127.0.0.1}:${ES02_TRANSPORT_PORT:-9302}:9300"
+    volumes:
+      - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es02/data:/usr/share/elasticsearch/data
+      - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es02/plugins:/usr/share/elasticsearch/plugins
+      - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es02/logs:/usr/share/elasticsearch/logs
+      - *es-certs
+    networks:
+      elastic:
+        ipv4_address: ${ES02_IP:-172.18.0.12}
+
+  es03:
+    <<: *es-common
+    environment:
+      <<: *es-environment
+      node.name: es03
+      xpack.security.http.ssl.key: certs/es03/es03.key
+      xpack.security.http.ssl.certificate: certs/es03/es03.crt
+      xpack.security.transport.ssl.key: certs/es03/es03.key
+      xpack.security.transport.ssl.certificate: certs/es03/es03.crt
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${ES03_HTTP_PORT:-9203}:9200"
+      - "${BIND_HOST:-127.0.0.1}:${ES03_TRANSPORT_PORT:-9303}:9300"
+    volumes:
+      - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es03/data:/usr/share/elasticsearch/data
+      - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es03/plugins:/usr/share/elasticsearch/plugins
+      - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es03/logs:/usr/share/elasticsearch/logs
+      - *es-certs
+    networks:
+      elastic:
+        ipv4_address: ${ES03_IP:-172.18.0.13}
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION:-8.17.0}
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: kibana
+      SERVER_HOST: 0.0.0.0
+      ELASTICSEARCH_HOSTS: '["https://es01:9200","https://es02:9200","https://es03:9200"]'
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD:?Set KIBANA_PASSWORD in .env}
+      ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: /usr/share/kibana/config/certs/ca.crt
+      ELASTICSEARCH_SSL_VERIFICATIONMODE: full
+      I18N_LOCALE: zh-CN
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${KIBANA_PORT:-5601}:5601"
+    volumes:
+      - ${KIBANA_ROOT:-./deploy/data/kibana}/data:/usr/share/kibana/data
+      - type: bind
+        source: ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/certs/ca/ca.crt
+        target: /usr/share/kibana/config/certs/ca.crt
+        read_only: true
+        bind: {create_host_path: false}
+    depends_on:
+      es01: {condition: service_healthy}
+      es02: {condition: service_healthy}
+      es03: {condition: service_healthy}
+    networks:
+      elastic:
+        ipv4_address: ${KIBANA_IP:-172.18.0.100}
+
+networks:
+  elastic:
+    name: ${ELASTIC_NETWORK_NAME:-elastic}
+    external: true

@@ -1,3 +1,9 @@
 video_web.zip
 .idea
 resources
+
+# 本机部署凭据与运行数据；只跟踪环境变量示例。
+/.env
+/.env.*
+!/.env.example
+/deploy/data/

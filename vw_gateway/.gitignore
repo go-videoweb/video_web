@@ -41,3 +41,6 @@ bin/
 **/configs/*
 !/configs/config-demo.yaml
 *private*.*
+
+# tmp file
+tmp

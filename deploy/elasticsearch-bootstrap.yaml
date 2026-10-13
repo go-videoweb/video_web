@@ -1,0 +1,11 @@
+# 仅用于首次创建空的三节点集群；已有集群和日常重启不得使用。
+services:
+  es01:
+    environment:
+      cluster.initial_master_nodes: es01,es02,es03
+  es02:
+    environment:
+      cluster.initial_master_nodes: es01,es02,es03
+  es03:
+    environment:
+      cluster.initial_master_nodes: es01,es02,es03
