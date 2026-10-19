@@ -1,0 +1,58 @@
+# 只初始化新的单成员 rs0，不对已有副本集执行 reconfig。
+apiVersion: "batch/v1"
+kind: "Job"
+metadata:
+  name: "mongodb-single-rs-init"
+  namespace: "infrastructure"
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "mongodb-single-rs-init"
+        app.kubernetes.io/part-of: "videoweb"
+    spec:
+      nodeSelector:
+        workload: "heavy"
+      automountServiceAccountToken: false
+      restartPolicy: "OnFailure"
+      containers:
+        -
+          name: "mongodb-single-rs-init"
+          image: "mongo:8.0"
+          command:
+            - "sh"
+            - "-ec"
+            - |-
+              # 通过稳定 DNS 初始化 rs0；已有成员不重配，只验证预期成员。
+              export MONGO_HOST="mongodb-0.mongodb-headless.infrastructure.svc.cluster.local"
+              until mongosh --quiet --host "$MONGO_HOST" --username admin --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval 'quit(db.adminCommand({ping:1}).ok ? 0 : 1)'; do sleep 3; done
+              mongosh --quiet --host "$MONGO_HOST" --username admin --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval '
+              const host = process.env.MONGO_HOST + ":27017";
+              try {
+                const config = rs.conf();
+                if (config._id !== "rs0" || config.members.length !== 1 || config.members[0].host !== host) {
+                  throw new Error("Unexpected replica set; inspect manually");
+                }
+              } catch (error) {
+                if (error.code !== 94) throw error;
+                const result = rs.initiate({_id:"rs0", members:[{_id:0, host}]});
+                if (!result.ok) throw new Error(JSON.stringify(result));
+              }
+              '
+              until mongosh --quiet --host "$MONGO_HOST" --username admin --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval 'quit(db.adminCommand({hello:1}).isWritablePrimary ? 0 : 1)'; do sleep 3; done
+          env:
+            -
+              name: "MONGO_ROOT_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: "mongodb-auth"
+                  key: "root-password"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

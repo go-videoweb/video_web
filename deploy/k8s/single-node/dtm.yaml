@@ -1,0 +1,116 @@
+# 单实例 boltdb 临时存储；由网关注册到项目 Consul，回调必须能访问 Pod 网络。
+# 数据仅保留在当前 Pod 的磁盘型 emptyDir；Pod 重建会清空，不创建 PVC。
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "dtm-headless"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "dtm"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "http"
+      port: 36789
+      targetPort: "http"
+    -
+      name: "grpc"
+      port: 36790
+      targetPort: "grpc"
+  clusterIP: "None"
+  publishNotReadyAddresses: true
+---
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "dtm"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "dtm"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "http"
+      port: 36789
+      targetPort: "http"
+    -
+      name: "grpc"
+      port: 36790
+      targetPort: "grpc"
+---
+apiVersion: "apps/v1"
+kind: "StatefulSet"
+metadata:
+  name: "dtm"
+  namespace: "infrastructure"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "dtm"
+      app.kubernetes.io/part-of: "videoweb"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "dtm"
+        app.kubernetes.io/part-of: "videoweb"
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        workload: "heavy"
+      terminationGracePeriodSeconds: 60
+      volumes:
+        -
+          name: "data"
+          emptyDir:
+            sizeLimit: "1Gi"
+      containers:
+        -
+          name: "dtm"
+          imagePullPolicy: "IfNotPresent"
+          image: "yedf/dtm:1.19.0"
+          workingDir: "/var/lib/dtm"
+          env:
+            -
+              name: "STORE_DRIVER"
+              value: "boltdb"
+          ports:
+            -
+              name: "http"
+              containerPort: 36789
+            -
+              name: "grpc"
+              containerPort: 36790
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          startupProbe:
+            tcpSocket:
+              port: "grpc"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: "grpc"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: "grpc"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          volumeMounts:
+            -
+              name: "data"
+              mountPath: "/var/lib/dtm"
+  serviceName: "dtm-headless"
+  podManagementPolicy: "Parallel"

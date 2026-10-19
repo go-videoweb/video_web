@@ -1,0 +1,10 @@
+# 基础设施与业务分开管理；已有命名空间不代表其中服务可直接覆盖。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: infrastructure
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: videoweb

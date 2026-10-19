@@ -1,0 +1,40 @@
+# 复制到 local/vw_gateway.yaml，填写真实 JWT 与 SMTP 参数后创建配置 Secret。
+server:
+  http: {addr: "0.0.0.0:8001", timeout: 120s}
+  grpc: {addr: "0.0.0.0:9000", timeout: 30s}
+data:
+  redis_cluster:
+    host: redis-0.redis-headless.infrastructure.svc.cluster.local
+    port: ["6379"]
+    password: CHANGE_ME_REDIS
+    dial_timeout: 5s
+    read_timeout: 5s
+    write_timeout: 5s
+    pool_timeout: 5s
+    pool_size: 20
+    min_idle_conns: 2
+    max_retries: 3
+registry:
+  consul:
+    address: consul.infrastructure.svc.cluster.local:8500
+    scheme: http
+trace:
+  endpoint: http://jaeger.infrastructure.svc.cluster.local:14268/api/traces
+jwt:
+  secret: CHANGE_ME_JWT_SECRET
+  access_token_expiration: 2
+  refresh_token_expiration: 7
+email:
+  smtp_host: CHANGE_ME_SMTP_HOST
+  smtp_port: 465
+  smtp_username: CHANGE_ME_SMTP_USER
+  smtp_password: CHANGE_ME_SMTP_PASSWORD
+  smtp_servername: CHANGE_ME_SMTP_HOST
+service:
+  user: {endpoint: "discovery:///videoweb.user.service"}
+  video: {endpoint: "discovery:///videoweb.video.service"}
+dtm:
+  dtm_config:
+    driver: dtm-driver-kratos
+    target: discovery:///dtm
+    endpoint: grpc://dtm.infrastructure.svc.cluster.local:36790

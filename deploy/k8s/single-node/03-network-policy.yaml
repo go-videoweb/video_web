@@ -1,0 +1,47 @@
+# 仅选择本套清单的 Pod，不改变两个命名空间中其他应用的网络策略。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: videoweb-internal
+  namespace: videoweb
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: videoweb
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: videoweb
+        # Consul 健康检查与 DTM Saga 回调需要访问业务 RPC。
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infrastructure
+          podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [consul, dtm]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: videoweb-infrastructure
+  namespace: infrastructure
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: videoweb
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: videoweb
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: videoweb
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: videoweb

@@ -1,0 +1,55 @@
+# 为单个全新 Redis 节点分配全部槽；拒绝已有多成员集群或部分槽状态。
+apiVersion: "batch/v1"
+kind: "Job"
+metadata:
+  name: "redis-single-init"
+  namespace: "infrastructure"
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "redis-single-init"
+        app.kubernetes.io/part-of: "videoweb"
+    spec:
+      nodeSelector:
+        workload: "heavy"
+      automountServiceAccountToken: false
+      restartPolicy: "OnFailure"
+      containers:
+        -
+          name: "redis-single-init"
+          image: "redis:7.4.2-alpine"
+          command:
+            - "sh"
+            - "-ec"
+            - |-
+              set -eu
+              host="redis-0.redis-headless.infrastructure.svc.cluster.local"
+              until redis-cli -h "$host" ping | grep -q PONG; do sleep 3; done
+              info="$(redis-cli -h "$host" cluster info | tr -d '\r')"
+              echo "$info" | grep -q '^cluster_known_nodes:1$' || {
+                echo "Existing multi-node cluster; inspect manually" >&2; exit 1;
+              }
+              if echo "$info" | grep -q '^cluster_slots_assigned:0$'; then
+                redis-cli -e -h "$host" CLUSTER ADDSLOTSRANGE 0 16383
+              elif ! echo "$info" | grep -q '^cluster_slots_assigned:16384$'; then
+                echo "Partial slot assignment; inspect manually" >&2; exit 1
+              fi
+              until redis-cli -h "$host" cluster info | tr -d '\r' | grep -q '^cluster_state:ok$'; do sleep 3; done
+              redis-cli -h "$host" cluster info | tr -d '\r' | grep -q '^cluster_size:1$'
+          env:
+            -
+              name: "REDISCLI_AUTH"
+              valueFrom:
+                secretKeyRef:
+                  name: "redis-auth"
+                  key: "password"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

@@ -1,0 +1,138 @@
+# 单节点 Redis，保留 Cluster 协议以兼容应用的 ClusterClient；不配置副本。
+# 数据仅保留在当前 Pod 的磁盘型 emptyDir；Pod 重建会清空，不创建 PVC。
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "redis-headless"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "redis"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "redis"
+      port: 6379
+      targetPort: "redis"
+    -
+      name: "cluster-bus"
+      port: 16379
+      targetPort: "cluster-bus"
+  clusterIP: "None"
+  publishNotReadyAddresses: true
+---
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "redis"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "redis"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "redis"
+      port: 6379
+      targetPort: "redis"
+---
+apiVersion: "apps/v1"
+kind: "StatefulSet"
+metadata:
+  name: "redis"
+  namespace: "infrastructure"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "redis"
+      app.kubernetes.io/part-of: "videoweb"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "redis"
+        app.kubernetes.io/part-of: "videoweb"
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        workload: "heavy"
+      terminationGracePeriodSeconds: 60
+      volumes:
+        -
+          name: "data"
+          emptyDir:
+            sizeLimit: "1Gi"
+      containers:
+        -
+          name: "redis"
+          imagePullPolicy: "IfNotPresent"
+          image: "redis:7.4.2-alpine"
+          command:
+            - "sh"
+            - "-ec"
+            - "# 用稳定主机名供客户端重定向，节点间通信仍使用当前 Pod IP。\nexec redis-server --port 6379 --bind 0.0.0.0 --protected-mode yes \\\n  --requirepass \"$REDIS_PASSWORD\" --masterauth \"$REDIS_PASSWORD\" \\\n  --cluster-enabled yes --cluster-config-file /data/nodes.conf \\\n  --cluster-node-timeout 10000 --appendonly yes --dir /data \\\n  --cluster-announce-ip \"$POD_IP\" \\\n  --cluster-announce-hostname \"$HOSTNAME.redis-headless.infrastructure.svc.cluster.local\" \\\n  --cluster-preferred-endpoint-type hostname --maxmemory 128mb --maxmemory-policy noeviction\n"
+          env:
+            -
+              name: "REDIS_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: "redis-auth"
+                  key: "password"
+            -
+              name: "REDISCLI_AUTH"
+              valueFrom:
+                secretKeyRef:
+                  name: "redis-auth"
+                  key: "password"
+            -
+              name: "POD_IP"
+              valueFrom:
+                fieldRef:
+                  fieldPath: "status.podIP"
+          ports:
+            -
+              name: "redis"
+              containerPort: 6379
+            -
+              name: "cluster-bus"
+              containerPort: 16379
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          startupProbe:
+            exec:
+              command:
+                - "sh"
+                - "-ec"
+                - "redis-cli ping | grep -q PONG"
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command:
+                - "sh"
+                - "-ec"
+                - "redis-cli ping | grep -q PONG"
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - "sh"
+                - "-ec"
+                - "redis-cli ping | grep -q PONG"
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          volumeMounts:
+            -
+              name: "data"
+              mountPath: "/data"
+  serviceName: "redis-headless"
+  podManagementPolicy: "Parallel"

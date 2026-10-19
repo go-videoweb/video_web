@@ -1,5 +1,9 @@
 # VideoWeb 的 k3s 部署配置
 
+学习环境请使用新增的 [single-node/README.md](single-node/README.md)：各服务单节点、磁盘型 emptyDir，不依赖 Longhorn。下文及本目录根级清单保留原 Redis 三主三从和 Longhorn 方案，未被新方案覆盖或删除。
+
+两套方案使用相同命名空间和服务名，不能同时应用；切换前先备份并按单节点文档处理旧 StatefulSet 和初始化 Job，不要递归应用整个目录。
+
 本目录按服务拆分 Kubernetes 清单，面向 `../k3s-cluster-info.md` 描述的三节点 k3s 集群。基础设施放在 `infrastructure`，业务服务放在 `videoweb`。它是资源受限的开发部署基线，不是生产高可用方案；未执行集群部署、镜像构建、数据迁移或业务联调。
 
 以下命令均从 `video_web_backend/` 执行。先逐节完成准备，再选择应用文件，不要直接整目录递归 apply。

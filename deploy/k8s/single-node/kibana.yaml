@@ -1,0 +1,137 @@
+# 需先设置 ES 中的 kibana_system 密码；界面默认只通过 port-forward 访问。
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "kibana"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "kibana"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "http"
+      port: 5601
+      targetPort: "http"
+---
+apiVersion: "apps/v1"
+kind: "Deployment"
+metadata:
+  name: "kibana"
+  namespace: "infrastructure"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "kibana"
+      app.kubernetes.io/part-of: "videoweb"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "kibana"
+        app.kubernetes.io/part-of: "videoweb"
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        workload: "heavy"
+      terminationGracePeriodSeconds: 60
+      containers:
+        -
+          name: "kibana"
+          imagePullPolicy: "IfNotPresent"
+          image: "docker.elastic.co/kibana/kibana:8.17.0"
+          env:
+            -
+              name: "SERVER_NAME"
+              value: "videoweb-kibana"
+            -
+              name: "SERVER_HOST"
+              value: "0.0.0.0"
+            -
+              name: "ELASTICSEARCH_HOSTS"
+              value: "[\"https://elasticsearch:9200\"]"
+            -
+              name: "ELASTICSEARCH_USERNAME"
+              value: "kibana_system"
+            -
+              name: "ELASTICSEARCH_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: "elasticsearch-auth"
+                  key: "kibana-password"
+            -
+              name: "ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES"
+              value: "/usr/share/kibana/config/certs/ca.crt"
+            -
+              name: "ELASTICSEARCH_SSL_VERIFICATIONMODE"
+              value: "full"
+            -
+              name: "I18N_LOCALE"
+              value: "zh-CN"
+            -
+              name: "NODE_OPTIONS"
+              value: "--max-old-space-size=512"
+            -
+              name: "XPACK_SECURITY_ENCRYPTIONKEY"
+              valueFrom:
+                secretKeyRef:
+                  name: "elasticsearch-auth"
+                  key: "kibana-encryption-key"
+            -
+              name: "XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY"
+              valueFrom:
+                secretKeyRef:
+                  name: "elasticsearch-auth"
+                  key: "kibana-encryption-key"
+            -
+              name: "XPACK_REPORTING_ENCRYPTIONKEY"
+              valueFrom:
+                secretKeyRef:
+                  name: "elasticsearch-auth"
+                  key: "kibana-encryption-key"
+          ports:
+            -
+              name: "http"
+              containerPort: 5601
+          volumeMounts:
+            -
+              name: "ca"
+              mountPath: "/usr/share/kibana/config/certs"
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          startupProbe:
+            tcpSocket:
+              port: "http"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: "/api/status"
+              port: "http"
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: "http"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+      volumes:
+        -
+          name: "ca"
+          secret:
+            secretName: "elasticsearch-tls"
+            items:
+              -
+                key: "ca.crt"
+                path: "ca.crt"
+  strategy:
+    type: "Recreate"

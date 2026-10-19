@@ -1,0 +1,178 @@
+# 资源受限开发基线：单节点 ES、认证与 TLS；禁用 mmap，避免自动修改宿主机 sysctl。
+# 数据仅保留在当前 Pod 的磁盘型 emptyDir；Pod 重建会清空，不创建 PVC。
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "elasticsearch-headless"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "elasticsearch"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "https"
+      port: 9200
+      targetPort: "https"
+    -
+      name: "transport"
+      port: 9300
+      targetPort: "transport"
+  clusterIP: "None"
+  publishNotReadyAddresses: true
+---
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "elasticsearch"
+  namespace: "infrastructure"
+spec:
+  selector:
+    app.kubernetes.io/name: "elasticsearch"
+    app.kubernetes.io/part-of: "videoweb"
+  ports:
+    -
+      name: "https"
+      port: 9200
+      targetPort: "https"
+---
+apiVersion: "apps/v1"
+kind: "StatefulSet"
+metadata:
+  name: "elasticsearch"
+  namespace: "infrastructure"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "elasticsearch"
+      app.kubernetes.io/part-of: "videoweb"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "elasticsearch"
+        app.kubernetes.io/part-of: "videoweb"
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        workload: "heavy"
+      terminationGracePeriodSeconds: 60
+      containers:
+        -
+          name: "elasticsearch"
+          imagePullPolicy: "IfNotPresent"
+          image: "docker.elastic.co/elasticsearch/elasticsearch:8.17.0"
+          env:
+            -
+              name: "node.name"
+              value: "elasticsearch-0"
+            -
+              name: "cluster.name"
+              value: "videoweb"
+            -
+              name: "discovery.type"
+              value: "single-node"
+            -
+              name: "node.store.allow_mmap"
+              value: "false"
+            -
+              name: "ES_JAVA_OPTS"
+              value: "-Xms512m -Xmx512m"
+            -
+              name: "ELASTIC_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: "elasticsearch-auth"
+                  key: "elastic-password"
+            -
+              name: "xpack.security.enabled"
+              value: "true"
+            -
+              name: "xpack.security.enrollment.enabled"
+              value: "false"
+            -
+              name: "xpack.security.http.ssl.enabled"
+              value: "true"
+            -
+              name: "xpack.security.http.ssl.key"
+              value: "certs/tls.key"
+            -
+              name: "xpack.security.http.ssl.certificate"
+              value: "certs/tls.crt"
+            -
+              name: "xpack.security.http.ssl.certificate_authorities"
+              value: "certs/ca.crt"
+            -
+              name: "xpack.security.transport.ssl.enabled"
+              value: "true"
+            -
+              name: "xpack.security.transport.ssl.verification_mode"
+              value: "full"
+            -
+              name: "xpack.security.transport.ssl.key"
+              value: "certs/tls.key"
+            -
+              name: "xpack.security.transport.ssl.certificate"
+              value: "certs/tls.crt"
+            -
+              name: "xpack.security.transport.ssl.certificate_authorities"
+              value: "certs/ca.crt"
+          ports:
+            -
+              name: "https"
+              containerPort: 9200
+            -
+              name: "transport"
+              containerPort: 9300
+          volumeMounts:
+            -
+              name: "tls"
+              mountPath: "/usr/share/elasticsearch/config/certs"
+              readOnly: true
+            -
+              name: "data"
+              mountPath: "/usr/share/elasticsearch/data"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "768Mi"
+            limits:
+              cpu: "2000m"
+              memory: "1536Mi"
+          startupProbe:
+            tcpSocket:
+              port: "https"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 90
+          readinessProbe:
+            exec:
+              command:
+                - "sh"
+                - "-ec"
+                - "curl --fail --silent --cacert config/certs/ca.crt -u \"elastic:$ELASTIC_PASSWORD\" \"https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=3s\" >/dev/null"
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: "https"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+      volumes:
+        -
+          name: "data"
+          emptyDir:
+            sizeLimit: "10Gi"
+        -
+          name: "tls"
+          secret:
+            secretName: "elasticsearch-tls"
+            defaultMode: 292
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+  serviceName: "elasticsearch-headless"
+  podManagementPolicy: "Parallel"
