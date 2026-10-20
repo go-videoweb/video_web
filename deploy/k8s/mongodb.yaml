@@ -5,6 +5,7 @@ metadata:
   name: "mongodb-bootstrap"
   namespace: "infrastructure"
 data:
+  # 仅在空数据目录初始化时创建应用账号与授权；不会初始化 rs0，也不修改已有账号密码。
   01-app-user.js: |-
     // 在 admin 库创建应用账号，视频业务与 DTM Mongo barrier 使用各自数据库。
     db.getSiblingDB("admin").createUser({
@@ -25,12 +26,17 @@ spec:
   selector:
     app.kubernetes.io/name: "mongodb"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "mongodb"
+      # MongoDB 驱动/管理工具入口；副本集成员地址仍需客户端可达。
       port: 27017
       targetPort: "mongodb"
+  # None 表示 Headless Service，不分配虚拟 IP，DNS 直接发布 Pod 地址；不是公网入口。
   clusterIP: "None"
+  # 引导阶段即使 Pod 未 Ready 也发布其地址，避免成员发现/初始化等待就绪形成循环；不能据此判断业务健康。
   publishNotReadyAddresses: true
 ---
 apiVersion: "v1"
@@ -42,9 +48,12 @@ spec:
   selector:
     app.kubernetes.io/name: "mongodb"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "mongodb"
+      # MongoDB 驱动/管理工具入口；副本集成员地址仍需客户端可达。
       port: 27017
       targetPort: "mongodb"
 ---
@@ -81,21 +90,27 @@ spec:
             - "rs0"
             - "--keyFile"
             - "/run/mongo-keyfile/keyfile"
+          # 仅声明容器端口名称/协议，供 Service 和探针引用；不会让进程自动监听，也不发布宿主机端口。
           ports:
             -
               name: "mongodb"
               containerPort: 27017
           env:
             -
+              # 空数据目录首次初始化时在 admin 库创建的管理员用户名；不会覆盖已有账号。
               name: "MONGO_INITDB_ROOT_USERNAME"
               value: "admin"
             -
+              # 空数据目录首次初始化时的管理员密码；修改环境变量不会重置已有密码。
+              # 凭据来源：本命名空间 Secret mongodb-auth/root-password；此处只引用，不写入明文。
               name: "MONGO_INITDB_ROOT_PASSWORD"
               valueFrom:
                 secretKeyRef:
                   name: "mongodb-auth"
                   key: "root-password"
             -
+              # 本清单初始化脚本使用的 videoweb 应用账号密码（账号建在 admin 库），须与两份业务配置一致。
+              # 凭据来源：本命名空间 Secret mongodb-auth/app-password；此处只引用，不写入明文。
               name: "MONGO_APP_PASSWORD"
               valueFrom:
                 secretKeyRef:
@@ -104,14 +119,17 @@ spec:
           volumeMounts:
             -
               name: "keyfile"
+              # MongoDB 实际读取的只读 keyfile 副本；由 initContainer 先复制并设置 0400/999:999。
               mountPath: "/run/mongo-keyfile"
               readOnly: true
             -
               name: "bootstrap"
+              # 官方数据库镜像只在空数据目录初始化时执行这里的脚本，不是每次重启都运行的迁移。
               mountPath: "/docker-entrypoint-initdb.d"
               readOnly: true
             -
               name: "data"
+              # MongoDB 数据、账号及副本集状态目录；keyfile 不存放在这里。
               mountPath: "/data/db"
           resources:
             requests:
@@ -120,12 +138,17 @@ spec:
             limits:
               cpu: "1000m"
               memory: "768Mi"
+          # 只等待 MongoDB TCP 端口打开，不等待副本集成为 primary，给初始化 Job 留出入口。
+          # startup 成功前不执行 readiness/liveness；连续失败达到 failureThreshold 后重启容器。
+          # periodSeconds 是间隔秒数，timeoutSeconds 是单次超时秒数，failureThreshold 是连续失败次数。
           startupProbe:
             tcpSocket:
               port: "mongodb"
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 90
+          # 管理员认证后检查 hello.isWritablePrimary；必须先运行 rs0 初始化 Job，不能先等 Ready 再初始化。
+          # 失败只标记 Pod 未就绪，不重启容器；普通 Service 会按就绪状态选择后端。
           readinessProbe:
             exec:
               command:
@@ -135,6 +158,8 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 6
+          # 只检查 TCP 监听，不因暂时没有 primary 就主动重启，也不验证业务集合。
+          # 连续失败达到阈值才重启容器，不等于删除或重建 Pod；数据是否保留仍由挂载卷决定。
           livenessProbe:
             tcpSocket:
               port: "mongodb"
@@ -144,6 +169,7 @@ spec:
       volumes:
         -
           name: "key-source"
+          # 只投射 keyfile 项，由 initContainer 复制后调整权限；不修改 Secret 的原始投射文件。
           secret:
             secretName: "mongodb-auth"
             items:
@@ -152,11 +178,14 @@ spec:
                 path: "keyfile"
         -
           name: "keyfile"
+          # 仅保存复制后的 keyfile，与该 Pod 同生命周期；Secret 原件不在此卷，Pod 重建会重新复制。
           emptyDir: {}
         -
           name: "bootstrap"
+          # 挂载本清单的数据库初始化脚本；脚本仅在空数据目录初始化时执行，不是已有库的升级迁移。
           configMap:
             name: "mongodb-bootstrap"
+      # 主容器启动前复制 keyfile，并设置 999:999/0400 权限；失败时主容器不会启动，不修改原 Secret。
       initContainers:
         -
           name: "prepare-keyfile"
@@ -175,20 +204,27 @@ spec:
           volumeMounts:
             -
               name: "key-source"
+              # 原始 keyfile 的 Secret 只读投射，不在这里修改属主或权限。
               mountPath: "/source"
               readOnly: true
             -
               name: "keyfile"
+              # initContainer 将 keyfile 复制到独立 emptyDir，再设置 MongoDB 所需权限。
               mountPath: "/target"
+  # 关联上方 Headless Service，为 Pod 提供稳定 DNS/身份；稳定名称不代表 emptyDir 数据会保留。
   serviceName: "mongodb-headless"
   podManagementPolicy: "Parallel"
+  # 为每个 StatefulSet Pod 创建独立 data PVC，相同序号的 Pod 重建后可重新挂载原卷；不是多 Pod 共享目录。
+  # 保留/删除需检查 PVC 保留策略；该字段通常不能原地移除，切换 emptyDir 前须先备份并选择性重建。
   volumeClaimTemplates:
     -
       metadata:
         name: "data"
       spec:
+        # RWO 表示单节点读写挂载，不等于仅允许一个 Pod；它本身不提供应用级高可用。
         accessModes:
           - "ReadWriteOnce"
+        # 使用原方案的项目专用 Longhorn StorageClass 制备卷，依赖已安装的存储驱动；单节点方案不使用它。
         storageClassName: "videoweb-longhorn"
         resources:
           requests:

@@ -8,16 +8,22 @@ spec:
   selector:
     app.kubernetes.io/name: "redis"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "redis"
+      # Redis 客户端命令入口；仍需密码认证。
       port: 6379
       targetPort: "redis"
     -
       name: "cluster-bus"
+      # Redis Cluster 节点间总线，不是供数据库管理工具连接的客户端端口。
       port: 16379
       targetPort: "cluster-bus"
+  # None 表示 Headless Service，不分配虚拟 IP，DNS 直接发布 Pod 地址；不是公网入口。
   clusterIP: "None"
+  # 引导阶段即使 Pod 未 Ready 也发布其地址，避免成员发现/初始化等待就绪形成循环；不能据此判断业务健康。
   publishNotReadyAddresses: true
 ---
 apiVersion: "v1"
@@ -29,9 +35,12 @@ spec:
   selector:
     app.kubernetes.io/name: "redis"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "redis"
+      # Redis 客户端命令入口；仍需密码认证。
       port: 6379
       targetPort: "redis"
 ---
@@ -67,22 +76,28 @@ spec:
             - "# 用稳定主机名供客户端重定向，节点间通信仍使用当前 Pod IP。\nexec redis-server --port 6379 --bind 0.0.0.0 --protected-mode yes \\\n  --requirepass \"$REDIS_PASSWORD\" --masterauth \"$REDIS_PASSWORD\" \\\n  --cluster-enabled yes --cluster-config-file /data/nodes.conf \\\n  --cluster-node-timeout 10000 --appendonly yes --dir /data \\\n  --cluster-announce-ip \"$POD_IP\" \\\n  --cluster-announce-hostname \"$HOSTNAME.redis-headless.infrastructure.svc.cluster.local\" \\\n  --cluster-preferred-endpoint-type hostname --maxmemory 128mb --maxmemory-policy noeviction\n"
           env:
             -
+              # 本清单启动脚本读取的密码，传给 requirepass/masterauth；不是镜像自动识别的配置项。
+              # 凭据来源：本命名空间 Secret redis-auth/password；此处只引用，不写入明文。
               name: "REDIS_PASSWORD"
               valueFrom:
                 secretKeyRef:
                   name: "redis-auth"
                   key: "password"
             -
+              # redis-cli 的认证密码，供探针/初始化 Job 使用；需与服务端 requirepass 一致。
+              # 凭据来源：本命名空间 Secret redis-auth/password；此处只引用，不写入明文。
               name: "REDISCLI_AUTH"
               valueFrom:
                 secretKeyRef:
                   name: "redis-auth"
                   key: "password"
             -
+              # 由 Downward API 读取当前 Pod 的 status.podIP，供启动命令公布可达地址；不是 Service 的 ClusterIP。
               name: "POD_IP"
               valueFrom:
                 fieldRef:
                   fieldPath: "status.podIP"
+          # 仅声明容器端口名称/协议，供 Service 和探针引用；不会让进程自动监听，也不发布宿主机端口。
           ports:
             -
               name: "redis"
@@ -97,6 +112,9 @@ spec:
             limits:
               cpu: "500m"
               memory: "256Mi"
+          # 通过带认证的 redis-cli PING 等待进程启动，不要求槽已分配完毕。
+          # startup 成功前不执行 readiness/liveness；连续失败达到 failureThreshold 后重启容器。
+          # periodSeconds 是间隔秒数，timeoutSeconds 是单次超时秒数，failureThreshold 是连续失败次数。
           startupProbe:
             exec:
               command:
@@ -106,6 +124,8 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 60
+          # 这里只检查 PING，不检查 cluster_state 或完整槽；首次启动仍需等待对应 Redis 初始化 Job。
+          # 失败只标记 Pod 未就绪，不重启容器；普通 Service 会按就绪状态选择后端。
           readinessProbe:
             exec:
               command:
@@ -115,6 +135,8 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 6
+          # 只检查带认证 PING，不把集群槽或主从异常当作需要重启进程的理由。
+          # 连续失败达到阈值才重启容器，不等于删除或重建 Pod；数据是否保留仍由挂载卷决定。
           livenessProbe:
             exec:
               command:
@@ -127,6 +149,7 @@ spec:
           volumeMounts:
             -
               name: "data"
+              # Redis AOF 和 nodes.conf 所在目录；AOF 是否跨 Pod 保留取决于所挂载的卷。
               mountPath: "/data"
       affinity:
         podAntiAffinity:
@@ -139,15 +162,20 @@ spec:
                     app.kubernetes.io/name: "redis"
                     app.kubernetes.io/part-of: "videoweb"
                 topologyKey: "kubernetes.io/hostname"
+  # 关联上方 Headless Service，为 Pod 提供稳定 DNS/身份；稳定名称不代表 emptyDir 数据会保留。
   serviceName: "redis-headless"
   podManagementPolicy: "Parallel"
+  # 为每个 StatefulSet Pod 创建独立 data PVC，相同序号的 Pod 重建后可重新挂载原卷；不是多 Pod 共享目录。
+  # 保留/删除需检查 PVC 保留策略；该字段通常不能原地移除，切换 emptyDir 前须先备份并选择性重建。
   volumeClaimTemplates:
     -
       metadata:
         name: "data"
       spec:
+        # RWO 表示单节点读写挂载，不等于仅允许一个 Pod；它本身不提供应用级高可用。
         accessModes:
           - "ReadWriteOnce"
+        # 使用原方案的项目专用 Longhorn StorageClass 制备卷，依赖已安装的存储驱动；单节点方案不使用它。
         storageClassName: "videoweb-longhorn"
         resources:
           requests:

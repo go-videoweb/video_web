@@ -5,8 +5,10 @@ metadata:
   name: "videoweb-resources"
   namespace: "videoweb"
 spec:
+  # RWX 允许跨节点共享读写，依赖 Longhorn 的 RWX/NFS 能力；不是复制业务服务副本。
   accessModes:
     - "ReadWriteMany"
+  # 使用原方案的项目专用 Longhorn StorageClass 制备卷，依赖已安装的存储驱动；单节点方案不使用它。
   storageClassName: "videoweb-longhorn"
   resources:
     requests:

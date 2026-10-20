@@ -8,29 +8,37 @@ spec:
   selector:
     app.kubernetes.io/name: "jaeger"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "ui"
+      # Jaeger 查询 UI/HTTP API，不是应用发送追踪数据的入口。
       port: 16686
       targetPort: "ui"
     -
       name: "collector"
+      # Jaeger 原生 collector HTTP 接收端口，当前 Go tracing 使用该入口。
       port: 14268
       targetPort: "collector"
     -
       name: "grpc"
+      # Jaeger 原生 collector gRPC 接收端口，与 OTLP gRPC 的 4317 不同。
       port: 14250
       targetPort: "grpc"
     -
       name: "otlp-grpc"
+      # OTLP gRPC 追踪数据接收端口。
       port: 4317
       targetPort: "otlp-grpc"
     -
       name: "otlp-http"
+      # OTLP HTTP 追踪数据接收端口。
       port: 4318
       targetPort: "otlp-http"
     -
       name: "zipkin"
+      # Zipkin 兼容 HTTP 追踪数据接收端口。
       port: 9411
       targetPort: "zipkin"
 ---
@@ -62,14 +70,18 @@ spec:
           image: "jaegertracing/all-in-one:1.67.0"
           env:
             -
+              # 开启 Jaeger 的 OTLP 接收器，接收 4317/gRPC 和 4318/HTTP 的链路数据。
               name: "COLLECTOR_OTLP_ENABLED"
               value: "true"
             -
+              # Zipkin HTTP 接收器的监听地址；:9411 表示在容器网络接口上监听 9411 端口。
               name: "COLLECTOR_ZIPKIN_HOST_PORT"
               value: ":9411"
             -
+              # 内存存储最多保留的 trace 条数，不是字节数；Jaeger 进程退出后追踪数据丢失。
               name: "MEMORY_MAX_TRACES"
               value: "10000"
+          # 仅声明容器端口名称/协议，供 Service 和探针引用；不会让进程自动监听，也不发布宿主机端口。
           ports:
             -
               name: "ui"
@@ -96,18 +108,25 @@ spec:
             limits:
               cpu: "500m"
               memory: "384Mi"
+          # 只等待查询 UI 端口监听，不验证 collector/OTLP 是否已成功接收追踪数据。
+          # startup 成功前不执行 readiness/liveness；连续失败达到 failureThreshold 后重启容器。
+          # periodSeconds 是间隔秒数，timeoutSeconds 是单次超时秒数，failureThreshold 是连续失败次数。
           startupProbe:
             tcpSocket:
               port: "ui"
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 60
+          # 只检查 UI TCP 监听，不验证追踪数据是否写入或可查询。
+          # 失败只标记 Pod 未就绪，不重启容器；普通 Service 会按就绪状态选择后端。
           readinessProbe:
             tcpSocket:
               port: "ui"
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 6
+          # 只检查 UI TCP 监听；进程重启后内存中的 trace 仍会丢失。
+          # 连续失败达到阈值才重启容器，不等于删除或重建 Pod；数据是否保留仍由挂载卷决定。
           livenessProbe:
             tcpSocket:
               port: "ui"

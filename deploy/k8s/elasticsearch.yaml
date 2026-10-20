@@ -8,16 +8,22 @@ spec:
   selector:
     app.kubernetes.io/name: "elasticsearch"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "https"
+      # Elasticsearch HTTPS API；必须使用受信任 CA 和有效账号。
       port: 9200
       targetPort: "https"
     -
       name: "transport"
+      # Elasticsearch 节点间 transport TLS 通信，不接受普通 HTTP 请求。
       port: 9300
       targetPort: "transport"
+  # None 表示 Headless Service，不分配虚拟 IP，DNS 直接发布 Pod 地址；不是公网入口。
   clusterIP: "None"
+  # 引导阶段即使 Pod 未 Ready 也发布其地址，避免成员发现/初始化等待就绪形成循环；不能据此判断业务健康。
   publishNotReadyAddresses: true
 ---
 apiVersion: "v1"
@@ -29,9 +35,12 @@ spec:
   selector:
     app.kubernetes.io/name: "elasticsearch"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "https"
+      # Elasticsearch HTTPS API；必须使用受信任 CA 和有效账号。
       port: 9200
       targetPort: "https"
 ---
@@ -63,59 +72,78 @@ spec:
           image: "docker.elastic.co/elasticsearch/elasticsearch:8.17.0"
           env:
             -
+              # Elasticsearch 节点名称，同一集群内应唯一；不是 Kubernetes 工作节点的名称。
               name: "node.name"
               value: "elasticsearch-0"
             -
+              # Elasticsearch 逻辑集群名称；需要互相加入的节点应保持一致。
               name: "cluster.name"
               value: "videoweb"
             -
+              # single-node 表示单节点发现模式；不能仅增加 replicas 就扩成多节点集群。
               name: "discovery.type"
               value: "single-node"
             -
+              # false 禁用 mmap 存储，避免本学习环境依赖宿主机 vm.max_map_count 调整。
               name: "node.store.allow_mmap"
               value: "false"
             -
+              # 传给 Elasticsearch JVM 的参数；-Xms/-Xmx 分别设置初始/最大堆，不等于容器总内存上限。
               name: "ES_JAVA_OPTS"
               value: "-Xms512m -Xmx512m"
             -
+              # 空数据目录首次启动时设置 elastic 超级用户的引导密码；不会自动重置已有账号密码。
+              # 凭据来源：本命名空间 Secret elasticsearch-auth/elastic-password；此处只引用，不写入明文。
               name: "ELASTIC_PASSWORD"
               valueFrom:
                 secretKeyRef:
                   name: "elasticsearch-auth"
                   key: "elastic-password"
             -
+              # 启用 Elasticsearch 用户认证与权限控制；TLS 仍由下面各层 ssl 配置单独控制。
               name: "xpack.security.enabled"
               value: "true"
             -
+              # 关闭 enrollment 注册功能，本清单使用自行准备的证书和账号，不走自动注册流程。
               name: "xpack.security.enrollment.enabled"
               value: "false"
             -
+              # 为 Elasticsearch HTTP API 启用 TLS，客户端需使用 HTTPS 连接 9200 端口。
               name: "xpack.security.http.ssl.enabled"
               value: "true"
             -
+              # HTTP TLS 的 PEM 私钥路径，相对 Elasticsearch config 目录；必须与下方证书匹配。
               name: "xpack.security.http.ssl.key"
               value: "certs/tls.key"
             -
+              # HTTP TLS 服务端证书路径，相对 config 目录；SAN 需覆盖客户端访问的主机名。
               name: "xpack.security.http.ssl.certificate"
               value: "certs/tls.crt"
             -
+              # HTTP 层信任的 CA 列表，用于校验客户端证书；本项不会单独开启双向 TLS。
               name: "xpack.security.http.ssl.certificate_authorities"
               value: "certs/ca.crt"
             -
+              # 为 Elasticsearch 节点间的 transport 通信启用 TLS，与 HTTP API 的 TLS 独立。
               name: "xpack.security.transport.ssl.enabled"
               value: "true"
             -
+              # full 校验证书链、有效期及对端主机名/IP，节点证书 SAN 必须与连接地址匹配。
               name: "xpack.security.transport.ssl.verification_mode"
               value: "full"
             -
+              # 节点间 transport TLS 的 PEM 私钥路径，相对 config 目录；不是 HTTP 客户端密码。
               name: "xpack.security.transport.ssl.key"
               value: "certs/tls.key"
             -
+              # 节点间 transport TLS 的节点证书路径；应由下面受信任的 CA 签发。
               name: "xpack.security.transport.ssl.certificate"
               value: "certs/tls.crt"
             -
+              # 节点间 TLS 校验信任的 CA 证书列表，路径相对 Elasticsearch config 目录。
               name: "xpack.security.transport.ssl.certificate_authorities"
               value: "certs/ca.crt"
+          # 仅声明容器端口名称/协议，供 Service 和探针引用；不会让进程自动监听，也不发布宿主机端口。
           ports:
             -
               name: "https"
@@ -126,10 +154,12 @@ spec:
           volumeMounts:
             -
               name: "tls"
+              # ES 配置目录下的证书/私钥挂载，需与 env 中相对 certs/ 路径一致。
               mountPath: "/usr/share/elasticsearch/config/certs"
               readOnly: true
             -
               name: "data"
+              # ES 索引、集群元数据和安全状态目录；丢失后可能需重建索引及 Kibana 账号密码。
               mountPath: "/usr/share/elasticsearch/data"
           resources:
             requests:
@@ -138,12 +168,17 @@ spec:
             limits:
               cpu: "2000m"
               memory: "1536Mi"
+          # 只等待 HTTPS 的 TCP 监听，认证、CA 和集群健康由 readinessProbe 再检查。
+          # startup 成功前不执行 readiness/liveness；连续失败达到 failureThreshold 后重启容器。
+          # periodSeconds 是间隔秒数，timeoutSeconds 是单次超时秒数，failureThreshold 是连续失败次数。
           startupProbe:
             tcpSocket:
               port: "https"
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 90
+          # 使用 CA 与 elastic 账号请求健康 API，等待至少 yellow；不要求 green，也不验证具体索引数据。
+          # 失败只标记 Pod 未就绪，不重启容器；普通 Service 会按就绪状态选择后端。
           readinessProbe:
             exec:
               command:
@@ -153,6 +188,8 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 6
+          # 只检查 HTTPS 的 TCP 监听，不将暂时的 yellow/red 健康状态直接作为重启条件。
+          # 连续失败达到阈值才重启容器，不等于删除或重建 Pod；数据是否保留仍由挂载卷决定。
           livenessProbe:
             tcpSocket:
               port: "https"
@@ -162,6 +199,7 @@ spec:
       volumes:
         -
           name: "tls"
+          # 只读投射证书材料；CA/证书/私钥用途不同，不应将私钥作为客户端 CA 使用。
           secret:
             secretName: "elasticsearch-tls"
             defaultMode: 292
@@ -169,15 +207,20 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+  # 关联上方 Headless Service，为 Pod 提供稳定 DNS/身份；稳定名称不代表 emptyDir 数据会保留。
   serviceName: "elasticsearch-headless"
   podManagementPolicy: "Parallel"
+  # 为每个 StatefulSet Pod 创建独立 data PVC，相同序号的 Pod 重建后可重新挂载原卷；不是多 Pod 共享目录。
+  # 保留/删除需检查 PVC 保留策略；该字段通常不能原地移除，切换 emptyDir 前须先备份并选择性重建。
   volumeClaimTemplates:
     -
       metadata:
         name: "data"
       spec:
+        # RWO 表示单节点读写挂载，不等于仅允许一个 Pod；它本身不提供应用级高可用。
         accessModes:
           - "ReadWriteOnce"
+        # 使用原方案的项目专用 Longhorn StorageClass 制备卷，依赖已安装的存储驱动；单节点方案不使用它。
         storageClassName: "videoweb-longhorn"
         resources:
           requests:

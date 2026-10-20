@@ -5,7 +5,9 @@ metadata:
   name: "mongodb-rs-init"
   namespace: "infrastructure"
 spec:
+  # Job 失败重试上限，也会计入 OnFailure 容器重启；耗尽后标记失败，不能当作无限自动修复。
   backoffLimit: 3
+  # 整个 Job 的运行时限，单位秒，含等待依赖；到期会终止仍运行的 Pod 并标记失败。
   activeDeadlineSeconds: 900
   template:
     metadata:
@@ -16,11 +18,13 @@ spec:
       nodeSelector:
         workload: "heavy"
       automountServiceAccountToken: false
+      # 失败退出时重启本 Pod 内的容器；成功结束不重启。已完成 Job 不会因数据库 Pod 重建自动重跑。
       restartPolicy: "OnFailure"
       containers:
         -
           name: "mongodb-rs-init"
           image: "mongo:8.0"
+          # 只对未初始化的 rs0 执行 initiate，已有配置仅核验单成员和稳定地址；不执行 reconfig 或数据恢复。
           command:
             - "sh"
             - "-ec"
@@ -44,6 +48,8 @@ spec:
               until mongosh --quiet --host "$MONGO_HOST" --username admin --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval 'quit(db.adminCommand({hello:1}).isWritablePrimary ? 0 : 1)'; do sleep 3; done
           env:
             -
+              # 初始化 Job 使用的 MongoDB 管理员密码，仅用于初始化/验证 rs0，不是业务账号密码。
+              # 凭据来源：本命名空间 Secret mongodb-auth/root-password；此处只引用，不写入明文。
               name: "MONGO_ROOT_PASSWORD"
               valueFrom:
                 secretKeyRef:

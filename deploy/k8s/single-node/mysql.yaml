@@ -6,6 +6,7 @@ metadata:
   name: "mysql-bootstrap"
   namespace: "infrastructure"
 data:
+  # 仅在官方镜像初始化空数据目录时创建项目库和账号；不创建业务表或 barrier 表，仍需单独导入 schema。
   01-databases.sh: |-
     #!/bin/sh
     # 只在官方镜像首次初始化空数据目录时创建项目库和应用账号。
@@ -30,12 +31,17 @@ spec:
   selector:
     app.kubernetes.io/name: "mysql"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "mysql"
+      # MySQL SQL 客户端入口，不表示已经创建业务表。
       port: 3306
       targetPort: "mysql"
+  # None 表示 Headless Service，不分配虚拟 IP，DNS 直接发布 Pod 地址；不是公网入口。
   clusterIP: "None"
+  # 引导阶段即使 Pod 未 Ready 也发布其地址，避免成员发现/初始化等待就绪形成循环；不能据此判断业务健康。
   publishNotReadyAddresses: true
 ---
 apiVersion: "v1"
@@ -47,9 +53,12 @@ spec:
   selector:
     app.kubernetes.io/name: "mysql"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "mysql"
+      # MySQL SQL 客户端入口，不表示已经创建业务表。
       port: 3306
       targetPort: "mysql"
 ---
@@ -83,18 +92,23 @@ spec:
             - "--datadir=/var/lib/mysql/data"
             - "--innodb-buffer-pool-size=256M"
             - "--max-connections=100"
+          # 仅声明容器端口名称/协议，供 Service 和探针引用；不会让进程自动监听，也不发布宿主机端口。
           ports:
             -
               name: "mysql"
               containerPort: 3306
           env:
             -
+              # 空数据目录首次初始化时的 MySQL root 密码，也用于本清单探针；不会自动轮换已有密码。
+              # 凭据来源：本命名空间 Secret mysql-auth/root-password；此处只引用，不写入明文。
               name: "MYSQL_ROOT_PASSWORD"
               valueFrom:
                 secretKeyRef:
                   name: "mysql-auth"
                   key: "root-password"
             -
+              # 自定义初始化脚本创建 videoweb 账号时使用的密码；仅允许字母、数字、下划线和连字符。
+              # 凭据来源：本命名空间 Secret mysql-auth/app-password；此处只引用，不写入明文。
               name: "MYSQL_APP_PASSWORD"
               valueFrom:
                 secretKeyRef:
@@ -103,10 +117,12 @@ spec:
           volumeMounts:
             -
               name: "bootstrap"
+              # 官方数据库镜像只在空数据目录初始化时执行这里的脚本，不是每次重启都运行的迁移。
               mountPath: "/docker-entrypoint-initdb.d"
               readOnly: true
             -
               name: "data"
+              # MySQL 数据根目录；进程实际使用其 data 子目录，切换挂载不会自动迁移旧库。
               mountPath: "/var/lib/mysql"
           resources:
             requests:
@@ -115,6 +131,9 @@ spec:
             limits:
               cpu: "1500m"
               memory: "1Gi"
+          # 使用 root 执行 SELECT 1，等待 SQL 服务和认证可用；不验证业务 schema 或种子数据。
+          # startup 成功前不执行 readiness/liveness；连续失败达到 failureThreshold 后重启容器。
+          # periodSeconds 是间隔秒数，timeoutSeconds 是单次超时秒数，failureThreshold 是连续失败次数。
           startupProbe:
             exec:
               command:
@@ -124,6 +143,8 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 60
+          # 使用 root 执行 SELECT 1；通过不代表业务库中的表或 dtm_barrier.barrier 已准备好。
+          # 失败只标记 Pod 未就绪，不重启容器；普通 Service 会按就绪状态选择后端。
           readinessProbe:
             exec:
               command:
@@ -133,6 +154,8 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 6
+          # 只检查 MySQL TCP 端口，不执行写操作，也不检查业务表。
+          # 连续失败达到阈值才重启容器，不等于删除或重建 Pod；数据是否保留仍由挂载卷决定。
           livenessProbe:
             tcpSocket:
               port: "mysql"
@@ -143,11 +166,15 @@ spec:
       volumes:
         -
           name: "data"
+          # 磁盘型 Pod 临时卷，同一 Pod 内容器重启通常保留，删除/驱逐/重建 Pod 后丢失，不能跨 Pod 共享。
+          # sizeLimit=10Gi 是使用上限，不预分配或预留磁盘；节点磁盘压力仍可能导致驱逐。
           emptyDir:
             sizeLimit: "10Gi"
         -
           name: "bootstrap"
+          # 挂载本清单的数据库初始化脚本；脚本仅在空数据目录初始化时执行，不是已有库的升级迁移。
           configMap:
             name: "mysql-bootstrap"
+  # 关联上方 Headless Service，为 Pod 提供稳定 DNS/身份；稳定名称不代表 emptyDir 数据会保留。
   serviceName: "mysql-headless"
   podManagementPolicy: "Parallel"

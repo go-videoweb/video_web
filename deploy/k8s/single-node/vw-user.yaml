@@ -9,9 +9,12 @@ spec:
   selector:
     app.kubernetes.io/name: "vw-user"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "grpc"
+      # 用户服务内部 gRPC，供网关/视频服务调用，不是浏览器 HTTP API。
       port: 9001
       targetPort: "grpc"
 ---
@@ -48,14 +51,18 @@ spec:
             - "/etc/videoweb/config.yaml"
           env:
             -
+              # Consul API 默认地址，供 util/resolver 的 DefaultConfig 使用，避免 Saga 查址误连 localhost。
               name: "CONSUL_HTTP_ADDR"
               value: "http://consul.infrastructure.svc.cluster.local:8500"
             -
+              # Go 运行时管理内存的软限制（此处单位 MiB）；不是容器硬上限，也不约束 ffmpeg 等子进程。
               name: "GOMEMLIMIT"
               value: "256MiB"
             -
+              # 可同时执行 Go 代码的最大 CPU 数；不是 goroutine 数，也不是容器 CPU 配额。
               name: "GOMAXPROCS"
               value: "2"
+          # 仅声明容器端口名称/协议，供 Service 和探针引用；不会让进程自动监听，也不发布宿主机端口。
           ports:
             -
               name: "grpc"
@@ -63,13 +70,17 @@ spec:
           volumeMounts:
             -
               name: "config"
+              # 以文件方式提供 Kratos config.yaml；配置中的环境占位符不会自动展开。
               mountPath: "/etc/videoweb"
               readOnly: true
             -
               name: "resources"
+              # 默认头像和用户上传头像目录；数据库记录路径并不等于备份了这些文件。
+              # 必须与镜像保留的 /workspace 源码路径一致；只改挂载路径不会改变 runtime.Caller 的定位逻辑。
               mountPath: "/workspace/resources"
             -
               name: "tmp"
+              # 进程临时目录，与 /workspace/resources/tmp 不是同一个目录。
               mountPath: "/tmp"
           resources:
             requests:
@@ -78,18 +89,25 @@ spec:
             limits:
               cpu: "1000m"
               memory: "384Mi"
+          # 只等待业务 gRPC端口监听，不验证数据库、schema 和完整下游调用链。
+          # startup 成功前不执行 readiness/liveness；连续失败达到 failureThreshold 后重启容器。
+          # periodSeconds 是间隔秒数，timeoutSeconds 是单次超时秒数，failureThreshold 是连续失败次数。
           startupProbe:
             tcpSocket:
               port: "grpc"
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 90
+          # 只检查gRPC TCP 监听，不等于登录、上传、播放或 Saga 已验证成功。
+          # 失败只标记 Pod 未就绪，不重启容器；普通 Service 会按就绪状态选择后端。
           readinessProbe:
             tcpSocket:
               port: "grpc"
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 6
+          # 只检查业务监听端口，不检查下游数据库或 RPC；不能用重启替代修复依赖。
+          # 连续失败达到阈值才重启容器，不等于删除或重建 Pod；数据是否保留仍由挂载卷决定。
           livenessProbe:
             tcpSocket:
               port: "grpc"
@@ -99,16 +117,22 @@ spec:
       volumes:
         -
           name: "config"
+          # 将应用配置以 Secret 文件提供；挂载更新不等于应用会重新加载，也不自动轮换数据库账号。
           secret:
             secretName: "vw-user-config"
         -
           name: "resources"
+          # 磁盘型 Pod 临时卷，同一 Pod 内容器重启通常保留，删除/驱逐/重建 Pod 后丢失，不能跨 Pod 共享。
+          # sizeLimit=2Gi 是使用上限，不预分配或预留磁盘；节点磁盘压力仍可能导致驱逐。
           emptyDir:
             sizeLimit: "2Gi"
         -
           name: "tmp"
+          # 磁盘型 Pod 临时卷，同一 Pod 内容器重启通常保留，删除/驱逐/重建 Pod 后丢失，不能跨 Pod 共享。
+          # sizeLimit=1Gi 是使用上限，不预分配或预留磁盘；节点磁盘压力仍可能导致驱逐。
           emptyDir:
             sizeLimit: "1Gi"
+      # 新 Pod 启动主容器前补齐默认头像和 tmp 目录；不导入历史媒体，同一 Pod 主容器重启通常不重跑。
       initContainers:
         -
           name: "prepare-resources"
@@ -127,6 +151,8 @@ spec:
           volumeMounts:
             -
               name: "resources"
+              # 默认头像和用户上传头像目录；数据库记录路径并不等于备份了这些文件。
+              # 必须与镜像保留的 /workspace 源码路径一致；只改挂载路径不会改变 runtime.Caller 的定位逻辑。
               mountPath: "/workspace/resources"
       securityContext:
         runAsNonRoot: true

@@ -9,16 +9,22 @@ spec:
   selector:
     app.kubernetes.io/name: "dtm"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "http"
+      # DTM HTTP API/管理入口，不是业务网关的 HTTP 端口。
       port: 36789
       targetPort: "http"
     -
       name: "grpc"
+      # DTM gRPC 事务协调入口，Saga 回调还需能访问业务 RPC。
       port: 36790
       targetPort: "grpc"
+  # None 表示 Headless Service，不分配虚拟 IP，DNS 直接发布 Pod 地址；不是公网入口。
   clusterIP: "None"
+  # 引导阶段即使 Pod 未 Ready 也发布其地址，避免成员发现/初始化等待就绪形成循环；不能据此判断业务健康。
   publishNotReadyAddresses: true
 ---
 apiVersion: "v1"
@@ -30,13 +36,17 @@ spec:
   selector:
     app.kubernetes.io/name: "dtm"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "http"
+      # DTM HTTP API/管理入口，不是业务网关的 HTTP 端口。
       port: 36789
       targetPort: "http"
     -
       name: "grpc"
+      # DTM gRPC 事务协调入口，Saga 回调还需能访问业务 RPC。
       port: 36790
       targetPort: "grpc"
 ---
@@ -64,6 +74,8 @@ spec:
       volumes:
         -
           name: "data"
+          # 磁盘型 Pod 临时卷，同一 Pod 内容器重启通常保留，删除/驱逐/重建 Pod 后丢失，不能跨 Pod 共享。
+          # sizeLimit=1Gi 是使用上限，不预分配或预留磁盘；节点磁盘压力仍可能导致驱逐。
           emptyDir:
             sizeLimit: "1Gi"
       containers:
@@ -74,8 +86,10 @@ spec:
           workingDir: "/var/lib/dtm"
           env:
             -
+              # 选择 DTM 事务状态存储后端；boltdb 使用本地文件，数据保留取决于数据卷的生命周期。
               name: "STORE_DRIVER"
               value: "boltdb"
+          # 仅声明容器端口名称/协议，供 Service 和探针引用；不会让进程自动监听，也不发布宿主机端口。
           ports:
             -
               name: "http"
@@ -90,18 +104,25 @@ spec:
             limits:
               cpu: "500m"
               memory: "256Mi"
+          # 只等待 DTM gRPC 监听，不验证事务回调或 barrier 数据库。
+          # startup 成功前不执行 readiness/liveness；连续失败达到 failureThreshold 后重启容器。
+          # periodSeconds 是间隔秒数，timeoutSeconds 是单次超时秒数，failureThreshold 是连续失败次数。
           startupProbe:
             tcpSocket:
               port: "grpc"
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 60
+          # gRPC 端口可连接不等于 Saga 回调、Consul 发现和补偿操作已经联调成功。
+          # 失败只标记 Pod 未就绪，不重启容器；普通 Service 会按就绪状态选择后端。
           readinessProbe:
             tcpSocket:
               port: "grpc"
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 6
+          # 只检查 DTM gRPC 监听，不能自动补回已经丢失的事务状态。
+          # 连续失败达到阈值才重启容器，不等于删除或重建 Pod；数据是否保留仍由挂载卷决定。
           livenessProbe:
             tcpSocket:
               port: "grpc"
@@ -111,6 +132,8 @@ spec:
           volumeMounts:
             -
               name: "data"
+              # DTM 本地事务状态目录；丢失未完成事务时，不能承诺自动补偿恢复。
               mountPath: "/var/lib/dtm"
+  # 关联上方 Headless Service，为 Pod 提供稳定 DNS/身份；稳定名称不代表 emptyDir 数据会保留。
   serviceName: "dtm-headless"
   podManagementPolicy: "Parallel"

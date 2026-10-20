@@ -3,9 +3,13 @@ apiVersion: "storage.k8s.io/v1"
 kind: "StorageClass"
 metadata:
   name: "videoweb-longhorn"
+# Longhorn CSI 动态制备器名称，必须由集群已有驱动提供；本清单不会安装 Longhorn。
 provisioner: "driver.longhorn.io"
+# 允许按存储驱动能力手工增大 PVC 容量；不会自动扩容，也不支持用此开关缩小已有卷。
 allowVolumeExpansion: true
+# Retain 在 PVC 释放后保留 PV/后端数据供人工处理；不是自动备份，也不等于卷会自动重新绑定。
 reclaimPolicy: "Retain"
+# Immediate 在 PVC 创建后即开始制备/绑定，不等待使用它的 Pod 完成调度。
 volumeBindingMode: "Immediate"
 parameters:
   numberOfReplicas: "2"

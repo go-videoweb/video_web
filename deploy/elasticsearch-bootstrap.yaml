@@ -2,10 +2,13 @@
 services:
   es01:
     environment:
+      # 仅用于全新 ES 集群首次选主的节点名列表；集群创建后移除，不能用于已有集群重启。
       cluster.initial_master_nodes: es01,es02,es03
   es02:
     environment:
+      # 仅用于全新 ES 集群首次选主的节点名列表；集群创建后移除，不能用于已有集群重启。
       cluster.initial_master_nodes: es01,es02,es03
   es03:
     environment:
+      # 仅用于全新 ES 集群首次选主的节点名列表；集群创建后移除，不能用于已有集群重启。
       cluster.initial_master_nodes: es01,es02,es03

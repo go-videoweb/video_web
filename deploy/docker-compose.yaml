@@ -1,15 +1,26 @@
 # 本地中间件示例；启动前先阅读 deploy/README.md。
 x-es-environment: &es-environment
+  # Elasticsearch 逻辑集群名称；需要互相加入的节点应保持一致。
   cluster.name: es-docker-cluster
+  # 多节点 Elasticsearch 的发现种子主机列表，帮助节点寻找并加入已有集群。
   discovery.seed_hosts: es01,es02,es03
+  # 锁定 Elasticsearch 进程内存以减少交换；需与下方 memlock ulimits 配套，不设置堆大小。
   bootstrap.memory_lock: "true"
+  # 传给 Elasticsearch JVM 的参数；-Xms/-Xmx 分别设置初始/最大堆，不等于容器总内存上限。
   ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms512m -Xmx512m}
+  # 空数据目录首次启动时设置 elastic 超级用户的引导密码；不会自动重置已有账号密码。
   ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD in .env}
+  # 启用 Elasticsearch 用户认证与权限控制；TLS 仍由下面各层 ssl 配置单独控制。
   xpack.security.enabled: "true"
+  # 为 Elasticsearch 节点间的 transport 通信启用 TLS，与 HTTP API 的 TLS 独立。
   xpack.security.transport.ssl.enabled: "true"
+  # full 校验证书链、有效期及对端主机名/IP，节点证书 SAN 必须与连接地址匹配。
   xpack.security.transport.ssl.verification_mode: full
+  # 节点间 TLS 校验信任的 CA 证书列表，路径相对 Elasticsearch config 目录。
   xpack.security.transport.ssl.certificate_authorities: certs/ca/ca.crt
+  # 为 Elasticsearch HTTP API 启用 TLS，客户端需使用 HTTPS 连接 9200 端口。
   xpack.security.http.ssl.enabled: "true"
+  # HTTP 层信任的 CA 列表，用于校验客户端证书；本项不会单独开启双向 TLS。
   xpack.security.http.ssl.certificate_authorities: certs/ca/ca.crt
 
 x-es-common: &es-common
@@ -18,6 +29,8 @@ x-es-common: &es-common
   mem_limit: ${ES_MEMORY_LIMIT:-1g}
   ulimits:
     memlock: {soft: -1, hard: -1}
+  # 以 CA 和账号请求 ES 健康 API，允许 yellow；不验证具体索引内容。
+  # unhealthy 只是健康状态；restart: unless-stopped 不会仅因健康检查失败自动重启容器。
   healthcheck:
     test: [CMD-SHELL, 'curl --fail --silent --cacert config/certs/ca/ca.crt -u "elastic:$${ELASTIC_PASSWORD}" "https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" > /dev/null']
     interval: 15s
@@ -37,11 +50,17 @@ services:
     image: mongo:8.0
     container_name: mongoDB
     restart: unless-stopped
+    # 格式为 绑定地址:宿主机端口:容器端口；BIND_HOST 默认 127.0.0.1，只供宿主机本地访问。
+    # 改成非回环地址会扩大暴露范围，须同时核对防火墙、认证和 TLS；这不同于 k8s 的 ClusterIP。
     ports:
       - "${BIND_HOST:-127.0.0.1}:${MONGO_PORT:-27017}:27017"
     environment:
+      # 空数据目录首次初始化时在 admin 库创建的管理员用户名；不会覆盖已有账号。
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
+      # 空数据目录首次初始化时的管理员密码；修改环境变量不会重置已有密码。
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Set MONGO_PASSWORD in .env}
+    # 这些是宿主机路径绑定，不是 emptyDir；容器重建不会自动清空宿主机目录，也不会替你迁移旧数据。
+    # 数据目录与配置/keyfile 分别挂载；配置和密钥必须先准备为文件，不能由 Docker 误建成目录。
     volumes:
       - ${MONGO_ROOT:-./deploy/data/mongodb}/logs:/var/log/mongodb
       - ${MONGO_ROOT:-./deploy/data/mongodb}/data:/data/db
@@ -56,6 +75,7 @@ services:
         read_only: true
         bind: {create_host_path: false}
     # 只调整容器内 keyfile 副本的权限，保留宿主机原文件。
+    # 只在容器内复制 keyfile 并修正权限，然后交回官方 entrypoint；不会自动执行 rs.initiate()。
     command:
       - /bin/sh
       - -ec
@@ -70,10 +90,15 @@ services:
     restart: unless-stopped
     working_dir: /var/lib/dtm
     environment:
+      # 选择 DTM 事务状态存储后端；boltdb 使用本地文件，数据保留取决于数据卷的生命周期。
       STORE_DRIVER: boltdb
+    # 格式为 绑定地址:宿主机端口:容器端口；BIND_HOST 默认 127.0.0.1，只供宿主机本地访问。
+    # 改成非回环地址会扩大暴露范围，须同时核对防火墙、认证和 TLS；这不同于 k8s 的 ClusterIP。
     ports:
       - "${BIND_HOST:-127.0.0.1}:${DTM_HTTP_PORT:-36789}:36789"
       - "${BIND_HOST:-127.0.0.1}:${DTM_GRPC_PORT:-36790}:36790"
+    # 这些是宿主机路径绑定，不是 emptyDir；容器重建不会自动清空宿主机目录，也不会替你迁移旧数据。
+    # DTM 的本地事务状态依赖这个目录；切换路径不会自动搬迁状态，也不能恢复已经丢失的事务。
     volumes:
       - ${DTM_ROOT:-./deploy/data/dtm}:/var/lib/dtm
 
@@ -81,8 +106,12 @@ services:
     image: jaegertracing/all-in-one:1.67.0
     restart: unless-stopped
     environment:
+      # 开启 Jaeger 的 OTLP 接收器，接收 4317/gRPC 和 4318/HTTP 的链路数据。
       COLLECTOR_OTLP_ENABLED: "true"
+      # Zipkin HTTP 接收器的监听地址；:9411 表示在容器网络接口上监听 9411 端口。
       COLLECTOR_ZIPKIN_HOST_PORT: ":9411"
+    # 格式为 绑定地址:宿主机端口:容器端口；BIND_HOST 默认 127.0.0.1，只供宿主机本地访问。
+    # 改成非回环地址会扩大暴露范围，须同时核对防火墙、认证和 TLS；这不同于 k8s 的 ClusterIP。
     ports:
       - "${BIND_HOST:-127.0.0.1}:${JAEGER_GRPC_PORT:-14250}:14250"
       - "${BIND_HOST:-127.0.0.1}:${JAEGER_HTTP_PORT:-14268}:14268"
@@ -96,15 +125,24 @@ services:
     hostname: rabbitmq
     restart: unless-stopped
     environment:
+      # 空数据目录初始化时创建的默认 RabbitMQ 用户名；不会覆盖已有用户。
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-videoweb}
+      # 默认 RabbitMQ 用户的初始密码；不是 Erlang cookie，也不会自动轮换已有密码。
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+      # 首次初始化创建的虚拟主机，隔离交换机/队列和权限；AMQP 客户端需连接同一 vhost。
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-video_web}
+    # 格式为 绑定地址:宿主机端口:容器端口；BIND_HOST 默认 127.0.0.1，只供宿主机本地访问。
+    # 改成非回环地址会扩大暴露范围，须同时核对防火墙、认证和 TLS；这不同于 k8s 的 ClusterIP。
     ports:
       - "${BIND_HOST:-127.0.0.1}:${RABBITMQ_PORT:-5672}:5672"
       - "${BIND_HOST:-127.0.0.1}:${RABBITMQ_UI_PORT:-15672}:15672"
+    # 这些是宿主机路径绑定，不是 emptyDir；容器重建不会自动清空宿主机目录，也不会替你迁移旧数据。
+    # RabbitMQ 节点账号、队列与落盘消息依赖 data 目录；仅备份 logs 不能恢复这些状态。
     volumes:
       - ${RABBITMQ_ROOT:-./deploy/data/rabbitmq}/data:/var/lib/rabbitmq
       - ${RABBITMQ_ROOT:-./deploy/data/rabbitmq}/logs:/var/log/rabbitmq
+    # 仅检查 RabbitMQ 节点响应，不验证业务账号、队列或消费者。
+    # unhealthy 只是健康状态；restart: unless-stopped 不会仅因健康检查失败自动重启容器。
     healthcheck:
       test: [CMD, rabbitmq-diagnostics, -q, ping]
       interval: 15s
@@ -114,15 +152,25 @@ services:
   es01:
     <<: *es-common
     environment:
+      # 继承上方 ES 公共环境变量；本节仅补充或覆盖当前节点专有配置。
       <<: *es-environment
+      # Elasticsearch 节点名称，同一集群内应唯一；不是 Kubernetes 工作节点的名称。
       node.name: es01
+      # HTTP TLS 的 PEM 私钥路径，相对 Elasticsearch config 目录；必须与下方证书匹配。
       xpack.security.http.ssl.key: certs/es01/es01.key
+      # HTTP TLS 服务端证书路径，相对 config 目录；SAN 需覆盖客户端访问的主机名。
       xpack.security.http.ssl.certificate: certs/es01/es01.crt
+      # 节点间 transport TLS 的 PEM 私钥路径，相对 config 目录；不是 HTTP 客户端密码。
       xpack.security.transport.ssl.key: certs/es01/es01.key
+      # 节点间 transport TLS 的节点证书路径；应由下面受信任的 CA 签发。
       xpack.security.transport.ssl.certificate: certs/es01/es01.crt
+    # 格式为 绑定地址:宿主机端口:容器端口；BIND_HOST 默认 127.0.0.1，只供宿主机本地访问。
+    # 改成非回环地址会扩大暴露范围，须同时核对防火墙、认证和 TLS；这不同于 k8s 的 ClusterIP。
     ports:
       - "${BIND_HOST:-127.0.0.1}:${ES01_HTTP_PORT:-9201}:9200"
       - "${BIND_HOST:-127.0.0.1}:${ES01_TRANSPORT_PORT:-9301}:9300"
+    # 这些是宿主机路径绑定，不是 emptyDir；容器重建不会自动清空宿主机目录，也不会替你迁移旧数据。
+    # 修改挂载根目录前先备份，证书路径应指向已准备的文件，不能把启动空目录当作恢复成功。
     volumes:
       - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es01/data:/usr/share/elasticsearch/data
       - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es01/plugins:/usr/share/elasticsearch/plugins
@@ -135,15 +183,25 @@ services:
   es02:
     <<: *es-common
     environment:
+      # 继承上方 ES 公共环境变量；本节仅补充或覆盖当前节点专有配置。
       <<: *es-environment
+      # Elasticsearch 节点名称，同一集群内应唯一；不是 Kubernetes 工作节点的名称。
       node.name: es02
+      # HTTP TLS 的 PEM 私钥路径，相对 Elasticsearch config 目录；必须与下方证书匹配。
       xpack.security.http.ssl.key: certs/es02/es02.key
+      # HTTP TLS 服务端证书路径，相对 config 目录；SAN 需覆盖客户端访问的主机名。
       xpack.security.http.ssl.certificate: certs/es02/es02.crt
+      # 节点间 transport TLS 的 PEM 私钥路径，相对 config 目录；不是 HTTP 客户端密码。
       xpack.security.transport.ssl.key: certs/es02/es02.key
+      # 节点间 transport TLS 的节点证书路径；应由下面受信任的 CA 签发。
       xpack.security.transport.ssl.certificate: certs/es02/es02.crt
+    # 格式为 绑定地址:宿主机端口:容器端口；BIND_HOST 默认 127.0.0.1，只供宿主机本地访问。
+    # 改成非回环地址会扩大暴露范围，须同时核对防火墙、认证和 TLS；这不同于 k8s 的 ClusterIP。
     ports:
       - "${BIND_HOST:-127.0.0.1}:${ES02_HTTP_PORT:-9202}:9200"
       - "${BIND_HOST:-127.0.0.1}:${ES02_TRANSPORT_PORT:-9302}:9300"
+    # 这些是宿主机路径绑定，不是 emptyDir；容器重建不会自动清空宿主机目录，也不会替你迁移旧数据。
+    # 修改挂载根目录前先备份，证书路径应指向已准备的文件，不能把启动空目录当作恢复成功。
     volumes:
       - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es02/data:/usr/share/elasticsearch/data
       - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es02/plugins:/usr/share/elasticsearch/plugins
@@ -156,15 +214,25 @@ services:
   es03:
     <<: *es-common
     environment:
+      # 继承上方 ES 公共环境变量；本节仅补充或覆盖当前节点专有配置。
       <<: *es-environment
+      # Elasticsearch 节点名称，同一集群内应唯一；不是 Kubernetes 工作节点的名称。
       node.name: es03
+      # HTTP TLS 的 PEM 私钥路径，相对 Elasticsearch config 目录；必须与下方证书匹配。
       xpack.security.http.ssl.key: certs/es03/es03.key
+      # HTTP TLS 服务端证书路径，相对 config 目录；SAN 需覆盖客户端访问的主机名。
       xpack.security.http.ssl.certificate: certs/es03/es03.crt
+      # 节点间 transport TLS 的 PEM 私钥路径，相对 config 目录；不是 HTTP 客户端密码。
       xpack.security.transport.ssl.key: certs/es03/es03.key
+      # 节点间 transport TLS 的节点证书路径；应由下面受信任的 CA 签发。
       xpack.security.transport.ssl.certificate: certs/es03/es03.crt
+    # 格式为 绑定地址:宿主机端口:容器端口；BIND_HOST 默认 127.0.0.1，只供宿主机本地访问。
+    # 改成非回环地址会扩大暴露范围，须同时核对防火墙、认证和 TLS；这不同于 k8s 的 ClusterIP。
     ports:
       - "${BIND_HOST:-127.0.0.1}:${ES03_HTTP_PORT:-9203}:9200"
       - "${BIND_HOST:-127.0.0.1}:${ES03_TRANSPORT_PORT:-9303}:9300"
+    # 这些是宿主机路径绑定，不是 emptyDir；容器重建不会自动清空宿主机目录，也不会替你迁移旧数据。
+    # 修改挂载根目录前先备份，证书路径应指向已准备的文件，不能把启动空目录当作恢复成功。
     volumes:
       - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es03/data:/usr/share/elasticsearch/data
       - ${ELASTICSEARCH_ROOT:-./deploy/data/elasticsearch}/es03/plugins:/usr/share/elasticsearch/plugins
@@ -178,16 +246,28 @@ services:
     image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION:-8.17.0}
     restart: unless-stopped
     environment:
+      # Kibana 实例名称，用于日志等实例标识；不是对外访问域名或服务发现地址。
       SERVER_NAME: kibana
+      # Kibana HTTP 的监听地址；0.0.0.0 监听容器所有 IPv4 接口，对外暴露仍由端口/Service 控制。
       SERVER_HOST: 0.0.0.0
+      # Kibana 后台连接的 Elasticsearch HTTPS 地址数组（JSON 字符串），不是浏览器访问 Kibana 的地址。
       ELASTICSEARCH_HOSTS: '["https://es01:9200","https://es02:9200","https://es03:9200"]'
+      # Kibana 后台访问 ES 的内置 kibana_system 账号，不用于浏览器登录。
       ELASTICSEARCH_USERNAME: kibana_system
+      # kibana_system 在 ES 中已设置的密码；仅修改此变量不会同步修改 ES 账号。
       ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD:?Set KIBANA_PASSWORD in .env}
+      # Kibana 校验 ES HTTPS 证书所信任的 CA 文件，使用容器内挂载路径。
       ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: /usr/share/kibana/config/certs/ca.crt
+      # full 同时验证 ES 证书链与主机名；CA 可信还不够，连接地址也必须匹配证书 SAN。
       ELASTICSEARCH_SSL_VERIFICATIONMODE: full
+      # Kibana 界面语言；zh-CN 使用简体中文，不修改业务数据编码或时区。
       I18N_LOCALE: zh-CN
+    # 格式为 绑定地址:宿主机端口:容器端口；BIND_HOST 默认 127.0.0.1，只供宿主机本地访问。
+    # 改成非回环地址会扩大暴露范围，须同时核对防火墙、认证和 TLS；这不同于 k8s 的 ClusterIP。
     ports:
       - "${BIND_HOST:-127.0.0.1}:${KIBANA_PORT:-5601}:5601"
+    # 这些是宿主机路径绑定，不是 emptyDir；容器重建不会自动清空宿主机目录，也不会替你迁移旧数据。
+    # 本地 data 与 ES CA 分别挂载；Kibana 保存对象主要在 ES 中，备份本目录不能替代 ES 备份。
     volumes:
       - ${KIBANA_ROOT:-./deploy/data/kibana}/data:/usr/share/kibana/data
       - type: bind
@@ -195,6 +275,7 @@ services:
         target: /usr/share/kibana/config/certs/ca.crt
         read_only: true
         bind: {create_host_path: false}
+    # 等待各 ES 容器达到 service_healthy 后再启动 Kibana；这是启动顺序，不是持续可用性保证。
     depends_on:
       es01: {condition: service_healthy}
       es02: {condition: service_healthy}

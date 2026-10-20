@@ -5,7 +5,9 @@ metadata:
   name: "redis-cluster-init"
   namespace: "infrastructure"
 spec:
+  # Job 失败重试上限，也会计入 OnFailure 容器重启；耗尽后标记失败，不能当作无限自动修复。
   backoffLimit: 3
+  # 整个 Job 的运行时限，单位秒，含等待依赖；到期会终止仍运行的 Pod 并标记失败。
   activeDeadlineSeconds: 900
   template:
     metadata:
@@ -16,11 +18,13 @@ spec:
       nodeSelector:
         workload: "heavy"
       automountServiceAccountToken: false
+      # 失败退出时重启本 Pod 内的容器；成功结束不重启。已完成 Job 不会因数据库 Pod 重建自动重跑。
       restartPolicy: "OnFailure"
       containers:
         -
           name: "redis-cluster-init"
           image: "redis:7.4.2-alpine"
+          # 只对六个全新空节点创建三主三从；完整集群直接退出，部分集群拒绝重建，不执行 reset 或清库。
           command:
             - "sh"
             - "-ec"
@@ -48,6 +52,8 @@ spec:
               done
           env:
             -
+              # redis-cli 的认证密码，供探针/初始化 Job 使用；需与服务端 requirepass 一致。
+              # 凭据来源：本命名空间 Secret redis-auth/password；此处只引用，不写入明文。
               name: "REDISCLI_AUTH"
               valueFrom:
                 secretKeyRef:

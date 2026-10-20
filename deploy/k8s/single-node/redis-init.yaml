@@ -5,7 +5,9 @@ metadata:
   name: "redis-single-init"
   namespace: "infrastructure"
 spec:
+  # Job 失败重试上限，也会计入 OnFailure 容器重启；耗尽后标记失败，不能当作无限自动修复。
   backoffLimit: 3
+  # 整个 Job 的运行时限，单位秒，含等待依赖；到期会终止仍运行的 Pod 并标记失败。
   activeDeadlineSeconds: 900
   template:
     metadata:
@@ -16,11 +18,13 @@ spec:
       nodeSelector:
         workload: "heavy"
       automountServiceAccountToken: false
+      # 失败退出时重启本 Pod 内的容器；成功结束不重启。已完成 Job 不会因数据库 Pod 重建自动重跑。
       restartPolicy: "OnFailure"
       containers:
         -
           name: "redis-single-init"
           image: "redis:7.4.2-alpine"
+          # 只为单成员 Redis 的全空槽状态分配全部槽；完整状态可重复检查，多成员/部分槽状态拒绝自动修改。
           command:
             - "sh"
             - "-ec"
@@ -41,6 +45,8 @@ spec:
               redis-cli -h "$host" cluster info | tr -d '\r' | grep -q '^cluster_size:1$'
           env:
             -
+              # redis-cli 的认证密码，供探针/初始化 Job 使用；需与服务端 requirepass 一致。
+              # 凭据来源：本命名空间 Secret redis-auth/password；此处只引用，不写入明文。
               name: "REDISCLI_AUTH"
               valueFrom:
                 secretKeyRef:

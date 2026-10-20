@@ -8,16 +8,22 @@ spec:
   selector:
     app.kubernetes.io/name: "rabbitmq"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "amqp"
+      # RabbitMQ AMQP 客户端入口，需指定有效账号和 vhost。
       port: 5672
       targetPort: "amqp"
     -
       name: "management"
+      # RabbitMQ HTTP 管理界面，管理权限与 AMQP 连接权限分别核对。
       port: 15672
       targetPort: "management"
+  # None 表示 Headless Service，不分配虚拟 IP，DNS 直接发布 Pod 地址；不是公网入口。
   clusterIP: "None"
+  # 引导阶段即使 Pod 未 Ready 也发布其地址，避免成员发现/初始化等待就绪形成循环；不能据此判断业务健康。
   publishNotReadyAddresses: true
 ---
 apiVersion: "v1"
@@ -29,13 +35,17 @@ spec:
   selector:
     app.kubernetes.io/name: "rabbitmq"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "amqp"
+      # RabbitMQ AMQP 客户端入口，需指定有效账号和 vhost。
       port: 5672
       targetPort: "amqp"
     -
       name: "management"
+      # RabbitMQ HTTP 管理界面，管理权限与 AMQP 连接权限分别核对。
       port: 15672
       targetPort: "management"
 ---
@@ -67,29 +77,38 @@ spec:
           image: "rabbitmq:4.1.0-management"
           env:
             -
+              # 空数据目录初始化时创建的默认 RabbitMQ 用户名；不会覆盖已有用户。
               name: "RABBITMQ_DEFAULT_USER"
               value: "videoweb"
             -
+              # 默认 RabbitMQ 用户的初始密码；不是 Erlang cookie，也不会自动轮换已有密码。
+              # 凭据来源：本命名空间 Secret rabbitmq-auth/password；此处只引用，不写入明文。
               name: "RABBITMQ_DEFAULT_PASS"
               valueFrom:
                 secretKeyRef:
                   name: "rabbitmq-auth"
                   key: "password"
             -
+              # 首次初始化创建的虚拟主机，隔离交换机/队列和权限；AMQP 客户端需连接同一 vhost。
               name: "RABBITMQ_DEFAULT_VHOST"
               value: "video_web"
             -
+              # Erlang 节点与管理 CLI 的共享认证密钥，不是 AMQP 登录密码；需保持稳定并保密。
+              # 凭据来源：本命名空间 Secret rabbitmq-auth/erlang-cookie；此处只引用，不写入明文。
               name: "RABBITMQ_ERLANG_COOKIE"
               valueFrom:
                 secretKeyRef:
                   name: "rabbitmq-auth"
                   key: "erlang-cookie"
             -
+              # RabbitMQ/Erlang 逻辑节点名（rabbit@主机），这里与 StatefulSet 的稳定 DNS 名称对应。
               name: "RABBITMQ_NODENAME"
               value: "rabbit@rabbitmq-0.rabbitmq-headless.infrastructure.svc.cluster.local"
             -
+              # 允许节点名使用完整域名，需与上方 RABBITMQ_NODENAME 的 FQDN 配套。
               name: "RABBITMQ_USE_LONGNAME"
               value: "true"
+          # 仅声明容器端口名称/协议，供 Service 和探针引用；不会让进程自动监听，也不发布宿主机端口。
           ports:
             -
               name: "amqp"
@@ -104,6 +123,9 @@ spec:
             limits:
               cpu: "1000m"
               memory: "512Mi"
+          # rabbitmq-diagnostics ping 检查 Erlang 节点可响应，不验证队列或消息内容。
+          # startup 成功前不执行 readiness/liveness；连续失败达到 failureThreshold 后重启容器。
+          # periodSeconds 是间隔秒数，timeoutSeconds 是单次超时秒数，failureThreshold 是连续失败次数。
           startupProbe:
             exec:
               command:
@@ -112,6 +134,8 @@ spec:
                 - "ping"
             periodSeconds: 10
             failureThreshold: 90
+          # check_running 检查 RabbitMQ 应用已运行，不代表全部 vhost、账号、队列和消费者均已就绪。
+          # 失败只标记 Pod 未就绪，不重启容器；普通 Service 会按就绪状态选择后端。
           readinessProbe:
             exec:
               command:
@@ -120,6 +144,8 @@ spec:
                 - "check_running"
             periodSeconds: 15
             timeoutSeconds: 10
+          # ping 仅检查节点可响应；不因没有消息或消费者就重启。
+          # 连续失败达到阈值才重启容器，不等于删除或重建 Pod；数据是否保留仍由挂载卷决定。
           livenessProbe:
             exec:
               command:
@@ -131,16 +157,22 @@ spec:
           volumeMounts:
             -
               name: "data"
+              # RabbitMQ 节点数据目录，包含账号、队列定义及落盘消息；消息持久性也取决于卷。
               mountPath: "/var/lib/rabbitmq"
+  # 关联上方 Headless Service，为 Pod 提供稳定 DNS/身份；稳定名称不代表 emptyDir 数据会保留。
   serviceName: "rabbitmq-headless"
   podManagementPolicy: "Parallel"
+  # 为每个 StatefulSet Pod 创建独立 data PVC，相同序号的 Pod 重建后可重新挂载原卷；不是多 Pod 共享目录。
+  # 保留/删除需检查 PVC 保留策略；该字段通常不能原地移除，切换 emptyDir 前须先备份并选择性重建。
   volumeClaimTemplates:
     -
       metadata:
         name: "data"
       spec:
+        # RWO 表示单节点读写挂载，不等于仅允许一个 Pod；它本身不提供应用级高可用。
         accessModes:
           - "ReadWriteOnce"
+        # 使用原方案的项目专用 Longhorn StorageClass 制备卷，依赖已安装的存储驱动；单节点方案不使用它。
         storageClassName: "videoweb-longhorn"
         resources:
           requests:

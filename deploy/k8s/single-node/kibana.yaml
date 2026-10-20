@@ -8,9 +8,12 @@ spec:
   selector:
     app.kubernetes.io/name: "kibana"
     app.kubernetes.io/part-of: "videoweb"
+  # port 是 Service 通信端口；targetPort 按名称匹配 Pod 中的 containerPort，不是另一个 Service。
+  # 未指定 type 时默认为 ClusterIP，不会将这些端口发布成 节点 IP:端口；访问仍受网络策略限制。
   ports:
     -
       name: "http"
+      # Kibana HTTP 界面；它再通过配置的 HTTPS 地址连接 ES。
       port: 5601
       targetPort: "http"
 ---
@@ -42,53 +45,70 @@ spec:
           image: "docker.elastic.co/kibana/kibana:8.17.0"
           env:
             -
+              # Kibana 实例名称，用于日志等实例标识；不是对外访问域名或服务发现地址。
               name: "SERVER_NAME"
               value: "videoweb-kibana"
             -
+              # Kibana HTTP 的监听地址；0.0.0.0 监听容器所有 IPv4 接口，对外暴露仍由端口/Service 控制。
               name: "SERVER_HOST"
               value: "0.0.0.0"
             -
+              # Kibana 后台连接的 Elasticsearch HTTPS 地址数组（JSON 字符串），不是浏览器访问 Kibana 的地址。
               name: "ELASTICSEARCH_HOSTS"
               value: "[\"https://elasticsearch:9200\"]"
             -
+              # Kibana 后台访问 ES 的内置 kibana_system 账号，不用于浏览器登录。
               name: "ELASTICSEARCH_USERNAME"
               value: "kibana_system"
             -
+              # kibana_system 在 ES 中已设置的密码；仅修改此变量不会同步修改 ES 账号。
+              # 凭据来源：本命名空间 Secret elasticsearch-auth/kibana-password；此处只引用，不写入明文。
               name: "ELASTICSEARCH_PASSWORD"
               valueFrom:
                 secretKeyRef:
                   name: "elasticsearch-auth"
                   key: "kibana-password"
             -
+              # Kibana 校验 ES HTTPS 证书所信任的 CA 文件，使用容器内挂载路径。
               name: "ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES"
               value: "/usr/share/kibana/config/certs/ca.crt"
             -
+              # full 同时验证 ES 证书链与主机名；CA 可信还不够，连接地址也必须匹配证书 SAN。
               name: "ELASTICSEARCH_SSL_VERIFICATIONMODE"
               value: "full"
             -
+              # Kibana 界面语言；zh-CN 使用简体中文，不修改业务数据编码或时区。
               name: "I18N_LOCALE"
               value: "zh-CN"
             -
+              # Node.js 启动参数；--max-old-space-size 以 MiB 限制 V8 老生代堆，不是进程总内存上限。
               name: "NODE_OPTIONS"
               value: "--max-old-space-size=512"
             -
+              # Kibana 会话加密的稳定密钥（至少 32 字符）；变更会使已有会话失效。
+              # 凭据来源：本命名空间 Secret elasticsearch-auth/kibana-encryption-key；此处只引用，不写入明文。
               name: "XPACK_SECURITY_ENCRYPTIONKEY"
               valueFrom:
                 secretKeyRef:
                   name: "elasticsearch-auth"
                   key: "kibana-encryption-key"
             -
+              # 加密保存对象敏感属性的稳定密钥（至少 32 字符）；重启后应继续使用原密钥。
+              # 凭据来源：本命名空间 Secret elasticsearch-auth/kibana-encryption-key；此处只引用，不写入明文。
               name: "XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY"
               valueFrom:
                 secretKeyRef:
                   name: "elasticsearch-auth"
                   key: "kibana-encryption-key"
             -
+              # 加密报表任务敏感信息的稳定密钥（至少 32 字符）；变更可能使已有任务无法完成。
+              # 凭据来源：本命名空间 Secret elasticsearch-auth/kibana-encryption-key；此处只引用，不写入明文。
               name: "XPACK_REPORTING_ENCRYPTIONKEY"
               valueFrom:
                 secretKeyRef:
                   name: "elasticsearch-auth"
                   key: "kibana-encryption-key"
+          # 仅声明容器端口名称/协议，供 Service 和探针引用；不会让进程自动监听，也不发布宿主机端口。
           ports:
             -
               name: "http"
@@ -96,6 +116,7 @@ spec:
           volumeMounts:
             -
               name: "ca"
+              # 仅挂载 ES CA 供 Kibana 校验证书，不把 ES 私钥提供给 Kibana。
               mountPath: "/usr/share/kibana/config/certs"
               readOnly: true
           resources:
@@ -105,12 +126,17 @@ spec:
             limits:
               cpu: "1000m"
               memory: "1Gi"
+          # 只等待 Kibana HTTP 端口监听；与 ES 的认证和功能状态由 readinessProbe 再检查。
+          # startup 成功前不执行 readiness/liveness；连续失败达到 failureThreshold 后重启容器。
+          # periodSeconds 是间隔秒数，timeoutSeconds 是单次超时秒数，failureThreshold 是连续失败次数。
           startupProbe:
             tcpSocket:
               port: "http"
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 90
+          # 通过 /api/status 的 HTTP 状态判断可用性；不验证所有页面、报表或业务数据。
+          # 失败只标记 Pod 未就绪，不重启容器；普通 Service 会按就绪状态选择后端。
           readinessProbe:
             httpGet:
               path: "/api/status"
@@ -118,6 +144,8 @@ spec:
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 6
+          # 只检查 HTTP TCP 监听，不直接因为 ES 暂时故障而重启 Kibana。
+          # 连续失败达到阈值才重启容器，不等于删除或重建 Pod；数据是否保留仍由挂载卷决定。
           livenessProbe:
             tcpSocket:
               port: "http"
@@ -127,6 +155,7 @@ spec:
       volumes:
         -
           name: "ca"
+          # 只读投射证书材料；CA/证书/私钥用途不同，不应将私钥作为客户端 CA 使用。
           secret:
             secretName: "elasticsearch-tls"
             items:
