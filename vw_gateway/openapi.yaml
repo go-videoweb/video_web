@@ -913,6 +913,25 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.UploadVideoFileResp'
+    /api/v1/favorites/list:
+        get:
+            tags:
+                - Favorite
+            description: 获取当前登录用户的全部收藏夹，包含公开和私密收藏夹。
+            operationId: Favorite_GetFavoritesList
+            parameters:
+                - name: userId
+                  in: query
+                  description: 保留兼容字段；查询对象始终是当前登录用户。
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.user.favorites.GetFavoritesListResp'
 components:
     schemas:
         gateway.api.v1.user.captcha.GetCodeCaptchaResp:
@@ -956,6 +975,7 @@ components:
                     type: string
                 userId:
                     type: string
+                    description: 保留兼容字段；实际创建者以网关鉴权上下文为准。
         gateway.api.v1.user.favorites.CreateFavoritesResp:
             type: object
             properties:
@@ -964,6 +984,9 @@ components:
                     format: int32
                 msg:
                     type: string
+                favoriteId:
+                    type: string
+                    description: 数据库保存成功后的收藏夹 ID。
         gateway.api.v1.user.favorites.DeleteFavoritesResp:
             type: object
             properties:
@@ -1581,6 +1604,27 @@ components:
                 createdTime:
                     type: string
                     format: date-time
+        gateway.api.v1.user.favorites.FavoriteDetail:
+            type: object
+            properties:
+                favoriteId:
+                    type: string
+                favoriteName:
+                    type: string
+                description:
+                    type: string
+                isPrivate:
+                    type: boolean
+                    description: true 表示私密，对应数据库 is_private=-1；false 表示公开。
+        gateway.api.v1.user.favorites.GetFavoritesListResp:
+            type: object
+            properties:
+                userId:
+                    type: string
+                favoriteList:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/gateway.api.v1.user.favorites.FavoriteDetail'
 tags:
     - name: Captcha
     - name: Favorite

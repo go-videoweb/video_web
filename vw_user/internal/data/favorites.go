@@ -39,6 +39,13 @@ func (f *favoritesRepo) CreateFavorites(ctx context.Context, favorite *model.Fav
 	return favoritesDo.Create(favorite)
 }
 
+// GetFavoritesList 仅查询指定用户的收藏夹，包含公开和私密记录，并按 ID 升序稳定返回。
+// 使用请求上下文和既有事务查询器；数据库错误原样返回。
+func (f *favoritesRepo) GetFavoritesList(ctx context.Context, userId int64) ([]*model.Favorite, error) {
+	favorites := getQuery(ctx).Favorite
+	return favorites.WithContext(ctx).Where(favorites.UserID.Eq(userId)).Order(favorites.FavoritesID.Asc()).Find()
+}
+
 func (f *favoritesRepo) DeleteFavorites(ctx context.Context, favoritesId int64) error {
 	favorites := getQuery(ctx).Favorite
 	favoritesDo := favorites.WithContext(ctx)

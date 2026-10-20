@@ -57,6 +57,9 @@ const (
 	// file errors
 	FILE_UploadAvatarFailed
 	FILE_UpdateAvatarFailed
+
+	// 收藏夹列表错误追加在末尾，保持所有既有业务码的数值不变。
+	FAVORITES_GetFavoritesListFailed
 )
 
 var ()

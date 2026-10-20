@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Favorite_CreateFavorites_FullMethodName = "/user.v1.favorites.Favorite/CreateFavorites"
-	Favorite_ModifyFavorites_FullMethodName = "/user.v1.favorites.Favorite/ModifyFavorites"
-	Favorite_DeleteFavorites_FullMethodName = "/user.v1.favorites.Favorite/DeleteFavorites"
+	Favorite_CreateFavorites_FullMethodName  = "/user.v1.favorites.Favorite/CreateFavorites"
+	Favorite_ModifyFavorites_FullMethodName  = "/user.v1.favorites.Favorite/ModifyFavorites"
+	Favorite_DeleteFavorites_FullMethodName  = "/user.v1.favorites.Favorite/DeleteFavorites"
+	Favorite_GetFavoritesList_FullMethodName = "/user.v1.favorites.Favorite/GetFavoritesList"
 )
 
 // FavoriteClient is the client API for Favorite service.
@@ -31,6 +32,8 @@ type FavoriteClient interface {
 	CreateFavorites(ctx context.Context, in *CreateFavoritesReq, opts ...grpc.CallOption) (*CreateFavoritesResp, error)
 	ModifyFavorites(ctx context.Context, in *ModifyFavoritesReq, opts ...grpc.CallOption) (*ModifyFavoritesResp, error)
 	DeleteFavorites(ctx context.Context, in *DeleteFavoritesReq, opts ...grpc.CallOption) (*DeleteFavoritesResp, error)
+	// 按网关验证的用户 ID 返回其全部收藏夹。
+	GetFavoritesList(ctx context.Context, in *GetFavoritesListReq, opts ...grpc.CallOption) (*GetFavoritesListResp, error)
 }
 
 type favoriteClient struct {
@@ -71,6 +74,16 @@ func (c *favoriteClient) DeleteFavorites(ctx context.Context, in *DeleteFavorite
 	return out, nil
 }
 
+func (c *favoriteClient) GetFavoritesList(ctx context.Context, in *GetFavoritesListReq, opts ...grpc.CallOption) (*GetFavoritesListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFavoritesListResp)
+	err := c.cc.Invoke(ctx, Favorite_GetFavoritesList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FavoriteServer is the server API for Favorite service.
 // All implementations must embed UnimplementedFavoriteServer
 // for forward compatibility.
@@ -78,6 +91,8 @@ type FavoriteServer interface {
 	CreateFavorites(context.Context, *CreateFavoritesReq) (*CreateFavoritesResp, error)
 	ModifyFavorites(context.Context, *ModifyFavoritesReq) (*ModifyFavoritesResp, error)
 	DeleteFavorites(context.Context, *DeleteFavoritesReq) (*DeleteFavoritesResp, error)
+	// 按网关验证的用户 ID 返回其全部收藏夹。
+	GetFavoritesList(context.Context, *GetFavoritesListReq) (*GetFavoritesListResp, error)
 	mustEmbedUnimplementedFavoriteServer()
 }
 
@@ -96,6 +111,9 @@ func (UnimplementedFavoriteServer) ModifyFavorites(context.Context, *ModifyFavor
 }
 func (UnimplementedFavoriteServer) DeleteFavorites(context.Context, *DeleteFavoritesReq) (*DeleteFavoritesResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteFavorites not implemented")
+}
+func (UnimplementedFavoriteServer) GetFavoritesList(context.Context, *GetFavoritesListReq) (*GetFavoritesListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFavoritesList not implemented")
 }
 func (UnimplementedFavoriteServer) mustEmbedUnimplementedFavoriteServer() {}
 func (UnimplementedFavoriteServer) testEmbeddedByValue()                  {}
@@ -172,6 +190,24 @@ func _Favorite_DeleteFavorites_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Favorite_GetFavoritesList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFavoritesListReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FavoriteServer).GetFavoritesList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Favorite_GetFavoritesList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FavoriteServer).GetFavoritesList(ctx, req.(*GetFavoritesListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Favorite_ServiceDesc is the grpc.ServiceDesc for Favorite service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +226,10 @@ var Favorite_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteFavorites",
 			Handler:    _Favorite_DeleteFavorites_Handler,
+		},
+		{
+			MethodName: "GetFavoritesList",
+			Handler:    _Favorite_GetFavoritesList_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

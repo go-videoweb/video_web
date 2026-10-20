@@ -21,8 +21,9 @@ func NewFavoritesService(favorites *biz.FavoritesUsecase, logger log.Logger) *Fa
 	}
 }
 
+// CreateFavorites 创建收藏夹，将业务层确认保存成功的 ID 返回给网关。
 func (fs *FavoritesService) CreateFavorites(ctx context.Context, req *favorv1.CreateFavoritesReq) (*favorv1.CreateFavoritesResp, error) {
-	err := fs.favorites.CreateFavorites(ctx, &domain.FavoritesInfo{
+	favoriteId, err := fs.favorites.CreateFavorites(ctx, &domain.FavoritesInfo{
 		UserId:        req.UserId,
 		FavoritesName: &req.FavoritesName,
 		IsPrivate:     &req.IsPrivate,
@@ -34,7 +35,25 @@ func (fs *FavoritesService) CreateFavorites(ctx context.Context, req *favorv1.Cr
 	return &favorv1.CreateFavoritesResp{
 		StatusCode: 200,
 		Msg:        "创建收藏夹成功",
+		FavoriteId: favoriteId,
 	}, nil
+}
+
+// GetFavoritesList 查询网关传入的已验证用户，显式转换数据库的私密标记。
+// 数据库 -1 为私密、1 为公开；无记录返回空数组，查询失败返回错误。
+func (fs *FavoritesService) GetFavoritesList(ctx context.Context, req *favorv1.GetFavoritesListReq) (*favorv1.GetFavoritesListResp, error) {
+	list, err := fs.favorites.GetFavoritesList(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	resp := &favorv1.GetFavoritesListResp{FavoriteList: make([]*favorv1.FavoriteDetail, len(list))}
+	for i, favorite := range list {
+		resp.FavoriteList[i] = &favorv1.FavoriteDetail{
+			FavoriteId: favorite.FavoritesID, FavoriteName: favorite.FavoritesName,
+			Description: favorite.Description, IsPrivate: favorite.IsPrivate == -1,
+		}
+	}
+	return resp, nil
 }
 
 func (fs *FavoritesService) ModifyFavorites(ctx context.Context, req *favorv1.ModifyFavoritesReq) (*favorv1.ModifyFavoritesResp, error) {
