@@ -12,19 +12,29 @@ type Records struct {
 	CntFavorites uint32
 }
 type VideoDetail struct {
-	VideoId       int64
-	PublisherId   int64
-	PublisherName string
-	Title         string
-	Description   string
-	VideoPath     string
-	Classes       []string
-	Tags          []string
-	Hot           int64
-	Records       *Records
-	Duration      string
-	CoverPath     string
-	CreatedTime   *timestamppb.Timestamp
+	VideoId         int64
+	PublisherId     int64
+	PublisherName   string
+	Title           string
+	Description     string
+	VideoPath       string
+	Classes         []string
+	Tags            []string
+	Hot             int64
+	Records         *Records
+	Duration        string
+	CoverPath       string
+	CreatedTime     *timestamppb.Timestamp
+	UserVideoStatus *UserVideoStatus
+}
+
+// UserVideoStatus 保存仅属于当前访问者的互动状态，游客使用 nil。
+type UserVideoStatus struct {
+	IsUpvoted      int32
+	IsFavorited    int32
+	IsShared       int32
+	IsThrownShells int32
+	FavoriteId     int64
 }
 
 type VideoSummary struct {
@@ -40,9 +50,9 @@ type VideoSummary struct {
 	CreatedTime   *timestamppb.Timestamp
 }
 
-// NewVideoDetail creates a new VideoDetail object from video grpc service GetVideoInfo's response.
+// NewVideoDetail 映射视频 RPC 的公共详情与可选个人状态，不将个人状态混入公共元信息。
 func NewVideoDetail(videoInfo *videoinfov1.GetVideoInfoResp) *VideoDetail {
-	return &VideoDetail{
+	detail := &VideoDetail{
 		VideoId:       videoInfo.VideoDetail.VideoId,
 		PublisherId:   videoInfo.VideoDetail.PublisherId,
 		PublisherName: videoInfo.VideoDetail.PublisherName,
@@ -62,4 +72,11 @@ func NewVideoDetail(videoInfo *videoinfov1.GetVideoInfoResp) *VideoDetail {
 		CoverPath:   videoInfo.VideoDetail.CoverPath,
 		CreatedTime: videoInfo.VideoDetail.CreatedTime,
 	}
+	if state := videoInfo.UserVideoStatus; state != nil {
+		detail.UserVideoStatus = &UserVideoStatus{
+			IsUpvoted: state.IsUpvoted, IsFavorited: state.IsFavorited,
+			IsShared: state.IsShared, IsThrownShells: state.IsThrownShells, FavoriteId: state.FavoriteId,
+		}
+	}
+	return detail
 }

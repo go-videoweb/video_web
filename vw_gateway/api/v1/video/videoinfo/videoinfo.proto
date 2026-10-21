@@ -66,6 +66,13 @@ service VideoInfo {
             get: "/api/v1/video/list"
         };
     }
+
+    // 登录后分页读取本人收藏夹或其他用户的公开收藏夹。
+    rpc GetFavoriteVideos(GetFavoriteVideosReq) returns (GetFavoriteVideosResp) {
+        option (google.api.http) = {
+            get: "/api/v1/favorites/{favorites_id}/videos"
+        };
+    }
 }
 
 message CommonResp {
@@ -145,6 +152,38 @@ message GetVideoInfoReq {
 }
 message GetVideoInfoResp {
     VideoMetaInfo video_detail = 1;
+    // 游客不返回个人状态；身份仅由鉴权上下文确定。
+    UserVideoStatus user_video_status = 3;
+}
+
+// UserVideoStatus 与下游个人状态字段对齐，1 表示已操作，-1 表示未操作。
+message UserVideoStatus {
+    int32 is_upvoted = 1;
+    int32 is_favorited = 2;
+    int32 is_shared = 3;
+    int32 is_thrown_shells = 4;
+    // 未收藏时为 0，已收藏时为当前用户的收藏夹 ID。
+    int64 favorite_id = 5;
+}
+
+message GetFavoriteVideosReq {
+    int64 favorites_id = 1;
+    // 省略时分别使用第 1 页和每页 20 条；每页最多 100 条。
+    int32 page_num = 2;
+    int32 page_size = 3;
+}
+
+message FavoriteVideoItem {
+    VideoSummary video = 1;
+    // 收藏时间，不改变 video.created_time 的视频发布时间语义；历史空时间返回 null。
+    google.protobuf.Timestamp collected_at = 2;
+}
+
+message GetFavoriteVideosResp {
+    repeated FavoriteVideoItem videos = 1;
+    int64 total = 2;
+    int32 page_num = 3;
+    int32 page_size = 4;
 }
 
 message GetVideoListReq {

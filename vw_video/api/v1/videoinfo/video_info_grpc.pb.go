@@ -22,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	VideoInfo_GetVideoInfo_FullMethodName            = "/video.v1.videoinfo.VideoInfo/GetVideoInfo"
 	VideoInfo_GetVideoList_FullMethodName            = "/video.v1.videoinfo.VideoInfo/GetVideoList"
+	VideoInfo_GetFavoriteVideos_FullMethodName       = "/video.v1.videoinfo.VideoInfo/GetFavoriteVideos"
 	VideoInfo_GetVideoFile_FullMethodName            = "/video.v1.videoinfo.VideoInfo/GetVideoFile"
 	VideoInfo_GetVideoMpd_FullMethodName             = "/video.v1.videoinfo.VideoInfo/GetVideoMpd"
 	VideoInfo_GetVideoSegments_FullMethodName        = "/video.v1.videoinfo.VideoInfo/GetVideoSegments"
@@ -40,6 +41,8 @@ const (
 type VideoInfoClient interface {
 	GetVideoInfo(ctx context.Context, in *GetVideoInfoReq, opts ...grpc.CallOption) (*GetVideoInfoResp, error)
 	GetVideoList(ctx context.Context, in *GetVideoListReq, opts ...grpc.CallOption) (*GetVideoListResp, error)
+	// 登录用户只能读取自己的收藏夹或其他用户的公开收藏夹。
+	GetFavoriteVideos(ctx context.Context, in *GetFavoriteVideosReq, opts ...grpc.CallOption) (*GetFavoriteVideosResp, error)
 	GetVideoFile(ctx context.Context, in *GetVideoFileReq, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetVideoFileResp], error)
 	GetVideoMpd(ctx context.Context, in *GetVideoMpdReq, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetVideoMpdResp], error)
 	GetVideoSegments(ctx context.Context, in *GetVideoSegmentReq, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetVideoSegmentResp], error)
@@ -74,6 +77,16 @@ func (c *videoInfoClient) GetVideoList(ctx context.Context, in *GetVideoListReq,
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetVideoListResp)
 	err := c.cc.Invoke(ctx, VideoInfo_GetVideoList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoInfoClient) GetFavoriteVideos(ctx context.Context, in *GetFavoriteVideosReq, opts ...grpc.CallOption) (*GetFavoriteVideosResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFavoriteVideosResp)
+	err := c.cc.Invoke(ctx, VideoInfo_GetFavoriteVideos_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -228,6 +241,8 @@ func (c *videoInfoClient) AddVideoCntSharedRevert(ctx context.Context, in *AddVi
 type VideoInfoServer interface {
 	GetVideoInfo(context.Context, *GetVideoInfoReq) (*GetVideoInfoResp, error)
 	GetVideoList(context.Context, *GetVideoListReq) (*GetVideoListResp, error)
+	// 登录用户只能读取自己的收藏夹或其他用户的公开收藏夹。
+	GetFavoriteVideos(context.Context, *GetFavoriteVideosReq) (*GetFavoriteVideosResp, error)
 	GetVideoFile(*GetVideoFileReq, grpc.ServerStreamingServer[GetVideoFileResp]) error
 	GetVideoMpd(*GetVideoMpdReq, grpc.ServerStreamingServer[GetVideoMpdResp]) error
 	GetVideoSegments(*GetVideoSegmentReq, grpc.ServerStreamingServer[GetVideoSegmentResp]) error
@@ -253,6 +268,9 @@ func (UnimplementedVideoInfoServer) GetVideoInfo(context.Context, *GetVideoInfoR
 }
 func (UnimplementedVideoInfoServer) GetVideoList(context.Context, *GetVideoListReq) (*GetVideoListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVideoList not implemented")
+}
+func (UnimplementedVideoInfoServer) GetFavoriteVideos(context.Context, *GetFavoriteVideosReq) (*GetFavoriteVideosResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFavoriteVideos not implemented")
 }
 func (UnimplementedVideoInfoServer) GetVideoFile(*GetVideoFileReq, grpc.ServerStreamingServer[GetVideoFileResp]) error {
 	return status.Errorf(codes.Unimplemented, "method GetVideoFile not implemented")
@@ -337,6 +355,24 @@ func _VideoInfo_GetVideoList_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VideoInfoServer).GetVideoList(ctx, req.(*GetVideoListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoInfo_GetFavoriteVideos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFavoriteVideosReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoInfoServer).GetFavoriteVideos(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoInfo_GetFavoriteVideos_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoInfoServer).GetFavoriteVideos(ctx, req.(*GetFavoriteVideosReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -485,6 +521,10 @@ var VideoInfo_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetVideoList",
 			Handler:    _VideoInfo_GetVideoList_Handler,
+		},
+		{
+			MethodName: "GetFavoriteVideos",
+			Handler:    _VideoInfo_GetFavoriteVideos_Handler,
 		},
 		{
 			MethodName: "UploadVideoInfo",

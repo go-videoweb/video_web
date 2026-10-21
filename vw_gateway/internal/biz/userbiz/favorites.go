@@ -12,8 +12,8 @@ type FavoritesRepo interface {
 	CreateFavorites(ctx context.Context, userId int64, favoritesName string, isPrivate int32, description string) (int64, error)
 	// GetFavoritesList 返回指定用户的全部收藏夹，包含私密收藏夹。
 	GetFavoritesList(ctx context.Context, userId int64) ([]*domain.FavoriteDetail, error)
-	DeleteFavorites(ctx context.Context, favoritesId int64) error
-	ModifyFavorites(ctx context.Context, userId int64, favoritesName *string, isPrivate *int32, description *string) error
+	DeleteFavorites(ctx context.Context, userId, favoritesId int64) error
+	ModifyFavorites(ctx context.Context, userId, favoritesId int64, favoritesName *string, isPrivate *int32, description *string) error
 }
 
 type FavoritesUsecase struct {
@@ -38,10 +38,12 @@ func (uc *FavoritesUsecase) GetFavoritesList(ctx context.Context, userId int64) 
 	return uc.repo.GetFavoritesList(ctx, userId)
 }
 
-func (uc *FavoritesUsecase) DeleteFavorites(ctx context.Context, favoritesId int64) error {
-	return uc.repo.DeleteFavorites(ctx, favoritesId)
+// DeleteFavorites 传递可信操作人身份，下游只允许所有者删除空收藏夹。
+func (uc *FavoritesUsecase) DeleteFavorites(ctx context.Context, userId, favoritesId int64) error {
+	return uc.repo.DeleteFavorites(ctx, userId, favoritesId)
 }
 
-func (uc *FavoritesUsecase) ModifyFavorites(ctx context.Context, userId int64, favoritesName *string, isPrivate *int32, description *string) error {
-	return uc.repo.ModifyFavorites(ctx, userId, favoritesName, isPrivate, description)
+// ModifyFavorites 传递操作人和目标收藏夹，二者不能混用。
+func (uc *FavoritesUsecase) ModifyFavorites(ctx context.Context, userId, favoritesId int64, favoritesName *string, isPrivate *int32, description *string) error {
+	return uc.repo.ModifyFavorites(ctx, userId, favoritesId, favoritesName, isPrivate, description)
 }

@@ -20,6 +20,7 @@ var _ = binding.EncodeURL
 const _ = http.SupportPackageIsVersion1
 
 const OperationVideoInfoDownloadVideo = "/gateway.api.v1.video.videoinfo.VideoInfo/DownloadVideo"
+const OperationVideoInfoGetFavoriteVideos = "/gateway.api.v1.video.videoinfo.VideoInfo/GetFavoriteVideos"
 const OperationVideoInfoGetMpd = "/gateway.api.v1.video.videoinfo.VideoInfo/GetMpd"
 const OperationVideoInfoGetSegments = "/gateway.api.v1.video.videoinfo.VideoInfo/GetSegments"
 const OperationVideoInfoGetVideoCover = "/gateway.api.v1.video.videoinfo.VideoInfo/GetVideoCover"
@@ -31,6 +32,8 @@ const OperationVideoInfoUploadVideoInfo = "/gateway.api.v1.video.videoinfo.Video
 
 type VideoInfoHTTPServer interface {
 	DownloadVideo(context.Context, *DownloadVideoReq) (*FileResp, error)
+	// GetFavoriteVideos 登录后分页读取本人收藏夹或其他用户的公开收藏夹。
+	GetFavoriteVideos(context.Context, *GetFavoriteVideosReq) (*GetFavoriteVideosResp, error)
 	GetMpd(context.Context, *ProvideMpdReq) (*FileResp, error)
 	GetSegments(context.Context, *ProvideSegmentsReq) (*FileResp, error)
 	GetVideoCover(context.Context, *GetVideoCoverReq) (*FileResp, error)
@@ -56,6 +59,7 @@ func RegisterVideoInfoHTTPServer(s *http.Server, srv VideoInfoHTTPServer) {
 	r.POST("/api/v1/{user_id}/video/{video_id}/cover", _VideoInfo_UploadVideoCover0_HTTP_Handler(srv))
 	r.GET("/api/v1/video/{video_id}/info", _VideoInfo_GetVideoInfo0_HTTP_Handler(srv))
 	r.GET("/api/v1/video/list", _VideoInfo_GetVideoList0_HTTP_Handler(srv))
+	r.GET("/api/v1/favorites/{favorites_id}/videos", _VideoInfo_GetFavoriteVideos0_HTTP_Handler(srv))
 }
 
 func _VideoInfo_GetMpd0_HTTP_Handler(srv VideoInfoHTTPServer) func(ctx http.Context) error {
@@ -262,8 +266,31 @@ func _VideoInfo_GetVideoList0_HTTP_Handler(srv VideoInfoHTTPServer) func(ctx htt
 	}
 }
 
+func _VideoInfo_GetFavoriteVideos0_HTTP_Handler(srv VideoInfoHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetFavoriteVideosReq
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationVideoInfoGetFavoriteVideos)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetFavoriteVideos(ctx, req.(*GetFavoriteVideosReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetFavoriteVideosResp)
+		return ctx.Result(200, reply)
+	}
+}
+
 type VideoInfoHTTPClient interface {
 	DownloadVideo(ctx context.Context, req *DownloadVideoReq, opts ...http.CallOption) (rsp *FileResp, err error)
+	GetFavoriteVideos(ctx context.Context, req *GetFavoriteVideosReq, opts ...http.CallOption) (rsp *GetFavoriteVideosResp, err error)
 	GetMpd(ctx context.Context, req *ProvideMpdReq, opts ...http.CallOption) (rsp *FileResp, err error)
 	GetSegments(ctx context.Context, req *ProvideSegmentsReq, opts ...http.CallOption) (rsp *FileResp, err error)
 	GetVideoCover(ctx context.Context, req *GetVideoCoverReq, opts ...http.CallOption) (rsp *FileResp, err error)
@@ -287,6 +314,19 @@ func (c *VideoInfoHTTPClientImpl) DownloadVideo(ctx context.Context, in *Downloa
 	pattern := "/api/v1/{user_id}/video/{video_id}/file"
 	path := binding.EncodeURL(pattern, in, true)
 	opts = append(opts, http.Operation(OperationVideoInfoDownloadVideo))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *VideoInfoHTTPClientImpl) GetFavoriteVideos(ctx context.Context, in *GetFavoriteVideosReq, opts ...http.CallOption) (*GetFavoriteVideosResp, error) {
+	var out GetFavoriteVideosResp
+	pattern := "/api/v1/favorites/{favorites_id}/videos"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationVideoInfoGetFavoriteVideos))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {

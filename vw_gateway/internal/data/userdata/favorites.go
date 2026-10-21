@@ -58,16 +58,20 @@ func (f *favoritesRepo) GetFavoritesList(ctx context.Context, userId int64) ([]*
 	return list, nil
 }
 
-func (f *favoritesRepo) DeleteFavorites(ctx context.Context, favoritesId int64) error {
+// DeleteFavorites 将鉴权操作人传给用户服务，禁止只凭收藏夹 ID 执行删除。
+func (f *favoritesRepo) DeleteFavorites(ctx context.Context, userId, favoritesId int64) error {
 	_, err := f.data.favoritesClient.DeleteFavorites(ctx, &favorv1.DeleteFavoritesReq{
 		FavoritesId: favoritesId,
+		UserId:      userId,
 	})
 	return err
 }
 
-func (f *favoritesRepo) ModifyFavorites(ctx context.Context, userId int64, favoritesName *string, isPrivate *int32, description *string) error {
+// ModifyFavorites 传递目标 ID、可信操作人和可选属性，不修改收藏夹所有者。
+func (f *favoritesRepo) ModifyFavorites(ctx context.Context, userId, favoritesId int64, favoritesName *string, isPrivate *int32, description *string) error {
 	_, err := f.data.favoritesClient.ModifyFavorites(ctx, &favorv1.ModifyFavoritesReq{
-		FavoritesId:   userId,
+		FavoritesId:   favoritesId,
+		UserId:        userId,
 		FavoritesName: favoritesName,
 		IsPrivate:     isPrivate,
 		Description:   description,

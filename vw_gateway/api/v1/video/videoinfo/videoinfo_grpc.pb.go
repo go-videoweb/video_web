@@ -19,15 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	VideoInfo_GetMpd_FullMethodName           = "/gateway.api.v1.video.videoinfo.VideoInfo/GetMpd"
-	VideoInfo_GetSegments_FullMethodName      = "/gateway.api.v1.video.videoinfo.VideoInfo/GetSegments"
-	VideoInfo_GetVideoCover_FullMethodName    = "/gateway.api.v1.video.videoinfo.VideoInfo/GetVideoCover"
-	VideoInfo_DownloadVideo_FullMethodName    = "/gateway.api.v1.video.videoinfo.VideoInfo/DownloadVideo"
-	VideoInfo_UploadVideoInfo_FullMethodName  = "/gateway.api.v1.video.videoinfo.VideoInfo/UploadVideoInfo"
-	VideoInfo_UploadVideoFile_FullMethodName  = "/gateway.api.v1.video.videoinfo.VideoInfo/UploadVideoFile"
-	VideoInfo_UploadVideoCover_FullMethodName = "/gateway.api.v1.video.videoinfo.VideoInfo/UploadVideoCover"
-	VideoInfo_GetVideoInfo_FullMethodName     = "/gateway.api.v1.video.videoinfo.VideoInfo/GetVideoInfo"
-	VideoInfo_GetVideoList_FullMethodName     = "/gateway.api.v1.video.videoinfo.VideoInfo/GetVideoList"
+	VideoInfo_GetMpd_FullMethodName            = "/gateway.api.v1.video.videoinfo.VideoInfo/GetMpd"
+	VideoInfo_GetSegments_FullMethodName       = "/gateway.api.v1.video.videoinfo.VideoInfo/GetSegments"
+	VideoInfo_GetVideoCover_FullMethodName     = "/gateway.api.v1.video.videoinfo.VideoInfo/GetVideoCover"
+	VideoInfo_DownloadVideo_FullMethodName     = "/gateway.api.v1.video.videoinfo.VideoInfo/DownloadVideo"
+	VideoInfo_UploadVideoInfo_FullMethodName   = "/gateway.api.v1.video.videoinfo.VideoInfo/UploadVideoInfo"
+	VideoInfo_UploadVideoFile_FullMethodName   = "/gateway.api.v1.video.videoinfo.VideoInfo/UploadVideoFile"
+	VideoInfo_UploadVideoCover_FullMethodName  = "/gateway.api.v1.video.videoinfo.VideoInfo/UploadVideoCover"
+	VideoInfo_GetVideoInfo_FullMethodName      = "/gateway.api.v1.video.videoinfo.VideoInfo/GetVideoInfo"
+	VideoInfo_GetVideoList_FullMethodName      = "/gateway.api.v1.video.videoinfo.VideoInfo/GetVideoList"
+	VideoInfo_GetFavoriteVideos_FullMethodName = "/gateway.api.v1.video.videoinfo.VideoInfo/GetFavoriteVideos"
 )
 
 // VideoInfoClient is the client API for VideoInfo service.
@@ -47,6 +48,8 @@ type VideoInfoClient interface {
 	UploadVideoCover(ctx context.Context, in *UploadVideoCoverReq, opts ...grpc.CallOption) (*UploadVideoCoverResp, error)
 	GetVideoInfo(ctx context.Context, in *GetVideoInfoReq, opts ...grpc.CallOption) (*GetVideoInfoResp, error)
 	GetVideoList(ctx context.Context, in *GetVideoListReq, opts ...grpc.CallOption) (*GetVideoListResp, error)
+	// 登录后分页读取本人收藏夹或其他用户的公开收藏夹。
+	GetFavoriteVideos(ctx context.Context, in *GetFavoriteVideosReq, opts ...grpc.CallOption) (*GetFavoriteVideosResp, error)
 }
 
 type videoInfoClient struct {
@@ -147,6 +150,16 @@ func (c *videoInfoClient) GetVideoList(ctx context.Context, in *GetVideoListReq,
 	return out, nil
 }
 
+func (c *videoInfoClient) GetFavoriteVideos(ctx context.Context, in *GetFavoriteVideosReq, opts ...grpc.CallOption) (*GetFavoriteVideosResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFavoriteVideosResp)
+	err := c.cc.Invoke(ctx, VideoInfo_GetFavoriteVideos_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VideoInfoServer is the server API for VideoInfo service.
 // All implementations must embed UnimplementedVideoInfoServer
 // for forward compatibility.
@@ -164,6 +177,8 @@ type VideoInfoServer interface {
 	UploadVideoCover(context.Context, *UploadVideoCoverReq) (*UploadVideoCoverResp, error)
 	GetVideoInfo(context.Context, *GetVideoInfoReq) (*GetVideoInfoResp, error)
 	GetVideoList(context.Context, *GetVideoListReq) (*GetVideoListResp, error)
+	// 登录后分页读取本人收藏夹或其他用户的公开收藏夹。
+	GetFavoriteVideos(context.Context, *GetFavoriteVideosReq) (*GetFavoriteVideosResp, error)
 	mustEmbedUnimplementedVideoInfoServer()
 }
 
@@ -200,6 +215,9 @@ func (UnimplementedVideoInfoServer) GetVideoInfo(context.Context, *GetVideoInfoR
 }
 func (UnimplementedVideoInfoServer) GetVideoList(context.Context, *GetVideoListReq) (*GetVideoListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVideoList not implemented")
+}
+func (UnimplementedVideoInfoServer) GetFavoriteVideos(context.Context, *GetFavoriteVideosReq) (*GetFavoriteVideosResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFavoriteVideos not implemented")
 }
 func (UnimplementedVideoInfoServer) mustEmbedUnimplementedVideoInfoServer() {}
 func (UnimplementedVideoInfoServer) testEmbeddedByValue()                   {}
@@ -384,6 +402,24 @@ func _VideoInfo_GetVideoList_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VideoInfo_GetFavoriteVideos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFavoriteVideosReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoInfoServer).GetFavoriteVideos(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoInfo_GetFavoriteVideos_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoInfoServer).GetFavoriteVideos(ctx, req.(*GetFavoriteVideosReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // VideoInfo_ServiceDesc is the grpc.ServiceDesc for VideoInfo service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -426,6 +462,10 @@ var VideoInfo_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetVideoList",
 			Handler:    _VideoInfo_GetVideoList_Handler,
+		},
+		{
+			MethodName: "GetFavoriteVideos",
+			Handler:    _VideoInfo_GetFavoriteVideos_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

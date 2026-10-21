@@ -62,8 +62,13 @@ func (u *FavoritesService) GetFavoritesList(ctx context.Context, req *favorv1.Ge
 	return resp, nil
 }
 
+// DeleteFavorites 仅使用鉴权上下文确定操作人，不允许按任意收藏夹 ID 越权删除。
 func (u *FavoritesService) DeleteFavorites(ctx context.Context, req *favorv1.DeleteFavoritesReq) (*favorv1.DeleteFavoritesResp, error) {
-	err := u.favorites.DeleteFavorites(ctx, req.FavoritesId)
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	err := u.favorites.DeleteFavorites(ctx, userId, req.FavoritesId)
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +78,13 @@ func (u *FavoritesService) DeleteFavorites(ctx context.Context, req *favorv1.Del
 	}, nil
 }
 
+// ModifyFavorites 仅将当前登录身份作为操作人，属性修改不包含视频所属收藏夹切换。
 func (u *FavoritesService) ModifyFavorites(ctx context.Context, req *favorv1.ModifyFavoritesReq) (*favorv1.ModifyFavoritesResp, error) {
-	err := u.favorites.ModifyFavorites(ctx, req.FavoritesId, req.FavoritesName, req.IsPrivate, req.Description)
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	err := u.favorites.ModifyFavorites(ctx, userId, req.FavoritesId, req.FavoritesName, req.IsPrivate, req.Description)
 	if err != nil {
 		return nil, err
 	}

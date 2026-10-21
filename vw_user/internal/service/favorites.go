@@ -56,8 +56,9 @@ func (fs *FavoritesService) GetFavoritesList(ctx context.Context, req *favorv1.G
 	return resp, nil
 }
 
+// ModifyFavorites 将可信操作人和可选属性交给业务层执行归属校验。
 func (fs *FavoritesService) ModifyFavorites(ctx context.Context, req *favorv1.ModifyFavoritesReq) (*favorv1.ModifyFavoritesResp, error) {
-	favorites := &domain.FavoritesInfo{FavoritesId: req.FavoritesId}
+	favorites := &domain.FavoritesInfo{FavoritesId: req.FavoritesId, UserId: req.UserId}
 	favorites.FavoritesName = req.FavoritesName
 	favorites.IsPrivate = req.IsPrivate
 	favorites.Description = req.Description
@@ -72,8 +73,9 @@ func (fs *FavoritesService) ModifyFavorites(ctx context.Context, req *favorv1.Mo
 	}, nil
 }
 
+// DeleteFavorites 由业务层校验操作人归属，并维持非空收藏夹禁止删除的规则。
 func (fs *FavoritesService) DeleteFavorites(ctx context.Context, req *favorv1.DeleteFavoritesReq) (*favorv1.DeleteFavoritesResp, error) {
-	err := fs.favorites.DeleteFavorites(ctx, req.FavoritesId)
+	err := fs.favorites.DeleteFavorites(ctx, req.UserId, req.FavoritesId)
 	if err != nil {
 		return nil, err
 	}

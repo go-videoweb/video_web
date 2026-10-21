@@ -53,6 +53,10 @@ type VideoInfoRepo interface {
 	UpdateVideoCntShare(ctx context.Context, tx *sql.Tx, videoID int64) error
 	UpdateVideoCntShareCompensation(ctx context.Context, tx *sql.Tx, videoID int64) error
 	GetUserVideoStatus(ctx context.Context, videoId int64, userId int64) (int64, error)
+	// GetUserFavoriteID 从有效收藏关系读取当前用户的收藏夹 ID，无记录时返回 0。
+	GetUserFavoriteID(ctx context.Context, userId, videoId int64) (int64, error)
+	// GetFavoriteVideos 在权限校验后分页读取有效视频，返回相同筛选范围的总数。
+	GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) ([]*FavoriteVideo, int64, error)
 	SetUserVideoStatus(ctx context.Context, videoId int64, userId int64, status int64) error
 	UpdateUserVideoHistory(ctx context.Context, videoId int64, userId int64, history *model.VideoSummary) error
 }
@@ -133,8 +137,17 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 			if err != nil {
 				return err
 			}
+			favoriteID, err := uc.repo.GetUserFavoriteID(ctx, userId, videoId)
+			if err != nil {
+				return err
+			}
+			isFavorited := int32(-1)
+			if favoriteID > 0 {
+				isFavorited = 1
+			}
 			ret.UserVideoStatus = &videoinfov1.GetVideoInfoResp_UserVideoStatus{
-				IsFavorited:    checkIsFavorited(status),
+				IsFavorited:    isFavorited,
+				FavoriteId:     favoriteID,
 				IsShared:       checkIsShared(status),
 				IsUpvoted:      checkIsUpvoted(status),
 				IsThrownShells: checkIsThrownShell(status),

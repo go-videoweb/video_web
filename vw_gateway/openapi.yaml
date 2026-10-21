@@ -932,6 +932,36 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/gateway.api.v1.user.favorites.GetFavoritesListResp'
+    /api/v1/favorites/{favoritesId}/videos:
+        get:
+            tags:
+                - VideoInfo
+            description: 登录后分页读取本人收藏夹或其他用户的公开收藏夹。
+            operationId: VideoInfo_GetFavoriteVideos
+            parameters:
+                - name: favoritesId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: pageNum
+                  in: query
+                  description: 省略时分别使用第 1 页和每页 20 条；每页最多 100 条。
+                  schema:
+                    type: integer
+                    format: int32
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.GetFavoriteVideosResp'
 components:
     schemas:
         gateway.api.v1.user.captcha.GetCodeCaptchaResp:
@@ -1486,6 +1516,10 @@ components:
             properties:
                 videoDetail:
                     $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.VideoMetaInfo'
+                userVideoStatus:
+                    allOf:
+                        - $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.UserVideoStatus'
+                    description: 游客不返回个人状态；身份仅由鉴权上下文确定。
         gateway.api.v1.video.videoinfo.GetVideoListResp:
             type: object
             properties:
@@ -1625,6 +1659,49 @@ components:
                     type: array
                     items:
                         $ref: '#/components/schemas/gateway.api.v1.user.favorites.FavoriteDetail'
+        gateway.api.v1.video.videoinfo.FavoriteVideoItem:
+            type: object
+            properties:
+                video:
+                    $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.VideoSummary'
+                collectedAt:
+                    type: string
+                    description: 收藏时间，不改变 video.created_time 的视频发布时间语义；历史空时间返回 null。
+                    format: date-time
+        gateway.api.v1.video.videoinfo.GetFavoriteVideosResp:
+            type: object
+            properties:
+                videos:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.FavoriteVideoItem'
+                total:
+                    type: string
+                pageNum:
+                    type: integer
+                    format: int32
+                pageSize:
+                    type: integer
+                    format: int32
+        gateway.api.v1.video.videoinfo.UserVideoStatus:
+            type: object
+            properties:
+                isUpvoted:
+                    type: integer
+                    format: int32
+                isFavorited:
+                    type: integer
+                    format: int32
+                isShared:
+                    type: integer
+                    format: int32
+                isThrownShells:
+                    type: integer
+                    format: int32
+                favoriteId:
+                    type: string
+                    description: 未收藏时为 0，已收藏时为当前用户的收藏夹 ID。
+            description: UserVideoStatus 与下游个人状态字段对齐，1 表示已操作，-1 表示未操作。
 tags:
     - name: Captcha
     - name: Favorite

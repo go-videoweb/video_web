@@ -2,8 +2,10 @@ package biz
 
 import (
 	"context"
+	stderr "errors"
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
+	"gorm.io/gorm"
 	"util/dbutil/mysqlutil"
 	"util/getid"
 	"util/helper"
@@ -22,7 +24,9 @@ type FavoritesRepo interface {
 	GetFavoritesList(ctx context.Context, userId int64) ([]*model.Favorite, error)
 
 	// DeleteFavorites Delete the specified favorites
-	DeleteFavorites(ctx context.Context, favoritesId int64) error
+	DeleteFavorites(ctx context.Context, userId, favoritesId int64) error
+	// GetFavoritesMetadata 读取收藏夹归属，用于修改和删除前校验。
+	GetFavoritesMetadata(ctx context.Context, favoritesId int64) (*model.Favorite, error)
 
 	// CheckIfFavoritesEmpty check if the specified favorites is empty.
 	// If the favorites is empty(Can be deleted), return TRUE, otherwise return FALSE.
@@ -92,8 +96,16 @@ func (uc *FavoritesUsecase) GetFavoritesList(ctx context.Context, userId int64) 
 	return list, nil
 }
 
-func (uc *FavoritesUsecase) DeleteFavorites(ctx context.Context, favoritesId int64) error {
+// DeleteFavorites 校验可信操作人归属后删除空收藏夹，不删除其下的视频关系。
+// 非本人和不存在统一返回 404，保持既有非空收藏夹不可删除规则。
+func (uc *FavoritesUsecase) DeleteFavorites(ctx context.Context, userId, favoritesId int64) error {
+	if userId <= 0 || favoritesId <= 0 {
+		return kerrors.BadRequest("INVALID_FAVORITE", "用户和收藏夹 ID 必须为正数")
+	}
 	err := uc.tx.WithTx(ctx, func(ctx context.Context) error {
+		if err := uc.requireFavoriteOwner(ctx, userId, favoritesId); err != nil {
+			return err
+		}
 		// 1. Delete the records of the specified favorites
 		ok, err := uc.repo.CheckIfFavoritesEmpty(ctx, favoritesId)
 		if err != nil {
@@ -104,7 +116,7 @@ func (uc *FavoritesUsecase) DeleteFavorites(ctx context.Context, favoritesId int
 		}
 
 		// 2. Delete the specified favorites itself
-		err = uc.repo.DeleteFavorites(ctx, favoritesId)
+		err = uc.repo.DeleteFavorites(ctx, userId, favoritesId)
 		if err != nil {
 			return helper.HandleError(errdef.ErrDeleteFavoriteFailed, err)
 		}
@@ -113,10 +125,29 @@ func (uc *FavoritesUsecase) DeleteFavorites(ctx context.Context, favoritesId int
 	return err
 }
 
+// ModifyFavorites 仅允许收藏夹所有者更新属性，保留可选字段的零值更新语义。
 func (uc *FavoritesUsecase) ModifyFavorites(ctx context.Context, info *domain.FavoritesInfo) error {
+	if info == nil || info.UserId <= 0 || info.FavoritesId <= 0 {
+		return kerrors.BadRequest("INVALID_FAVORITE", "用户和收藏夹 ID 必须为正数")
+	}
+	if info.IsPrivate != nil && *info.IsPrivate != -1 && *info.IsPrivate != 1 {
+		return kerrors.BadRequest("INVALID_FAVORITE_PRIVACY", "收藏夹隐私标记必须为 1（公开）或 -1（私密）")
+	}
+	if err := uc.requireFavoriteOwner(ctx, info.UserId, info.FavoritesId); err != nil {
+		return err
+	}
 	err := uc.repo.UpdateFavorites(ctx, info.ToMap())
 	if err != nil {
 		return helper.HandleError(errdef.ErrModifyFavoriteFailed, err)
 	}
 	return nil
+}
+
+// requireFavoriteOwner 在写入前核对所有者；无权与不存在返回同一错误，不泄露收藏夹信息。
+func (uc *FavoritesUsecase) requireFavoriteOwner(ctx context.Context, userId, favoritesId int64) error {
+	favorite, err := uc.repo.GetFavoritesMetadata(ctx, favoritesId)
+	if stderr.Is(err, gorm.ErrRecordNotFound) || (err == nil && (favorite == nil || favorite.UserID != userId)) {
+		return kerrors.NotFound("FAVORITE_NOT_FOUND", "收藏夹不存在")
+	}
+	return err
 }

@@ -16,6 +16,8 @@ type optionalViewerRepo struct {
 	VideoInfoRepo
 	detailCalls, barrageCalls, statusCalls, historyCalls, viewCalls int
 	statusUser, historyUser                                         int64
+	favoriteCalls                                                   int
+	favoriteID                                                      int64
 	errAt                                                           string
 }
 
@@ -37,6 +39,11 @@ func (r *optionalViewerRepo) GetUserVideoStatus(_ context.Context, _, userID int
 	r.statusCalls++
 	r.statusUser = userID
 	return UpvoteStatus | FavoriteStatus, r.fail("status")
+}
+
+func (r *optionalViewerRepo) GetUserFavoriteID(_ context.Context, userID, videoID int64) (int64, error) {
+	r.favoriteCalls++
+	return r.favoriteID, r.fail("favorite")
 }
 func (r *optionalViewerRepo) AddVideoCntView(context.Context, int64) error {
 	r.viewCalls++
@@ -69,10 +76,12 @@ func TestVideoDetailOptionalViewer(t *testing.T) {
 		{name: "public barrage failure", errAt: "barrage"},
 		{name: "view failure", errAt: "view"},
 		{name: "signed in status failure", userID: 7, errAt: "status"},
+		{name: "signed in favorite failure", userID: 7, errAt: "favorite"},
+		{name: "anonymous skips favorite store", errAt: "favorite"},
 		{name: "signed in history failure", userID: 7, errAt: "history"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := &optionalViewerRepo{errAt: tc.errAt}
+			repo := &optionalViewerRepo{errAt: tc.errAt, favoriteID: 91}
 			uc := NewVideoInfoUsecase(repo, optionalViewerTransaction{}, log.NewStdLogger(io.Discard))
 			resp, err := uc.GetVideoInfoById(context.Background(), 42, tc.userID)
 			if tc.userID < 0 {
@@ -81,7 +90,7 @@ func TestVideoDetailOptionalViewer(t *testing.T) {
 				}
 				return
 			}
-			wantError := tc.errAt != "" && !(tc.userID == 0 && (tc.errAt == "status" || tc.errAt == "history"))
+			wantError := tc.errAt != "" && !(tc.userID == 0 && (tc.errAt == "status" || tc.errAt == "history" || tc.errAt == "favorite"))
 			if wantError {
 				if err == nil || resp != nil {
 					t.Fatal("storage failure was swallowed")
@@ -98,10 +107,10 @@ func TestVideoDetailOptionalViewer(t *testing.T) {
 				t.Fatal("existing view count behavior changed")
 			}
 			if tc.userID == 0 {
-				if resp.UserVideoStatus != nil || repo.statusCalls != 0 || repo.historyCalls != 0 {
+				if resp.UserVideoStatus != nil || repo.statusCalls != 0 || repo.historyCalls != 0 || repo.favoriteCalls != 0 {
 					t.Fatal("anonymous viewer accessed personal data")
 				}
-			} else if resp.UserVideoStatus == nil || resp.UserVideoStatus.IsUpvoted != 1 || resp.UserVideoStatus.IsFavorited != 1 || repo.statusCalls != 1 || repo.historyCalls != 1 || repo.statusUser != 7 || repo.historyUser != 7 {
+			} else if resp.UserVideoStatus == nil || resp.UserVideoStatus.IsUpvoted != 1 || resp.UserVideoStatus.IsFavorited != 1 || resp.UserVideoStatus.FavoriteId != 91 || repo.favoriteCalls != 1 || repo.statusCalls != 1 || repo.historyCalls != 1 || repo.statusUser != 7 || repo.historyUser != 7 {
 				t.Fatal("authenticated behavior changed")
 			}
 		})

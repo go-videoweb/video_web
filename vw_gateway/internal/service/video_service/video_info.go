@@ -7,6 +7,7 @@ import (
 	videoinfov1 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/biz/videobiz"
 	"vw_gateway/internal/domain"
+	"vw_gateway/internal/pkg/ecode/errdef/uerr"
 )
 
 type InfoService struct {
@@ -26,7 +27,7 @@ func NewVideoInfoService(videoInfo *videobiz.VideoInfoUsecase, logger log.Logger
 // 输入：ctx 的 user_id 为鉴权确认的 int64 用户 ID；req 提供视频 ID，不从请求参数接受用户身份。
 // 输出：成功时返回视频详情响应；下游获取失败时返回 nil 和原错误。
 // 身份缺失、类型不符或非正数时传入 user_id=0，由下游跳过个人互动状态和观看历史操作。
-// 当前网关响应仅映射视频详情，不透传下游的个人互动状态。
+// 个人状态仅向已验证的登录访问者返回，游客始终不返回下游个人状态。
 func (info *InfoService) GetVideoInfo(ctx context.Context, req *videoinfov1.GetVideoInfoReq) (*videoinfov1.GetVideoInfoResp, error) {
 	userId, ok := ctx.Value(userIdKey).(int64)
 	if !ok || userId <= 0 {
@@ -36,9 +37,45 @@ func (info *InfoService) GetVideoInfo(ctx context.Context, req *videoinfov1.GetV
 	if err != nil {
 		return nil, err
 	}
-	return &videoinfov1.GetVideoInfoResp{
+	resp := &videoinfov1.GetVideoInfoResp{
 		VideoDetail: domainToVideoMetaInfo(detail),
-	}, nil
+	}
+	if state := detail.UserVideoStatus; userId > 0 && state != nil {
+		resp.UserVideoStatus = &videoinfov1.UserVideoStatus{
+			IsUpvoted: state.IsUpvoted, IsFavorited: state.IsFavorited,
+			IsShared: state.IsShared, IsThrownShells: state.IsThrownShells, FavoriteId: state.FavoriteId,
+		}
+	}
+	return resp, nil
+}
+
+// GetFavoriteVideos 使用鉴权身份读取收藏夹分页内容，身份缺失时不调用下游。
+// 摘要字段和收藏时间分别映射，保留视频发布时间；空页返回空数组和下游总数。
+func (info *InfoService) GetFavoriteVideos(ctx context.Context, req *videoinfov1.GetFavoriteVideosReq) (*videoinfov1.GetFavoriteVideosResp, error) {
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	result, err := info.videoInfo.GetFavoriteVideos(ctx, userId, req.FavoritesId, req.PageNum, req.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	resp := &videoinfov1.GetFavoriteVideosResp{
+		Total: result.Total, PageNum: result.PageNum, PageSize: result.PageSize,
+		Videos: make([]*videoinfov1.FavoriteVideoItem, len(result.Videos)),
+	}
+	for i, item := range result.Videos {
+		v := item.Video
+		resp.Videos[i] = &videoinfov1.FavoriteVideoItem{
+			CollectedAt: item.CollectedAt,
+			Video: &videoinfov1.VideoSummary{
+				VideoId: v.VideoId, Title: v.Title, Description: v.Description, Duration: v.Duration,
+				PublisherName: v.PublisherName, CoverPath: v.CoverPath, VideoPath: v.VideoPath,
+				CntBarrages: v.CntBarrages, CntViewed: v.CntViewed, CreatedTime: v.CreatedTime,
+			},
+		}
+	}
+	return resp, nil
 }
 
 func (info *InfoService) GetVideoList(ctx context.Context, req *videoinfov1.GetVideoListReq) (*videoinfov1.GetVideoListResp, error) {
