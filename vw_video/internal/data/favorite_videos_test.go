@@ -31,15 +31,29 @@ func offlineFavoriteDB(t *testing.T) (*gorm.DB, context.Context) {
 	return db, context.WithValue(context.Background(), transactionKey{}, &query.QueryTx{Query: query.Use(db)})
 }
 
-// TestFavoriteVideosQueryOffline 验证访问筛选、软删除、排序分页、摘要完整性和各阶段错误，无真实数据库访问。
+// TestFavoriteVideosQueryOffline 验证分步权限、删除过滤先于分页、摘要顺序与权限复核，不连接数据库。
 func TestFavoriteVideosQueryOffline(t *testing.T) {
 	for _, tc := range []struct {
-		name          string
-		failAt        int
-		denied, empty bool
+		name                                                string
+		owner, privacy                                      int64
+		failAt                                              int
+		denied, missing, empty, revoked, removed, lostVideo bool
 	}{
-		{name: "正常分页"}, {name: "空页", empty: true}, {name: "私密或不存在", denied: true},
-		{name: "权限查询故障", failAt: 1}, {name: "计数故障", failAt: 2}, {name: "列表故障", failAt: 3},
+		{name: "本人私密", owner: 7, privacy: -1},
+		{name: "本人公开", owner: 7, privacy: 1},
+		{name: "他人公开", owner: 8, privacy: 1},
+		{name: "他人私密", owner: 8, privacy: -1, denied: true},
+		{name: "异常隐私标记", owner: 8, denied: true},
+		{name: "不存在", missing: true},
+		{name: "空页", owner: 7, empty: true},
+		{name: "查询期间转私密", owner: 8, privacy: 1, revoked: true},
+		{name: "查询期间删除收藏夹", owner: 7, removed: true},
+		{name: "摘要读取前删除视频", owner: 7, lostVideo: true},
+		{name: "权限查询故障", owner: 7, failAt: 1},
+		{name: "计数故障", owner: 7, failAt: 2},
+		{name: "关系分页故障", owner: 7, failAt: 3},
+		{name: "摘要查询故障", owner: 7, failAt: 4},
+		{name: "权限复核故障", owner: 7, failAt: 5},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			db, ctx := offlineFavoriteDB(t)
@@ -50,6 +64,10 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 			created, collected := time.Unix(100, 0), time.Unix(200, 0)
 			if err := db.Callback().Query().Replace("gorm:query", func(tx *gorm.DB) {
 				original(tx)
+				// 子查询只参与 SQL 构建，没有结果接收对象，不计作一次数据库往返。
+				if tx.Statement.Dest == nil {
+					return
+				}
 				sqls = append(sqls, tx.Statement.SQL.String())
 				args = append(args, append([]interface{}{}, tx.Statement.Vars...))
 				stage := len(sqls)
@@ -57,56 +75,79 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 					tx.AddError(wantErr)
 					return
 				}
-				if stage == 1 {
-					if tc.denied {
+				switch {
+				case stage == 1 || stage == 5 || (tc.empty && stage == 4):
+					if tc.missing || (stage > 1 && tc.removed) {
 						tx.AddError(gorm.ErrRecordNotFound)
 						return
 					}
-					reflect.ValueOf(tx.Statement.Dest).Elem().FieldByName("FavoritesID").SetInt(9)
-				} else if stage == 2 {
-					*tx.Statement.Dest.(*int64) = 3
-					// COUNT 返回一行聚合结果，模拟驱动时也需提供行数，避免 GORM 用 RowsAffected 覆盖计数。
-					tx.RowsAffected = 1
-				} else if stage == 3 && !tc.empty {
-					*tx.Statement.Dest.(*[]*favoriteVideoRow) = []*favoriteVideoRow{
-						{Video: model.Video{VideoID: 42, Title: "摘要", CreatedAt: created}, CollectedAt: &collected},
-						{Video: model.Video{VideoID: 43, Title: "历史空收藏时间", CreatedAt: created}},
+					favorite := reflect.ValueOf(tx.Statement.Dest).Elem()
+					favorite.FieldByName("UserID").SetInt(tc.owner)
+					privacy := tc.privacy
+					if stage > 1 && tc.revoked {
+						privacy = -1
 					}
+					favorite.FieldByName("IsPrivate").SetInt(privacy)
+				case stage == 2:
+					*tx.Statement.Dest.(*int64) = 3
+					// COUNT 返回一行聚合结果，避免 GORM 用 RowsAffected 覆盖计数。
+					tx.RowsAffected = 1
+				case stage == 3 && !tc.empty:
+					*tx.Statement.Dest.(*[]*favoriteVideoRow) = []*favoriteVideoRow{
+						{VideoID: 42, CollectedAt: &collected}, {VideoID: 43},
+					}
+				case stage == 4:
+					videos := []*model.Video{{VideoID: 42, Title: "摘要", CreatedAt: created}}
+					if !tc.lostVideo {
+						videos = append([]*model.Video{{VideoID: 43, Title: "历史空收藏时间", CreatedAt: created}}, videos...)
+					}
+					*tx.Statement.Dest.(*[]*model.Video) = videos
 				}
 			}); err != nil {
 				t.Fatal(err)
 			}
 			rows, total, err := (&videoInfoRepo{}).GetFavoriteVideos(ctx, 7, 9, 2, 2)
-			if !strings.Contains(sqls[0], "favorites_id = ? AND (user_id = ? OR is_private = ?)") || strings.Contains(sqls[0], "deleted_at") || !reflect.DeepEqual(args[0], []interface{}{int64(9), int64(7), 1, 1}) {
-				t.Fatalf("访问条件错误：%s %#v", sqls[0], args[0])
+			wantAccessSQL := "SELECT user_id, is_private FROM `favorites` WHERE favorites_id = ? LIMIT ?"
+			if sqls[0] != wantAccessSQL || !reflect.DeepEqual(args[0], []interface{}{int64(9), 1}) {
+				t.Fatalf("权限查询未限定目标收藏夹：%s %#v", sqls[0], args[0])
 			}
-			if tc.denied {
-				if err == nil || kerrors.FromError(err).Code != 404 || len(sqls) != 1 || rows != nil {
-					t.Fatal("无权查询泄露内容或计数")
+			for _, sqlText := range sqls {
+				if strings.Contains(sqlText, "JOIN") || strings.Contains(sqlText, " OR ") {
+					t.Fatalf("分步查询意外包含 JOIN 或权限 OR：%s", sqlText)
+				}
+			}
+			if tc.denied || tc.missing || tc.revoked || tc.removed {
+				wantQueries := 1
+				if tc.revoked || tc.removed {
+					wantQueries = 5
+				}
+				if err == nil || kerrors.FromError(err).Code != 404 || len(sqls) != wantQueries || rows != nil || total != 0 {
+					t.Fatalf("无权响应泄露内容或计数：%d %v %v", total, rows, err)
 				}
 				return
 			}
 			if tc.failAt != 0 {
-				if !errors.Is(err, wantErr) || len(sqls) != tc.failAt || rows != nil {
+				if !errors.Is(err, wantErr) || len(sqls) != tc.failAt || rows != nil || total != 0 {
 					t.Fatalf("查询错误被吞掉：%v", err)
 				}
 				return
 			}
-			if err != nil || total != 3 || len(sqls) != 3 {
+			wantQueries := 5
+			if tc.empty {
+				wantQueries = 4
+			}
+			if err != nil || total != 3 || len(sqls) != wantQueries {
 				t.Fatalf("分页查询失败：total=%d, queries=%d, err=%v", total, len(sqls), err)
 			}
-			for _, sqlText := range sqls[1:] {
-				for _, fragment := range []string{"JOIN video AS v", "JOIN favorites AS f", "fv.favorites_id = ?", "fv.deleted_at IS NULL", "v.deleted_at IS NULL", "f.user_id = ? OR f.is_private = ?"} {
-					if !strings.Contains(sqlText, fragment) {
-						t.Fatalf("查询缺少筛选 %s：%s", fragment, sqlText)
-					}
-				}
+			filter := " FROM `favorite_video` WHERE (favorites_id = ? AND deleted_at IS NULL) AND video_id IN (SELECT video_id FROM `video` WHERE deleted_at IS NULL)"
+			if sqls[1] != "SELECT count(*)"+filter || sqls[2] != "SELECT video_id, created_at AS collected_at"+filter+" ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?" {
+				t.Fatalf("完整 SQL 的筛选分组、删除过滤或分页错误：%v", sqls)
 			}
-			if strings.Contains(sqls[1], "ORDER BY") || !strings.Contains(sqls[2], "fv.created_at DESC, fv.id DESC") || !strings.Contains(sqls[2], "LIMIT ? OFFSET ?") {
-				t.Fatalf("分页排序错误：%v", sqls)
-			}
-			if !reflect.DeepEqual(args[1], []interface{}{int64(9), int64(7), 1}) || !reflect.DeepEqual(args[2], []interface{}{int64(9), int64(7), 1, 2, 2}) {
+			if !reflect.DeepEqual(args[1], []interface{}{int64(9)}) || !reflect.DeepEqual(args[2], []interface{}{int64(9), 2, 2}) {
 				t.Fatalf("内容筛选或分页参数错误：%#v", args)
+			}
+			if sqls[len(sqls)-1] != wantAccessSQL || !reflect.DeepEqual(args[len(args)-1], args[0]) {
+				t.Fatal("返回前未重新校验同一收藏夹权限")
 			}
 			if tc.empty {
 				if rows == nil || len(rows) != 0 {
@@ -114,49 +155,70 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 				}
 				return
 			}
-			if len(rows) != 2 || rows[0].Video.VideoID != 42 || rows[0].Video.Title != "摘要" || !rows[0].Video.CreatedAt.Equal(created) || !rows[0].CollectedAt.Equal(collected) || rows[1].CollectedAt != nil {
-				t.Fatal("摘要或两种时间映射错误")
+			if sqls[3] != "SELECT * FROM `video` WHERE video_id IN (?,?) AND `video`.`deleted_at` IS NULL" || !reflect.DeepEqual(args[3], []interface{}{int64(42), int64(43)}) {
+				t.Fatalf("摘要未按本页 ID 批量读取：%s %#v", sqls[3], args[3])
+			}
+			wantRows := 2
+			if tc.lostVideo {
+				wantRows = 1
+			}
+			if len(rows) != wantRows || rows[0].Video.VideoID != 42 || rows[0].Video.Title != "摘要" || !rows[0].Video.CreatedAt.Equal(created) || !rows[0].CollectedAt.Equal(collected) {
+				t.Fatal("摘要、收藏顺序或两种时间映射错误")
+			}
+			if !tc.lostVideo && (rows[1].Video.VideoID != 43 || rows[1].CollectedAt != nil) {
+				t.Fatal("摘要数据库返回乱序或历史空时间未正确处理")
 			}
 		})
 	}
 }
 
-// TestFavoriteRelationQueryOffline 验证旧表结构下按所有者和视频查归属，空关系、冲突和数据库错误明确返回。
+// TestFavoriteRelationQueryOffline 验证先查本人收藏夹再限定视频及有效关系，冲突和错误明确返回。
 func TestFavoriteRelationQueryOffline(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		ids  []int64
-		fail bool
+		name           string
+		favorites, ids []int64
+		failAt         int
 	}{
-		{name: "未收藏"}, {name: "已收藏", ids: []int64{91}}, {name: "历史多归属", ids: []int64{91, 92}}, {name: "数据库故障", fail: true},
+		{name: "没有收藏夹"},
+		{name: "未收藏", favorites: []int64{91, 92}},
+		{name: "已收藏", favorites: []int64{91, 92}, ids: []int64{91}},
+		{name: "历史多归属", favorites: []int64{91, 92}, ids: []int64{91, 92}},
+		{name: "收藏夹查询故障", failAt: 1},
+		{name: "关系查询故障", favorites: []int64{91, 92}, failAt: 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			db, ctx := offlineFavoriteDB(t)
 			original := db.Callback().Query().Get("gorm:query")
 			wantErr := errors.New("归属查询失败")
+			calls := 0
 			if err := db.Callback().Query().Replace("gorm:query", func(tx *gorm.DB) {
 				original(tx)
-				sqlText := tx.Statement.SQL.String()
-				for _, fragment := range []string{"JOIN favorites AS f", "f.user_id = ? AND fv.video_id = ? AND fv.deleted_at IS NULL", "LIMIT ?"} {
-					if !strings.Contains(sqlText, fragment) {
-						t.Fatalf("归属筛选错误：%s", sqlText)
-					}
+				calls++
+				wantSQL := "SELECT `favorites_id` FROM `favorites` WHERE user_id = ?"
+				wantArgs := []interface{}{int64(7)}
+				if calls == 2 {
+					wantSQL = "SELECT `favorites_id` FROM `favorite_video` WHERE favorites_id IN (?,?) AND video_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT ?"
+					wantArgs = []interface{}{int64(91), int64(92), int64(42), 2}
 				}
-				if strings.Contains(sqlText, "fv.user_id") || !reflect.DeepEqual(tx.Statement.Vars, []interface{}{int64(7), int64(42), 2}) {
-					t.Fatal("使用了新表字段或错误身份")
+				if tx.Statement.SQL.String() != wantSQL || !reflect.DeepEqual(tx.Statement.Vars, wantArgs) {
+					t.Fatalf("归属查询范围错误：%s %#v", tx.Statement.SQL.String(), tx.Statement.Vars)
 				}
-				if tc.fail {
+				if calls == tc.failAt {
 					tx.AddError(wantErr)
 					return
 				}
-				*tx.Statement.Dest.(*[]int64) = tc.ids
+				ids := tc.favorites
+				if calls == 2 {
+					ids = tc.ids
+				}
+				*tx.Statement.Dest.(*[]int64) = ids
 			}); err != nil {
 				t.Fatal(err)
 			}
 			id, err := (&videoInfoRepo{}).GetUserFavoriteID(ctx, 7, 42)
-			if tc.fail {
-				if !errors.Is(err, wantErr) || id != 0 {
-					t.Fatal("故障被吞掉")
+			if tc.failAt != 0 {
+				if !errors.Is(err, wantErr) || calls != tc.failAt || id != 0 {
+					t.Fatal("故障被吞掉或继续访问数据库")
 				}
 				return
 			}
@@ -170,8 +232,12 @@ func TestFavoriteRelationQueryOffline(t *testing.T) {
 			if len(tc.ids) == 1 {
 				want = tc.ids[0]
 			}
-			if err != nil || id != want {
-				t.Fatalf("归属结果错误：%d %v", id, err)
+			wantCalls := 2
+			if len(tc.favorites) == 0 {
+				wantCalls = 1
+			}
+			if err != nil || id != want || calls != wantCalls {
+				t.Fatalf("归属结果错误：%d %v, calls=%d", id, err, calls)
 			}
 		})
 	}
