@@ -1,20 +1,21 @@
 package main
 
 import (
+	"vw_user/cmd/gorm_gen/methods"
+	"vw_user/internal/conf"
+	"vw_user/internal/data"
+
 	"github.com/go-kratos/kratos/v2/config"
 	"github.com/go-kratos/kratos/v2/config/file"
 	"gorm.io/gen"
 	"gorm.io/gorm"
-	"vw_user/cmd/gorm_gen/methods"
-	"vw_user/internal/conf"
-	"vw_user/internal/data"
 )
 
 //go:generate go run gen_generator.go
 func main() {
 	db := getGormDB()
 	g := gen.NewGenerator(gen.Config{
-		OutPath: "../../internal/data/dal/query",
+		OutPath: "./internal/data/dal/query",
 
 		// WithDefaultQuery 生成默认查询结构体(作为全局变量使用), 即`Q`结构体和其字段(各表模型)
 		// WithoutContext 生成没有context调用限制的代码供查询
@@ -82,7 +83,7 @@ func main() {
 func getGormDB() *gorm.DB {
 	c := config.New(
 		config.WithSource(
-			file.NewSource("../../configs/config.yaml"),
+			file.NewSource("./configs/config.yaml"),
 		),
 	)
 	defer c.Close()

@@ -27,29 +27,29 @@ func newUserFollow(db *gorm.DB, opts ...gen.DOOption) userFollow {
 
 	tableName := _userFollow.userFollowDo.TableName()
 	_userFollow.ALL = field.NewAsterisk(tableName)
-	_userFollow.FollowlistID = field.NewInt64(tableName, "followlist_id")
-	_userFollow.FollowUserID = field.NewInt64(tableName, "follow_user_id")
-	_userFollow.UserID = field.NewInt64(tableName, "user_id")
+	_userFollow.CreatedAt = field.NewTime(tableName, "created_at")
 	_userFollow.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_userFollow.DeletedAt = field.NewField(tableName, "deleted_at")
-	_userFollow.CreatedAt = field.NewTime(tableName, "created_at")
+	_userFollow.FollowlistID = field.NewInt64(tableName, "followlist_id")
+	_userFollow.UserID = field.NewInt64(tableName, "user_id")
+	_userFollow.FollowUserID = field.NewInt64(tableName, "follow_user_id")
 
 	_userFollow.fillFieldMap()
 
 	return _userFollow
 }
 
-// userFollow 存放用户关注的用户的id
+// userFollow 用户关注列表 表
 type userFollow struct {
 	userFollowDo
 
 	ALL          field.Asterisk
-	FollowlistID field.Int64
-	FollowUserID field.Int64 // 被关注的用户id
-	UserID       field.Int64
+	CreatedAt    field.Time
 	UpdatedAt    field.Time
 	DeletedAt    field.Field
-	CreatedAt    field.Time
+	FollowlistID field.Int64
+	UserID       field.Int64
+	FollowUserID field.Int64
 
 	fieldMap map[string]field.Expr
 }
@@ -66,12 +66,12 @@ func (u userFollow) As(alias string) *userFollow {
 
 func (u *userFollow) updateTableName(table string) *userFollow {
 	u.ALL = field.NewAsterisk(table)
-	u.FollowlistID = field.NewInt64(table, "followlist_id")
-	u.FollowUserID = field.NewInt64(table, "follow_user_id")
-	u.UserID = field.NewInt64(table, "user_id")
+	u.CreatedAt = field.NewTime(table, "created_at")
 	u.UpdatedAt = field.NewTime(table, "updated_at")
 	u.DeletedAt = field.NewField(table, "deleted_at")
-	u.CreatedAt = field.NewTime(table, "created_at")
+	u.FollowlistID = field.NewInt64(table, "followlist_id")
+	u.UserID = field.NewInt64(table, "user_id")
+	u.FollowUserID = field.NewInt64(table, "follow_user_id")
 
 	u.fillFieldMap()
 
@@ -89,12 +89,12 @@ func (u *userFollow) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 
 func (u *userFollow) fillFieldMap() {
 	u.fieldMap = make(map[string]field.Expr, 6)
-	u.fieldMap["followlist_id"] = u.FollowlistID
-	u.fieldMap["follow_user_id"] = u.FollowUserID
-	u.fieldMap["user_id"] = u.UserID
+	u.fieldMap["created_at"] = u.CreatedAt
 	u.fieldMap["updated_at"] = u.UpdatedAt
 	u.fieldMap["deleted_at"] = u.DeletedAt
-	u.fieldMap["created_at"] = u.CreatedAt
+	u.fieldMap["followlist_id"] = u.FollowlistID
+	u.fieldMap["user_id"] = u.UserID
+	u.fieldMap["follow_user_id"] = u.FollowUserID
 }
 
 func (u userFollow) clone(db *gorm.DB) userFollow {

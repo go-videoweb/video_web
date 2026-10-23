@@ -66,6 +66,10 @@ gen:
 	go generate ./cmd/tools/gorm_gen/...
 	go mod tidy
 
+.PHONY: gorm_gen
+# gen_executor
+gorm_gen:
+	go run ./cmd/gorm_gen
 
 .PHONY: errors
 # generate errors

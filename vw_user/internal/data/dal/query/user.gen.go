@@ -39,13 +39,13 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 	_user.IsAdmin = field.NewBool(tableName, "is_admin")
 	_user.CntMsgNotRead = field.NewInt64(tableName, "cnt_msg_not_read")
 	_user.CntFans = field.NewInt64(tableName, "cnt_fans")
-	_user.CntComments = field.NewInt64(tableName, "cnt_comments")
 	_user.CntLikes = field.NewInt64(tableName, "cnt_likes")
 	_user.AvatarPath = field.NewString(tableName, "avatar_path")
+	_user.CntComments = field.NewInt64(tableName, "cnt_comments")
+	_user.CntFollows = field.NewInt64(tableName, "cnt_follows")
 	_user.Version = field.NewField(tableName, "version")
 	_user.Gender = field.NewInt(tableName, "gender")
 	_user.Birthday = field.NewTime(tableName, "birthday")
-	_user.CntFollows = field.NewInt64(tableName, "cnt_follows")
 
 	_user.fillFieldMap()
 
@@ -56,25 +56,25 @@ type user struct {
 	userDo
 
 	ALL           field.Asterisk
-	CreatedAt     field.Time  // 创建时间
-	UpdatedAt     field.Time  // 更新时间
-	DeletedAt     field.Field // 删除时间（用于软删除）
+	CreatedAt     field.Time
+	UpdatedAt     field.Time
+	DeletedAt     field.Field
 	UserID        field.Int64
-	Username      field.String // 用户名
-	Password      field.String // 用户密码（已加密）
+	Username      field.String
+	Password      field.String
 	Email         field.String
-	Signature     field.String // 用户签名，不多于25字
-	Shells        field.Int64  // 拥有的贝壳数
-	IsAdmin       field.Bool   // 是否是管理员
-	CntMsgNotRead field.Int64  // 未读消息数
-	CntFans       field.Int64  // 粉丝数
-	CntComments   field.Int64  // 发表评论数
-	CntLikes      field.Int64  // 获赞数
-	AvatarPath    field.String // 用户头像路径
-	Version       field.Field  // 版本号，用于乐观锁
-	Gender        field.Int    // 用户性别 1 - 男  2 - 女  3- 保密
+	Signature     field.String
+	Shells        field.Int64
+	IsAdmin       field.Bool
+	CntMsgNotRead field.Int64
+	CntFans       field.Int64
+	CntLikes      field.Int64
+	AvatarPath    field.String
+	CntComments   field.Int64
+	CntFollows    field.Int64
+	Version       field.Field
+	Gender        field.Int
 	Birthday      field.Time
-	CntFollows    field.Int64 // 关注数
 
 	fieldMap map[string]field.Expr
 }
@@ -103,13 +103,13 @@ func (u *user) updateTableName(table string) *user {
 	u.IsAdmin = field.NewBool(table, "is_admin")
 	u.CntMsgNotRead = field.NewInt64(table, "cnt_msg_not_read")
 	u.CntFans = field.NewInt64(table, "cnt_fans")
-	u.CntComments = field.NewInt64(table, "cnt_comments")
 	u.CntLikes = field.NewInt64(table, "cnt_likes")
 	u.AvatarPath = field.NewString(table, "avatar_path")
+	u.CntComments = field.NewInt64(table, "cnt_comments")
+	u.CntFollows = field.NewInt64(table, "cnt_follows")
 	u.Version = field.NewField(table, "version")
 	u.Gender = field.NewInt(table, "gender")
 	u.Birthday = field.NewTime(table, "birthday")
-	u.CntFollows = field.NewInt64(table, "cnt_follows")
 
 	u.fillFieldMap()
 
@@ -139,13 +139,13 @@ func (u *user) fillFieldMap() {
 	u.fieldMap["is_admin"] = u.IsAdmin
 	u.fieldMap["cnt_msg_not_read"] = u.CntMsgNotRead
 	u.fieldMap["cnt_fans"] = u.CntFans
-	u.fieldMap["cnt_comments"] = u.CntComments
 	u.fieldMap["cnt_likes"] = u.CntLikes
 	u.fieldMap["avatar_path"] = u.AvatarPath
+	u.fieldMap["cnt_comments"] = u.CntComments
+	u.fieldMap["cnt_follows"] = u.CntFollows
 	u.fieldMap["version"] = u.Version
 	u.fieldMap["gender"] = u.Gender
 	u.fieldMap["birthday"] = u.Birthday
-	u.fieldMap["cnt_follows"] = u.CntFollows
 }
 
 func (u user) clone(db *gorm.DB) user {

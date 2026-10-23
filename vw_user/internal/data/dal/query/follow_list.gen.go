@@ -28,22 +28,21 @@ func newFollowList(db *gorm.DB, opts ...gen.DOOption) followList {
 	tableName := _followList.followListDo.TableName()
 	_followList.ALL = field.NewAsterisk(tableName)
 	_followList.ListID = field.NewInt64(tableName, "list_id")
-	_followList.ListName = field.NewString(tableName, "list_name")
 	_followList.UserID = field.NewInt64(tableName, "user_id")
+	_followList.ListName = field.NewString(tableName, "list_name")
 
 	_followList.fillFieldMap()
 
 	return _followList
 }
 
-// followList 存放用户关注列表元信息
 type followList struct {
 	followListDo
 
 	ALL      field.Asterisk
 	ListID   field.Int64
-	ListName field.String
 	UserID   field.Int64
+	ListName field.String
 
 	fieldMap map[string]field.Expr
 }
@@ -61,8 +60,8 @@ func (f followList) As(alias string) *followList {
 func (f *followList) updateTableName(table string) *followList {
 	f.ALL = field.NewAsterisk(table)
 	f.ListID = field.NewInt64(table, "list_id")
-	f.ListName = field.NewString(table, "list_name")
 	f.UserID = field.NewInt64(table, "user_id")
+	f.ListName = field.NewString(table, "list_name")
 
 	f.fillFieldMap()
 
@@ -81,8 +80,8 @@ func (f *followList) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 func (f *followList) fillFieldMap() {
 	f.fieldMap = make(map[string]field.Expr, 3)
 	f.fieldMap["list_id"] = f.ListID
-	f.fieldMap["list_name"] = f.ListName
 	f.fieldMap["user_id"] = f.UserID
+	f.fieldMap["list_name"] = f.ListName
 }
 
 func (f followList) clone(db *gorm.DB) followList {
