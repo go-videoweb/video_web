@@ -139,52 +139,9 @@ func (i *interactRepo) UpvoteVideo(ctx context.Context, userId int64, videoId in
 	return isUpvoted == 1, saga.Submit()
 }
 
-func (i *interactRepo) UpvoteBarrage(ctx context.Context, userId int64, barrageId int64) error {
-	origin, err := i.data.videoInteractClient.GetUserBarrageStatus(ctx, &interactGRPC.GetUserBarrageStatusReq{
-		UserId:    userId,
-		BarrageId: barrageId,
-	})
-	if err != nil {
-		return err
-	}
-
-	videoAddr, err := resolver.GetRandomAddr(ctx, videoService)
-	if err != nil {
-		return err
-	}
-
-	gid, saga := newSaga(ctx, i.data.dtmServerAddr)
-	i.logger.Infof("[UpvoteBarrage] gid: %s", gid)
-
-	isUpvoted := checkIsUpvoted(origin.Status)
-	wrapSagaAdd(
-		saga,
-		// 1. Add the first step of the saga, which is to upvote the video
-		&sagaMember{
-			method:           videoAddr + interactGRPC.VideoInteract_BarrageUpvote_FullMethodName,
-			compensateMethod: videoAddr + interactGRPC.VideoInteract_BarrageUpvoteRevert_FullMethodName,
-			payload: &interactGRPC.UpvoteBarrageReq{
-				BarrageId: barrageId,
-				UserId:    userId,
-				Upvote:    -isUpvoted, // reverse the status of Upvoted
-			},
-		},
-
-		// 2. Add the second step of the saga, which is to update the user-barrage status
-		&sagaMember{
-			method:           videoAddr + interactGRPC.VideoInteract_SetUserBarrageStatus_FullMethodName,
-			compensateMethod: videoAddr + interactGRPC.VideoInteract_SetUserBarrageStatusRevert_FullMethodName,
-			payload: &interactGRPC.SetUserBarrageStatusReq{
-				UserId:       userId,
-				BarrageId:    barrageId,
-				OriginStatus: origin.Status,
-				Statuses: &interactGRPC.SetUserBarrageStatusReq_Statuses{
-					IsUpvoted: -isUpvoted, // reverse the status of Upvoted
-				},
-			},
-		},
-	)
-	return saga.Submit()
+// UpvoteBarrage 在创建 Saga 前拒绝尚未启用的弹幕点赞。
+func (i *interactRepo) UpvoteBarrage(ctx context.Context, userId, barrageId int64) error {
+	return interactionNotSupported()
 }
 
 func (i *interactRepo) SendBarrage(ctx context.Context, userId int64, req *interactv1.VideoSendBarrageReq) error {

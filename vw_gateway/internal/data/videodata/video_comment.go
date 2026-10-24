@@ -3,10 +3,8 @@ package videodata
 import (
 	"context"
 	"github.com/go-kratos/kratos/v2/log"
-	"util/resolver"
 	vcommentv1 "vw_gateway/api/v1/video/video_comment"
 	"vw_gateway/internal/biz/videobiz"
-	userinfoGRPC "vw_user/api/v1/userinfo"
 	vcommentGRPC "vw_video/api/v1/comment"
 )
 
@@ -71,66 +69,13 @@ func (v *videoCommentRepo) GetCommentReplies(ctx context.Context, commentId int6
 	}, nil
 }
 
+// UpvoteComment 在创建 Saga 或修改计数前拒绝尚未启用的个人点赞。
 func (v *videoCommentRepo) UpvoteComment(ctx context.Context, commentId int64, userId, publisherId int64, isUpvoted bool) error {
-	videoAddr, err := resolver.GetRandomAddr(ctx, videoService)
-	if err != nil {
-		return err
-	}
-
-	userAddr, err := resolver.GetRandomAddr(ctx, userService)
-	if err != nil {
-		return err
-	}
-
-	// iu is used for update publisher's upvote count
-	var iu int32
-	if isUpvoted {
-		iu = 1
-	} else {
-		iu = -1
-	}
-
-	gid, saga := wrapSaga(ctx, v.data.dtmServerAddr,
-		// 1. upvote/cancel upvote comment
-		&sagaMember{
-			method:           videoAddr + vcommentGRPC.VideoComment_UpvoteComment_FullMethodName,
-			compensateMethod: videoAddr + vcommentGRPC.VideoComment_UpvoteCommentRevert_FullMethodName,
-			payload: &vcommentGRPC.UpvoteCommentReq{
-				CommentId: commentId,
-				UserId:    userId,
-				IsUpvoted: isUpvoted,
-			},
-		},
-
-		// 2. update the publisher's upvote count
-		&sagaMember{
-			method:           userAddr + userinfoGRPC.Userinfo_UpdateUserCntLikes_FullMethodName,
-			compensateMethod: userAddr + userinfoGRPC.Userinfo_UpdateUserCntLikesRevert_FullMethodName,
-			payload: &userinfoGRPC.UpdateUserCntLikesReq{
-				UserId:     publisherId,
-				UpvoteFlag: -iu,
-			},
-		},
-	)
-	log.Infof("[UpvoteComment] gid: %s", gid)
-
-	err = saga.Submit()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return interactionNotSupported()
 }
 
-func (v *videoCommentRepo) CheckIfUserUpvotedComment(ctx context.Context, commentId int64, userId int64) (bool, error) {
-	resp, err := v.data.videoCommentClient.CheckIfUserUpvotedComment(ctx, &vcommentGRPC.CheckIfUserUpvotedCommentReq{
-		CommentId: commentId,
-		UserId:    userId,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.IsUpvoted, nil
+func (v *videoCommentRepo) CheckIfUserUpvotedComment(ctx context.Context, commentId, userId int64) (bool, error) {
+	return false, interactionNotSupported()
 }
 
 func (v *videoCommentRepo) GetPublisherId(ctx context.Context, commentId int64) (int64, error) {
