@@ -13,7 +13,6 @@ require (
 	github.com/redis/go-redis/v9 v9.7.1
 	github.com/spewerspew/spew v0.0.0-20230513223542-89b69fbbe2bd
 	github.com/stretchr/testify v1.9.0
-	go.mongodb.org/mongo-driver v1.17.3
 	go.uber.org/automaxprocs v1.5.1
 	golang.org/x/crypto v0.36.0
 	google.golang.org/grpc v1.65.0
@@ -70,6 +69,7 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/yitter/idgenerator-go v1.3.3 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
+	go.mongodb.org/mongo-driver v1.17.3 // indirect
 	go.opentelemetry.io/otel v1.29.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect
 	go.opentelemetry.io/otel/metric v1.29.0 // indirect

@@ -6,11 +6,8 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/wire"
 	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"time"
 	utilCtx "util/context"
 	mysql2 "util/dbutil/mysqlutil"
 	"vw_user/internal/conf"
@@ -23,7 +20,6 @@ var ProviderSet = wire.NewSet(
 	NewData,
 	NewMySQL,
 	NewRedisClusterClient,
-	NewMongo,
 	NewUserRepo,
 	NewUserInfoRepo,
 	NewCaptRepo,
@@ -45,7 +41,6 @@ type transactionKey struct{}
 type Data struct {
 	mysql *gorm.DB
 	redis *redis.ClusterClient
-	mongo *mongo.Client
 }
 
 // NewTransaction return a util.Transaction interface.
@@ -57,7 +52,6 @@ func NewTransaction(d *Data) mysql2.Transaction {
 func NewData(
 	mysql *gorm.DB,
 	redisCluster *redis.ClusterClient,
-	mongo *mongo.Client,
 	logger log.Logger) (*Data, func(), error) {
 	cleanup := func() {
 		log.NewHelper(logger).Info("closing the data resources")
@@ -65,7 +59,6 @@ func NewData(
 	return &Data{
 		mysql: mysql,
 		redis: redisCluster,
-		mongo: mongo,
 	}, cleanup, nil
 }
 
@@ -112,23 +105,6 @@ func NewRedisClusterClient(c *conf.Data) *redis.ClusterClient {
 		panic(err)
 	}
 	return redisCluster
-}
-func NewMongo(c *conf.Data) *mongo.Client {
-	ctx, cancel := context.WithTimeout(utilCtx.NewBaseContext(), time.Duration(c.Mongo.ConnTimeout.Seconds)*time.Second)
-	defer cancel()
-
-	mongoCli, err := mongo.Connect(
-		ctx,
-		options.Client().ApplyURI(fmt.Sprintf("mongodb://%s:%s", c.Mongo.Host, c.Mongo.Port)).
-			SetMaxPoolSize(uint64(c.Mongo.MaxOpen)),
-	)
-	if err != nil {
-		panic(err)
-	}
-	if err := mongoCli.Ping(ctx, nil); err != nil {
-		panic(err)
-	}
-	return mongoCli
 }
 
 // WithTx starts and commits(or rollbacks) a transaction Automatically.
