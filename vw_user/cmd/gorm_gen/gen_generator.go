@@ -68,14 +68,15 @@ func main() {
 		gen.WithMethod(methods.UserLevel{}))
 	followList := g.GenerateModel("follow_list")
 	userFollows := g.GenerateModel("user_follows")
-	userFollowed := g.GenerateModel("user_fans")
+	userFans := g.GenerateModel("user_fans")
+	userSearchHistory := g.GenerateModel("user_search_history")
 	favorites := g.GenerateModel("favorites")
 	favoriteVideo := g.GenerateModel("favorite_video")
 
 	g.ApplyBasic(
 		user, level,
-		followList, userFollows, userFollowed,
-		favorites, favoriteVideo)
+		followList, userFollows, userFans,
+		favorites, favoriteVideo, userSearchHistory)
 
 	g.Execute()
 
