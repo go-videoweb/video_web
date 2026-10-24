@@ -16,12 +16,12 @@ import (
 )
 
 var (
-	Q             = new(Query)
-	Barrage       *barrage
-	Comment       *comment
-	FavoriteVideo *favoriteVideo
-	Video         *video
-	VideoClass    *videoClass
+	Q               = new(Query)
+	Barrage         *barrage
+	Comment         *comment
+	FavoriteVideo   *favoriteVideo
+	UserVideoStatus *userVideoStatus
+	Video           *video
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -29,41 +29,41 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	Barrage = &Q.Barrage
 	Comment = &Q.Comment
 	FavoriteVideo = &Q.FavoriteVideo
+	UserVideoStatus = &Q.UserVideoStatus
 	Video = &Q.Video
-	VideoClass = &Q.VideoClass
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
-		db:            db,
-		Barrage:       newBarrage(db, opts...),
-		Comment:       newComment(db, opts...),
-		FavoriteVideo: newFavoriteVideo(db, opts...),
-		Video:         newVideo(db, opts...),
-		VideoClass:    newVideoClass(db, opts...),
+		db:              db,
+		Barrage:         newBarrage(db, opts...),
+		Comment:         newComment(db, opts...),
+		FavoriteVideo:   newFavoriteVideo(db, opts...),
+		UserVideoStatus: newUserVideoStatus(db, opts...),
+		Video:           newVideo(db, opts...),
 	}
 }
 
 type Query struct {
 	db *gorm.DB
 
-	Barrage       barrage
-	Comment       comment
-	FavoriteVideo favoriteVideo
-	Video         video
-	VideoClass    videoClass
+	Barrage         barrage
+	Comment         comment
+	FavoriteVideo   favoriteVideo
+	UserVideoStatus userVideoStatus
+	Video           video
 }
 
 func (q *Query) Available() bool { return q.db != nil }
 
 func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
-		db:            db,
-		Barrage:       q.Barrage.clone(db),
-		Comment:       q.Comment.clone(db),
-		FavoriteVideo: q.FavoriteVideo.clone(db),
-		Video:         q.Video.clone(db),
-		VideoClass:    q.VideoClass.clone(db),
+		db:              db,
+		Barrage:         q.Barrage.clone(db),
+		Comment:         q.Comment.clone(db),
+		FavoriteVideo:   q.FavoriteVideo.clone(db),
+		UserVideoStatus: q.UserVideoStatus.clone(db),
+		Video:           q.Video.clone(db),
 	}
 }
 
@@ -77,30 +77,30 @@ func (q *Query) WriteDB() *Query {
 
 func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
-		db:            db,
-		Barrage:       q.Barrage.replaceDB(db),
-		Comment:       q.Comment.replaceDB(db),
-		FavoriteVideo: q.FavoriteVideo.replaceDB(db),
-		Video:         q.Video.replaceDB(db),
-		VideoClass:    q.VideoClass.replaceDB(db),
+		db:              db,
+		Barrage:         q.Barrage.replaceDB(db),
+		Comment:         q.Comment.replaceDB(db),
+		FavoriteVideo:   q.FavoriteVideo.replaceDB(db),
+		UserVideoStatus: q.UserVideoStatus.replaceDB(db),
+		Video:           q.Video.replaceDB(db),
 	}
 }
 
 type queryCtx struct {
-	Barrage       IBarrageDo
-	Comment       ICommentDo
-	FavoriteVideo IFavoriteVideoDo
-	Video         IVideoDo
-	VideoClass    IVideoClassDo
+	Barrage         IBarrageDo
+	Comment         ICommentDo
+	FavoriteVideo   IFavoriteVideoDo
+	UserVideoStatus IUserVideoStatusDo
+	Video           IVideoDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
-		Barrage:       q.Barrage.WithContext(ctx),
-		Comment:       q.Comment.WithContext(ctx),
-		FavoriteVideo: q.FavoriteVideo.WithContext(ctx),
-		Video:         q.Video.WithContext(ctx),
-		VideoClass:    q.VideoClass.WithContext(ctx),
+		Barrage:         q.Barrage.WithContext(ctx),
+		Comment:         q.Comment.WithContext(ctx),
+		FavoriteVideo:   q.FavoriteVideo.WithContext(ctx),
+		UserVideoStatus: q.UserVideoStatus.WithContext(ctx),
+		Video:           q.Video.WithContext(ctx),
 	}
 }
 
