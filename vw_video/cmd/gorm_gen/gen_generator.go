@@ -1,15 +1,20 @@
 package main
 
 import (
+	"fmt"
 	"vw_video/internal/conf"
-	"vw_video/internal/data"
 
 	"github.com/go-kratos/kratos/v2/config"
 	"github.com/go-kratos/kratos/v2/config/file"
+	"gorm.io/driver/mysql"
 	"gorm.io/gen"
 	"gorm.io/gorm"
 )
 
+// main 根据当前 MySQL 表结构生成视频服务的 DAL 模型和查询代码。
+// 输入：从视频 module 根目录读取 configs/config.yaml；需要数据库结构读取权限。
+// 输出：重写 internal/data/dal 下选定表的生成文件；配置或连接失败时终止，不执行表结构迁移。
+//
 //go:generate go run gen_generator.go
 func main() {
 	db := getGormDB()
@@ -63,7 +68,7 @@ func main() {
 	//gen.WithMethod(methods.Video{}))
 	favoriteVideo := g.GenerateModel("favorite_video")
 	barrages := g.GenerateModel("barrages")
-	userVideoStatus := g.GenerateModel("user_video_status")
+	userVideoStatus := g.GenerateModel("user_video_status", gen.FieldType("last_watch_time", "*time.Time"))
 	comment := g.GenerateModel("comment",
 		gen.FieldType("version", "optimisticlock.Version"),
 		gen.FieldType("cnt_upvote", "uint64"),
@@ -75,6 +80,10 @@ func main() {
 
 }
 
+// getGormDB 为一次性 DAL 生成建立独立的 MySQL 连接。
+// 输入：相对于进程工作目录的 configs/config.yaml，仅使用其中的 MySQL 配置。
+// 输出：可读取表结构的 GORM 连接；加载、解析或连接失败时 panic，不输出连接凭据。
+// 不依赖业务 data 包或现有 DAL，避免模型缺失时无法编译生成器；不初始化业务查询对象和排序映射。
 func getGormDB() *gorm.DB {
 	c := config.New(
 		config.WithSource(
@@ -91,5 +100,11 @@ func getGormDB() *gorm.DB {
 	if err := c.Scan(&bc); err != nil {
 		panic(err)
 	}
-	return data.NewMySQL(bc.Data)
+	cfg := bc.Data.Mysql
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
+	return db
 }

@@ -221,6 +221,9 @@ func (i *interactRepo) ShareVideo(ctx context.Context, userId int64, videoId int
 	return url, nil
 }
 
+// ThrowShells 读取原个人状态后编排用户余额、视频计数和个人状态的 Saga。
+// 输入：用户/视频 ID 和本次投递数量；输出：查询、发现或 Saga 执行错误，累计数量超过 2 时拒绝。
+// 状态分支携带变更前数量供补偿使用；此方法不会直接写数据库，也不保证跨 GID 的并发串行化。
 func (i *interactRepo) ThrowShells(ctx context.Context, userId int64, videoId int64, count int32) error {
 	origin, err := i.data.videoInteractClient.GetUserVideoStatus(ctx, &interactGRPC.GetUserVideoStatusReq{
 		VideoId: videoId,
@@ -283,10 +286,11 @@ func (i *interactRepo) ThrowShells(ctx context.Context, userId int64, videoId in
 			method:           videoAddr + interactGRPC.VideoInteract_SetUserVideoStatus_FullMethodName,
 			compensateMethod: videoAddr + interactGRPC.VideoInteract_SetUserVideoStatusRevert_FullMethodName,
 			payload: &interactGRPC.SetUserVideoStatusReq{
-				VideoId:      videoId,
-				UserId:       userId,
-				OriginStatus: origin.Status,
-				ShellsCount:  origin.ShellsCount + count,
+				VideoId:           videoId,
+				UserId:            userId,
+				OriginStatus:      origin.Status,
+				ShellsCount:       origin.ShellsCount + count,
+				OriginShellsCount: origin.ShellsCount,
 				Statuses: &interactGRPC.SetUserVideoStatusReq_Statuses{
 					IsThrownShells: 1,
 				},

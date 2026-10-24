@@ -51,18 +51,10 @@ message Data {
         int32 max_retries                      = 9;
         int32 min_idle_conns                   = 10;
     }
-    message Mongo {
-        string host                           = 1;
-        string port                           = 2;
-        string db                             = 3;
-        string username                       = 4;
-        string password                       = 5;
-        int32 max_open                        = 6;
-        google.protobuf.Duration conn_timeout = 7;
-    }
     Mysql mysql                = 1;
     RedisCluster redis_cluster = 2;
-    Mongo mongo                = 3;
+    reserved 3;
+    reserved "mongo";
 }
 
 message Registry {

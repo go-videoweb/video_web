@@ -14,14 +14,17 @@ const TableNameUserVideoStatus = "user_video_status"
 
 // UserVideoStatus mapped from table <user_video_status>
 type UserVideoStatus struct {
-	CreatedAt time.Time      `gorm:"column:created_at;type:datetime(3)" json:"created_at"`
-	UpdatedAt time.Time      `gorm:"column:updated_at;type:datetime(3)" json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(3);index:idx_user_video_deleted_at,priority:1" json:"deleted_at"`
-	UserID    int64          `gorm:"column:user_id;type:bigint;primaryKey;index:idx_uid_vid,priority:1" json:"user_id"`
-	VideoID   int64          `gorm:"column:video_id;type:bigint;primaryKey;index:idx_uid_vid,priority:2" json:"video_id"`
-	IsLike    int64          `gorm:"column:is_like;type:tinyint(1)" json:"is_like"`
-	IsDislike int64          `gorm:"column:is_dislike;type:tinyint(1)" json:"is_dislike"`
-	IsFavor   int64          `gorm:"column:is_favor;type:tinyint(1)" json:"is_favor"`
+	CreatedAt     time.Time      `gorm:"column:created_at;type:datetime(3)" json:"created_at"`
+	UpdatedAt     time.Time      `gorm:"column:updated_at;type:datetime(3)" json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(3);index:idx_user_video_deleted_at,priority:1" json:"deleted_at"`
+	UserID        int64          `gorm:"column:user_id;type:bigint;primaryKey;index:idx_uid_vid,priority:1;index:idx_user_video_watch,priority:1" json:"user_id"`
+	VideoID       int64          `gorm:"column:video_id;type:bigint;primaryKey;index:idx_uid_vid,priority:2;index:idx_user_video_watch,priority:3" json:"video_id"`
+	LastWatchTime *time.Time     `gorm:"column:last_watch_time;type:datetime(3);index:idx_user_video_watch,priority:2;index:user_video_status_last_watch_time_index,priority:1;comment:最近一次观看该视频的时间" json:"last_watch_time"` // 最近一次观看该视频的时间
+	IsLike        int64          `gorm:"column:is_like;type:tinyint(1)" json:"is_like"`
+	IsDislike     int64          `gorm:"column:is_dislike;type:tinyint(1)" json:"is_dislike"`
+	IsFavor       int64          `gorm:"column:is_favor;type:tinyint(1)" json:"is_favor"`
+	IsShared      int64          `gorm:"column:is_shared;type:tinyint;not null" json:"is_shared"`
+	ShellsCount   int64          `gorm:"column:shells_count;type:tinyint unsigned;not null" json:"shells_count"`
 }
 
 // TableName UserVideoStatus's table name

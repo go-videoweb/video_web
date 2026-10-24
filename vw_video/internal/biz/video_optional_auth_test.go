@@ -49,7 +49,9 @@ func (r *optionalViewerRepo) AddVideoCntView(context.Context, int64) error {
 	r.viewCalls++
 	return r.fail("view")
 }
-func (r *optionalViewerRepo) UpdateUserVideoHistory(_ context.Context, _, userID int64, _ *model.VideoSummary) error {
+
+// UpdateUserVideoHistory 记录测试中的调用次数与用户身份，可注入历史写入错误，不访问数据库。
+func (r *optionalViewerRepo) UpdateUserVideoHistory(_ context.Context, _, userID int64) error {
 	r.historyCalls++
 	r.historyUser = userID
 	return r.fail("history")

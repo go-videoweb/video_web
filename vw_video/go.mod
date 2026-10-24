@@ -12,9 +12,7 @@ require (
 	github.com/google/wire v0.6.0
 	github.com/hashicorp/consul/api v1.32.0
 	github.com/redis/go-redis/v9 v9.7.3
-	github.com/spewerspew/spew v0.0.0-20230513223542-89b69fbbe2bd
 	github.com/stretchr/testify v1.10.0
-	go.mongodb.org/mongo-driver v1.17.3
 	go.uber.org/automaxprocs v1.5.1
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.36.6
@@ -83,6 +81,7 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.5 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.5 // indirect
 	go.etcd.io/etcd/client/v3 v3.5.5 // indirect
+	go.mongodb.org/mongo-driver v1.17.3 // indirect
 	go.opentelemetry.io/otel v1.29.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect
 	go.opentelemetry.io/otel/metric v1.29.0 // indirect

@@ -32,9 +32,12 @@ func newUserVideoStatus(db *gorm.DB, opts ...gen.DOOption) userVideoStatus {
 	_userVideoStatus.DeletedAt = field.NewField(tableName, "deleted_at")
 	_userVideoStatus.UserID = field.NewInt64(tableName, "user_id")
 	_userVideoStatus.VideoID = field.NewInt64(tableName, "video_id")
+	_userVideoStatus.LastWatchTime = field.NewTime(tableName, "last_watch_time")
 	_userVideoStatus.IsLike = field.NewInt64(tableName, "is_like")
 	_userVideoStatus.IsDislike = field.NewInt64(tableName, "is_dislike")
 	_userVideoStatus.IsFavor = field.NewInt64(tableName, "is_favor")
+	_userVideoStatus.IsShared = field.NewInt64(tableName, "is_shared")
+	_userVideoStatus.ShellsCount = field.NewInt64(tableName, "shells_count")
 
 	_userVideoStatus.fillFieldMap()
 
@@ -44,15 +47,18 @@ func newUserVideoStatus(db *gorm.DB, opts ...gen.DOOption) userVideoStatus {
 type userVideoStatus struct {
 	userVideoStatusDo
 
-	ALL       field.Asterisk
-	CreatedAt field.Time
-	UpdatedAt field.Time
-	DeletedAt field.Field
-	UserID    field.Int64
-	VideoID   field.Int64
-	IsLike    field.Int64
-	IsDislike field.Int64
-	IsFavor   field.Int64
+	ALL           field.Asterisk
+	CreatedAt     field.Time
+	UpdatedAt     field.Time
+	DeletedAt     field.Field
+	UserID        field.Int64
+	VideoID       field.Int64
+	LastWatchTime field.Time // 最近一次观看该视频的时间
+	IsLike        field.Int64
+	IsDislike     field.Int64
+	IsFavor       field.Int64
+	IsShared      field.Int64
+	ShellsCount   field.Int64
 
 	fieldMap map[string]field.Expr
 }
@@ -74,9 +80,12 @@ func (u *userVideoStatus) updateTableName(table string) *userVideoStatus {
 	u.DeletedAt = field.NewField(table, "deleted_at")
 	u.UserID = field.NewInt64(table, "user_id")
 	u.VideoID = field.NewInt64(table, "video_id")
+	u.LastWatchTime = field.NewTime(table, "last_watch_time")
 	u.IsLike = field.NewInt64(table, "is_like")
 	u.IsDislike = field.NewInt64(table, "is_dislike")
 	u.IsFavor = field.NewInt64(table, "is_favor")
+	u.IsShared = field.NewInt64(table, "is_shared")
+	u.ShellsCount = field.NewInt64(table, "shells_count")
 
 	u.fillFieldMap()
 
@@ -93,15 +102,18 @@ func (u *userVideoStatus) GetFieldByName(fieldName string) (field.OrderExpr, boo
 }
 
 func (u *userVideoStatus) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 8)
+	u.fieldMap = make(map[string]field.Expr, 11)
 	u.fieldMap["created_at"] = u.CreatedAt
 	u.fieldMap["updated_at"] = u.UpdatedAt
 	u.fieldMap["deleted_at"] = u.DeletedAt
 	u.fieldMap["user_id"] = u.UserID
 	u.fieldMap["video_id"] = u.VideoID
+	u.fieldMap["last_watch_time"] = u.LastWatchTime
 	u.fieldMap["is_like"] = u.IsLike
 	u.fieldMap["is_dislike"] = u.IsDislike
 	u.fieldMap["is_favor"] = u.IsFavor
+	u.fieldMap["is_shared"] = u.IsShared
+	u.fieldMap["shells_count"] = u.ShellsCount
 }
 
 func (u userVideoStatus) clone(db *gorm.DB) userVideoStatus {

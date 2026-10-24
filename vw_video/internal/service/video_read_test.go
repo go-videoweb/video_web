@@ -39,7 +39,9 @@ func (*readRepo) GetBarragesByVideoId(context.Context, int64) ([]*model.Barrage,
 func (*readRepo) GetUserVideoStatus(context.Context, int64, int64) (int64, error) { return 0, nil }
 func (*readRepo) GetUserFavoriteID(context.Context, int64, int64) (int64, error)  { return 0, nil }
 func (*readRepo) AddVideoCntView(context.Context, int64) error                    { return nil }
-func (*readRepo) UpdateUserVideoHistory(context.Context, int64, int64, *model.VideoSummary) error {
+
+// UpdateUserVideoHistory 为读取协议测试提供无副作用的历史写入替身。
+func (*readRepo) UpdateUserVideoHistory(context.Context, int64, int64) error {
 	return nil
 }
 

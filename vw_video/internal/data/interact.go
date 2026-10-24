@@ -5,11 +5,9 @@ import (
 	"database/sql"
 	stderr "errors"
 	"github.com/go-kratos/kratos/v2/log"
-	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 	"strings"
 	"util/dbutil"
-	"util/dbutil/mgutil"
 	interactv1 "vw_video/api/v1/interact"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
@@ -265,54 +263,29 @@ func (i *interactRepo) GetPublisherIdByVideoId(ctx context.Context, videoID int6
 	return video.PublisherID, nil
 }
 
-func (i *interactRepo) GetUserVideoStatus(ctx context.Context, userID, videoID int64) (status int64, shellsCount int32, err error) {
-	filter := mgutil.NewBsonM("user_id", userID, "video_id", videoID)
-	res, err := i.data.mongo.FindOne(ctx, uv_status, filter)
+// GetUserVideoStatus 从 MySQL 读取状态；收藏位由实际收藏关系计算。
+// 输入：用户/视频 ID 必须为正数；输出：RPC 状态位和已投贝壳数量，任何读取错误均透传。
+// 不初始化记录，也不把状态表中的兼容 is_favor 列作为收藏事实来源。
+func (i *interactRepo) GetUserVideoStatus(ctx context.Context, userID, videoID int64) (int64, int32, error) {
+	row, err := readUserVideoStatus(ctx, interactionDB(ctx), userID, videoID)
 	if err != nil {
-		if stderr.Is(err, mongo.ErrNoDocuments) {
-			err = i.data.mongo.InsertOne(ctx, ub_status, &model.UserVideoStatus{
-				UserID:  userID,
-				VideoID: videoID,
-				Status:  0,
-			})
-			if err != nil {
-				return -1, -1, err
-			}
-			return 0, 0, nil
-		}
-		return -1, -1, err
+		return 0, 0, err
 	}
-	return res.Status, int32(res.ShellsCount), nil
+	status := videoStatusMask(row)
+	favoriteID, err := (&videoInfoRepo{data: i.data}).GetUserFavoriteID(ctx, userID, videoID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if favoriteID > 0 {
+		status |= biz.FavoriteStatus
+	}
+	return status, int32(row.ShellsCount), nil
 }
 
-func (i *interactRepo) GetUserBarrageStatus(ctx context.Context, userID int64, barrageID int64) (int64, error) {
-	filter := mgutil.NewBsonM("user_id", userID, "barrage_id", barrageID)
-	res, err := i.data.mongo.FindOne(ctx, ub_status, filter)
-	if err != nil {
-		if stderr.Is(err, mongo.ErrNoDocuments) {
-			err = i.data.mongo.InsertOne(ctx, ub_status, &model.UserBarrageStatus{
-				UserID:    userID,
-				BarrageID: barrageID,
-				Status:    0,
-			})
-			if err != nil {
-				return -1, err
-			}
-			return 0, nil
-		}
-		return -1, err
-	}
-	return res.Status, nil
-}
-
-func (i *interactRepo) SetUserVideoStatus(ctx context.Context, userID, videoID int64, status int64) error {
-	filter := mgutil.NewBsonM("user_id", userID, "video_id", videoID)
-	data := &model.UserVideoStatus{
-		UserID:  userID,
-		VideoID: videoID,
-		Status:  status,
-	}
-	return i.data.mongo.UpsertOne(ctx, uv_status, filter, data)
+// GetUserBarrageStatus 保留仓储接口但暂不接入个人弹幕状态。
+// 输入：保留原用户/弹幕 ID；输出：0 和未支持错误，不访问数据库。
+func (i *interactRepo) GetUserBarrageStatus(ctx context.Context, userID, barrageID int64) (int64, error) {
+	return 0, biz.ErrInteractionNotSupported
 }
 
 // GetSqlTx is a helper function to get *sql.Tx from *gorm.DB.
@@ -320,16 +293,6 @@ func (i *interactRepo) SetUserVideoStatus(ctx context.Context, userID, videoID i
 func (i *interactRepo) GetSqlTx() *sql.Tx {
 	tx := i.data.mysql.Begin()
 	return tx.Statement.ConnPool.(*sql.Tx)
-}
-
-// GetMongoClient is a helper function to get *mongo.Client from *mongo.Data.
-// This is used to be the DTM barrier's MongoCall method's argument.
-func (i *interactRepo) GetMongoClient() *mongo.Client {
-	return i.data.mongo.mongoClient
-}
-
-func (i *interactRepo) GetDB() (db string) {
-	return i.data.mongo.db
 }
 
 func getGormDBAndVideoModel(tx *sql.Tx, videoID int64) (*gorm.DB, *model.Video, error) {

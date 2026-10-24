@@ -108,6 +108,8 @@ message SetUserVideoStatusReq {
     int64 origin_status = 3;
     int32 shells_count  = 4;
     Statuses statuses   = 5;
+    // 补偿只恢复本次贝壳变更前的数量，不影响其他互动字段。
+    int32 origin_shells_count = 6;
 }
 
 message SetUserBarrageStatusReq {

@@ -10,15 +10,9 @@ import (
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"os"
-	"time"
 	utilCtx "util/context"
-	"util/dbutil/mgutil"
 	mysql2 "util/dbutil/mysqlutil"
 	infov1 "vw_user/api/v1/userinfo"
 	"vw_video/internal/conf"
@@ -36,7 +30,6 @@ var ProviderSet = wire.NewSet(
 	NewTransaction,
 	NewMySQL,
 	NewRedisClusterClient,
-	NewMongo,
 
 	// Repo
 	NewVideoInfoRepo,
@@ -58,7 +51,6 @@ type transactionKey keyType
 type Data struct {
 	mysql          *gorm.DB
 	redis          *redis.ClusterClient
-	mongo          *MongoDB
 	userInfoClient infov1.UserinfoClient
 }
 
@@ -67,11 +59,12 @@ func NewTransaction(d *Data) mysql2.Transaction {
 	return d
 }
 
-// NewData .
+// NewData 组装视频仓储共享的 MySQL、Redis 和用户服务客户端，不再创建 MongoDB 客户端。
+// 输入：依赖由 Wire 构造并完成各自初始化；logger 用于记录资源清理。
+// 输出：共享数据容器、清理回调及错误；此函数不执行表结构迁移或额外数据库连接。
 func NewData(
 	mysql *gorm.DB,
 	redisCluster *redis.ClusterClient,
-	mongo *MongoDB,
 	userInfoClient infov1.UserinfoClient,
 	logger log.Logger) (*Data, func(), error) {
 	cleanup := func() {
@@ -80,7 +73,6 @@ func NewData(
 	return &Data{
 		mysql:          mysql,
 		redis:          redisCluster,
-		mongo:          mongo,
 		userInfoClient: userInfoClient,
 	}, cleanup, nil
 }
@@ -153,75 +145,6 @@ func NewRedisClusterClient(c *conf.Data) *redis.ClusterClient {
 		panic(err)
 	}
 	return redisCluster
-}
-
-func NewMongo(c *conf.Data) *MongoDB {
-	ctx, cancel := context.WithTimeout(utilCtx.NewBaseContext(), time.Duration(c.Mongo.ConnTimeout.Seconds)*time.Second)
-	defer cancel()
-
-	// 1. Get and wrap mongo client
-	mongoCli, err := mongo.Connect(
-		ctx,
-		options.Client().
-			SetConnectTimeout(c.Mongo.ConnTimeout.AsDuration()).
-			SetAppName("vw_video").
-			SetMaxPoolSize(uint64(c.Mongo.MaxOpen)).
-			SetRetryReads(true).
-			SetRetryWrites(true).
-			ApplyURI(fmt.Sprintf("mongodb://%s:%s@%s:%s/?replicaSet=rs0", c.Mongo.Username, c.Mongo.Password, c.Mongo.Host, c.Mongo.Port)),
-	)
-	if err != nil {
-		panic(err)
-	}
-	if err := mongoCli.Ping(ctx, nil); err != nil {
-		panic(err)
-	}
-	mdb := &MongoDB{
-		db:          "video_web",
-		mongoClient: mongoCli,
-	}
-
-	// 2. Create video_user_id_idx on video_user_status Collection
-	key := mgutil.NewBsonD("video_id", 1, "user_id", 1)
-	err = setUniqueIndex(ctx, mdb, uv_status, *key, "video_user_id_idx")
-	if err != nil {
-		panic(err)
-	}
-
-	// 3. Create video_id_idx on video_barrage_status Collection
-	key = mgutil.NewBsonD("barrage_id", 1, "user_id", 1)
-	err = setUniqueIndex(ctx, mdb, ub_status, *key, "barrage_id_idx")
-	if err != nil {
-		panic(err)
-	}
-
-	// 3. Create video_id_idx on video_barrage_status Collection
-	key = mgutil.NewBsonD("video_id", 1, "user_id", 1)
-	err = setUniqueIndex(ctx, mdb, uv_history, *key, "video_user_id_idx")
-	if err != nil {
-		panic(err)
-	}
-
-	// 4. Create comment_id__user_id_unique_idx on video_comment_status Collection
-	key = mgutil.NewBsonD("comment_id", 1, "user_id", 1)
-	err = setUniqueIndex(ctx, mdb, uc_status, *key, "comment_id__user_id_unique_idx")
-	if err != nil {
-		panic(err)
-	}
-
-	return mdb
-}
-func setUniqueIndex(ctx context.Context, mdb *MongoDB, collection string, keys bson.D, indexName string) error {
-	idxName, err := mdb.Collection(collection).Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    keys,
-		Options: options.Index().SetName(indexName).SetUnique(true),
-	})
-	logger := log.NewHelper(log.With(log.NewStdLogger(os.Stdout)))
-	if err != nil {
-		return err
-	}
-	logger.Infof("create unique index %s on Collection %s success", idxName, collection)
-	return nil
 }
 
 func NewUserinfoClient(r registry.Discovery, s *conf.Service) infov1.UserinfoClient {
