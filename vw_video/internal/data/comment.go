@@ -116,12 +116,13 @@ func (v *videoCommentRepo) GetRootIDByParentID(ctx context.Context, videoId, par
 	return ret.RootID, nil
 }
 
+// IncrementCommentCntReplies 使用上下文选定的连接调整回复数，负 ID 表示无需更新。
 func (v *videoCommentRepo) IncrementCommentCntReplies(ctx context.Context, commentId int64) error {
 	// This case indicated that the child comment is a root comment, so we don't need to increment the cnt_replies field.
 	if commentId < 0 {
 		return nil
 	}
-	comment := query.Comment
+	comment := getQuery(ctx).Comment
 	commentDo, commentModel, err := addCommentModel(ctx, commentId)
 	if err != nil {
 		return err
@@ -161,8 +162,9 @@ func (v *videoCommentRepo) DecrementCommentCntUpvote(ctx context.Context, commen
 	return err
 }
 
+// AddVideoHotAndCntCommentsByComment 使用上下文选定的连接调整评论数和热度。
 func (v *videoCommentRepo) AddVideoHotAndCntCommentsByComment(ctx context.Context, videoId int64) error {
-	video := query.Video
+	video := getQuery(ctx).Video
 	videoDo, videoModel, err := addVideoModel(ctx, videoId)
 	if err != nil {
 		return err
@@ -175,8 +177,9 @@ func (v *videoCommentRepo) AddVideoHotAndCntCommentsByComment(ctx context.Contex
 	return nil
 }
 
+// AddVideoHotAndCntCommentsByReply 使用上下文选定的连接调整回复关联视频的评论数和热度。
 func (v *videoCommentRepo) AddVideoHotAndCntCommentsByReply(ctx context.Context, videoId int64) error {
-	video := query.Video
+	video := getQuery(ctx).Video
 	videoDo, videoModel, err := addVideoModel(ctx, videoId)
 	if err != nil {
 		return err

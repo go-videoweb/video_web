@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	"github.com/go-kratos/kratos/v2/log"
-	"google.golang.org/protobuf/types/known/emptypb"
 	interactv1 "vw_video/api/v1/interact"
 	"vw_video/internal/biz"
+
+	"github.com/go-kratos/kratos/v2/log"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type InteractService struct {

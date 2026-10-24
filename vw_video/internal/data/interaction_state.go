@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"util/dbutil"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
 
@@ -73,11 +72,12 @@ func (i *interactRepo) ApplyUserVideoStatus(ctx context.Context, tx *sql.Tx, use
 	if patch.IsLike == nil && patch.IsShared == nil && patch.ShellsCount == nil {
 		return nil
 	}
-	db, err := dbutil.SqlTxToGormDB(tx)
+	ctx, err := bindSQLTx(ctx, tx)
 	if err != nil {
 		return err
 	}
-	return applyVideoStatusPatch(db.WithContext(ctx), userID, videoID, patch)
+	db := getQuery(ctx).UserVideoStatus.WithContext(ctx).UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
+	return applyVideoStatusPatch(db, userID, videoID, patch)
 }
 
 // applyVideoStatusPatch 仅供已有事务调用；首次互动不会生成观看时间。

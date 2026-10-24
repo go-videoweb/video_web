@@ -9,7 +9,6 @@ import (
 	"time"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
-	"vw_video/internal/data/dal/query"
 )
 
 type videoInfoRepo struct {
@@ -24,8 +23,9 @@ func NewVideoInfoRepo(data *Data, logger log.Logger) biz.VideoInfoRepo {
 	}
 }
 
+// AddVideoCntView 在上下文选定的连接上增加播放量和热度，数据库错误透传。
 func (v *videoInfoRepo) AddVideoCntView(ctx context.Context, videoId int64) error {
-	video := query.Video
+	video := getQuery(ctx).Video
 	videoDo, videoModel, err := addVideoModel(ctx, videoId)
 	if err != nil {
 		return err
@@ -100,27 +100,40 @@ func (v *videoInfoRepo) GetBarragesByVideoId(ctx context.Context, videoId int64)
 	return barrageDo.Where(barrage.VideoID.Eq(videoId)).Find()
 }
 
+// UpdateVideoCntShare 通过统一查询入口使用显式事务增加分享数和热度，不自行提交。
 func (v *videoInfoRepo) UpdateVideoCntShare(ctx context.Context, tx *sql.Tx, videoID int64) error {
-	video := query.Video
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoID)
+	ctx, err := bindSQLTx(ctx, tx)
 	if err != nil {
 		return err
 	}
-	return db.Model(videoModel).Where(video.VideoID.Eq(videoID)).Updates(map[string]any{
+	video := getQuery(ctx).Video
+	videoDo, videoModel, err := addVideoModel(ctx, videoID)
+	if err != nil {
+		return err
+	}
+	_, err = videoDo.Where(video.VideoID.Eq(videoID)).Updates(map[string]any{
 		"cnt_shares": videoModel.CntShares + 1,
 		"hot":        videoModel.Hot + HotEachShare,
-	}).Error
+	})
+	return err
 }
+
+// UpdateVideoCntShareCompensation 在传入事务内补偿分享数和热度，查询与更新错误透传。
 func (v *videoInfoRepo) UpdateVideoCntShareCompensation(ctx context.Context, tx *sql.Tx, videoID int64) error {
-	video := query.Video
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoID)
+	ctx, err := bindSQLTx(ctx, tx)
 	if err != nil {
 		return err
 	}
-	return db.Model(videoModel).Where(video.VideoID.Eq(videoID)).Updates(map[string]any{
+	video := getQuery(ctx).Video
+	videoDo, videoModel, err := addVideoModel(ctx, videoID)
+	if err != nil {
+		return err
+	}
+	_, err = videoDo.Where(video.VideoID.Eq(videoID)).Updates(map[string]any{
 		"cnt_shares": videoModel.CntShares - 1,
 		"hot":        videoModel.Hot - HotEachShare,
-	}).Error
+	})
+	return err
 }
 
 func (v *videoInfoRepo) GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.Video, error) {
@@ -180,13 +193,19 @@ func (v *videoInfoRepo) UpdateUserVideoHistory(ctx context.Context, videoID int6
 	}).Create(row).Error
 }
 
+// SetVideoHot 通过统一查询入口在传入事务内调整热度，不改变事务生命周期。
 func (v *videoInfoRepo) SetVideoHot(ctx context.Context, tx *sql.Tx, videoId int64, hotCount int64) error {
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoId)
+	ctx, err := bindSQLTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	video := getQuery(ctx).Video
+	videoDo, videoModel, err := addVideoModel(ctx, videoId)
 	if err != nil {
 		return err
 	}
 
-	err = db.Model(videoModel).Where("video_id = ?", videoId).Update("hot", videoModel.Hot+hotCount).Error
+	_, err = videoDo.Where(video.VideoID.Eq(videoId)).Update(video.Hot, videoModel.Hot+hotCount)
 	if err != nil {
 		return err
 	}
