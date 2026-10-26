@@ -2,8 +2,8 @@ package data
 
 import (
 	"context"
-	stderr "errors"
 	"time"
+	favorv1 "vw_user/api/v1/favorites"
 
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
@@ -22,7 +22,7 @@ type favoriteVideoRow struct {
 // 不调用详情用例，不增加播放量或写入观看历史，也不修改现有收藏关系。
 func (v *videoInfoRepo) GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) ([]*biz.FavoriteVideo, int64, error) {
 	db := getQuery(ctx).Video.WithContext(ctx).UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
-	if err := requireFavoriteReadAccess(db, userId, favoritesId); err != nil {
+	if err := v.data.requireFavoriteAccess(ctx, userId, favoritesId, false); err != nil {
 		return nil, 0, err
 	}
 	base := func() *gorm.DB {
@@ -64,40 +64,46 @@ func (v *videoInfoRepo) GetFavoriteVideos(ctx context.Context, userId, favorites
 		}
 	}
 	// 分步查询期间隐私可能被修改，返回内容和总数前再次核对，失败时不暴露已读取数据。
-	if err := requireFavoriteReadAccess(db, userId, favoritesId); err != nil {
+	if err := v.data.requireFavoriteAccess(ctx, userId, favoritesId, false); err != nil {
 		return nil, 0, err
 	}
 	return items, total, nil
 }
 
-// requireFavoriteReadAccess 按唯一收藏夹 ID 读取元信息，在 Go 中核对本人或公开权限。
-// 不存在与私密无权统一返回 404，数据库故障不伪装成无权或空内容。
-func requireFavoriteReadAccess(db *gorm.DB, userId, favoritesId int64) error {
-	var favorite struct {
-		UserID    int64
-		IsPrivate int64
+// requireFavoriteAccess 通过用户 RPC 校验收藏夹权限，不访问用户域的数据表。
+// 输入：用户及收藏夹 ID；write 为 true 时仅允许所有者，否则也允许读取公开收藏夹。
+// 输出：无权与不存在统一 404；RPC 故障或元信息异常拒绝访问，不回退共享表查询。
+// RPC 检查与视频数据库事务不构成跨服务原子快照。
+func (d *Data) requireFavoriteAccess(ctx context.Context, userId, favoritesId int64, write bool) error {
+	if userId <= 0 || favoritesId <= 0 {
+		return kerrors.BadRequest("INVALID_FAVORITE", "用户和收藏夹 ID 必须为正数")
 	}
-	err := db.Table("favorites").Select("user_id, is_private").Where("favorites_id = ?", favoritesId).Take(&favorite).Error
-	if stderr.Is(err, gorm.ErrRecordNotFound) || (err == nil && favorite.UserID != userId && favorite.IsPrivate != 1) { // 收藏夹所属 userId 非本人, 且该收藏夹为私密, 也返回未找到
+	if d == nil || d.favoriteClient == nil {
+		return kerrors.ServiceUnavailable("FAVORITE_SERVICE_UNAVAILABLE", "收藏夹服务不可用")
+	}
+	favorite, err := d.favoriteClient.GetFavoriteInfo(ctx, &favorv1.GetFavoriteInfoReq{FavoriteId: favoritesId})
+	if err != nil {
+		return err
+	}
+	if favorite == nil || favorite.FavoriteId != favoritesId || favorite.UserId <= 0 {
+		return kerrors.InternalServer("INVALID_FAVORITE_METADATA", "收藏夹元信息异常")
+	}
+	if favorite.UserId != userId && (write || favorite.IsPrivate) {
 		return kerrors.NotFound("FAVORITE_NOT_FOUND", "收藏夹不存在")
 	}
-	return err
+	return nil
 }
 
-// GetUserFavoriteID 先读取本人的收藏夹 ID，再查询指定视频的收藏归属，不依赖尚未新增的 user_id 列。
-// 无有效关系返回 0；发现多个所属收藏夹时返回冲突，避免静默选择并隐藏历史不一致。
+// GetUserFavoriteID 按用户和视频读取有效收藏归属，不读取用户域表。
+// 无有效关系返回 0；多条关系返回冲突，不能静默选择。
 func (v *videoInfoRepo) GetUserFavoriteID(ctx context.Context, userId, videoId int64) (int64, error) {
+	if userId <= 0 || videoId <= 0 {
+		return 0, kerrors.BadRequest("INVALID_FAVORITE", "用户和视频 ID 必须为正数")
+	}
 	db := getQuery(ctx).FavoriteVideo.WithContext(ctx).UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
-	var favoriteIDs []int64
-	if err := db.Table("favorites").Where("user_id = ?", userId).Pluck("favorites_id", &favoriteIDs).Error; err != nil {
-		return 0, err
-	}
-	if len(favoriteIDs) == 0 {
-		return 0, nil
-	}
 	var ids []int64
 	err := db.Table("favorite_video").
-		Where("favorites_id IN ? AND video_id = ? AND deleted_at IS NULL", favoriteIDs, videoId).
+		Where("user_id = ? AND video_id = ? AND deleted_at IS NULL", userId, videoId).
 		Order("id DESC").Limit(2).Pluck("favorites_id", &ids).Error
 	if err != nil {
 		return 0, err

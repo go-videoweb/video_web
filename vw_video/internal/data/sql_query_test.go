@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"vw_video/internal/data/dal/model"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -24,11 +25,15 @@ type explicitQueryDriver struct {
 	queries, writes, commits, rollbacks int
 	failRead, failWrite, failVersion    error
 	writeTables                         []string
+	queryTexts                          []string
+	queryArgs, writeArgs                [][]driver.NamedValue
+	favoriteRow                         *model.FavoriteVideo
+	affected                            *int64
 }
 
 type explicitQueryConn struct{ state *explicitQueryDriver }
 type explicitQueryTx struct{ state *explicitQueryDriver }
-type explicitQueryResult struct{}
+type explicitQueryResult struct{ affected *int64 }
 type explicitQueryRows struct {
 	columns []string
 	values  []driver.Value
@@ -54,8 +59,10 @@ func (c *explicitQueryConn) Begin() (driver.Tx, error) {
 }
 
 // QueryContext 模拟适配器的版本读取及三种模型读取，校验业务查询保留请求上下文。
-func (c *explicitQueryConn) QueryContext(ctx context.Context, text string, _ []driver.NamedValue) (driver.Rows, error) {
+func (c *explicitQueryConn) QueryContext(ctx context.Context, text string, args []driver.NamedValue) (driver.Rows, error) {
 	c.state.queries++
+	c.state.queryTexts = append(c.state.queryTexts, text)
+	c.state.queryArgs = append(c.state.queryArgs, append([]driver.NamedValue(nil), args...))
 	if text == "SELECT VERSION()" {
 		return &explicitQueryRows{columns: []string{"version"}, values: []driver.Value{"8.0.32"}}, c.state.failVersion
 	}
@@ -72,19 +79,29 @@ func (c *explicitQueryConn) QueryContext(ctx context.Context, text string, _ []d
 		return &explicitQueryRows{columns: []string{"barrage_id", "likes"}, values: []driver.Value{int64(11), int64(2)}}, nil
 	case strings.Contains(text, "FROM `user_video_status`"):
 		return &explicitQueryRows{columns: []string{"user_id", "video_id", "is_like", "is_shared", "shells_count"}, values: []driver.Value{int64(7), int64(9), int64(0), int64(0), int64(0)}}, nil
+	case strings.Contains(text, "FROM `favorite_video`"):
+		if row := c.state.favoriteRow; row != nil {
+			var deleted driver.Value
+			if row.DeletedAt.Valid {
+				deleted = row.DeletedAt.Time
+			}
+			return &explicitQueryRows{columns: []string{"id", "user_id", "favorites_id", "video_id", "deleted_at"}, values: []driver.Value{row.ID, row.UserID, row.FavoritesID, row.VideoID, deleted}}, nil
+		}
+		return &explicitQueryRows{columns: []string{"id"}, read: true}, nil
 	default:
 		return nil, fmt.Errorf("未知读取 SQL：%s", text)
 	}
 }
 
 // ExecContext 记录模拟写入，校验上下文，可注入错误；不修改真实数据。
-func (c *explicitQueryConn) ExecContext(ctx context.Context, text string, _ []driver.NamedValue) (driver.Result, error) {
+func (c *explicitQueryConn) ExecContext(ctx context.Context, text string, args []driver.NamedValue) (driver.Result, error) {
 	if ctx.Value(transactionContextKey{}) != "request" {
 		return nil, errors.New("业务写入丢失请求上下文")
 	}
 	c.state.writes++
 	c.state.writeTables = append(c.state.writeTables, text)
-	return explicitQueryResult{}, c.state.failWrite
+	c.state.writeArgs = append(c.state.writeArgs, append([]driver.NamedValue(nil), args...))
+	return explicitQueryResult{affected: c.state.affected}, c.state.failWrite
 }
 
 // Commit 仅记录调用次数，供测试排除仓储提前提交。
@@ -97,7 +114,12 @@ func (tx *explicitQueryTx) Rollback() error { tx.state.rollbacks++; return nil }
 func (explicitQueryResult) LastInsertId() (int64, error) { return 1, nil }
 
 // RowsAffected 表示一次模拟写入成功，不用于验证真实数据库约束。
-func (explicitQueryResult) RowsAffected() (int64, error) { return 1, nil }
+func (r explicitQueryResult) RowsAffected() (int64, error) {
+	if r.affected != nil {
+		return *r.affected, nil
+	}
+	return 1, nil
+}
 
 // Columns 返回本次读取的固定模型列。
 func (r *explicitQueryRows) Columns() []string { return r.columns }
@@ -139,14 +161,14 @@ func TestVideoExplicitQueryOffline(t *testing.T) {
 		name, table string
 		run         func(context.Context, *sql.Tx) error
 	}
-	i, v := &interactRepo{}, &videoInfoRepo{}
+	i, v := &interactRepo{data: offlineFavoriteData()}, &videoInfoRepo{}
 	cases := []queryCase{
 		{"点赞", "video", func(ctx context.Context, tx *sql.Tx) error { return i.AddVideoUpvote(ctx, tx, 9) }},
 		{"取消点赞", "video", func(ctx context.Context, tx *sql.Tx) error { return i.DecrementVideoUpvote(ctx, tx, 9) }},
 		{"收藏计数", "video", func(ctx context.Context, tx *sql.Tx) error { return i.AddVideoCntFavorite(ctx, tx, 9) }},
 		{"取消收藏计数", "video", func(ctx context.Context, tx *sql.Tx) error { return i.DecrementVideoCntFavorite(ctx, tx, 9) }},
-		{"收藏关系", "favorite_video", func(ctx context.Context, tx *sql.Tx) error { return i.AddUserFavoriteVideo(ctx, tx, 13, 9) }},
-		{"取消收藏关系", "favorite_video", func(ctx context.Context, tx *sql.Tx) error { return i.DeleteUserFavoriteVideo(ctx, tx, 13, 9) }},
+		{"收藏关系", "favorite_video", func(ctx context.Context, tx *sql.Tx) error { return i.AddUserFavoriteVideo(ctx, tx, 7, 13, 9) }},
+		{"取消收藏关系", "favorite_video", func(ctx context.Context, tx *sql.Tx) error { return i.DeleteUserFavoriteVideo(ctx, tx, 7, 13, 9) }},
 		{"贝壳计数", "video", func(ctx context.Context, tx *sql.Tx) error { return i.UpdateVideoShells(ctx, tx, 9, 1) }},
 		{"弹幕点赞", "barrages", func(ctx context.Context, tx *sql.Tx) error { return i.AddVideoBarrageUpvote(ctx, tx, 11) }},
 		{"取消弹幕点赞", "barrages", func(ctx context.Context, tx *sql.Tx) error { return i.DecrementVideoBarrageUpvote(ctx, tx, 11) }},

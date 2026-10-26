@@ -13,6 +13,9 @@ service Favorite {
 
     // 按网关验证的用户 ID 返回其全部收藏夹。
     rpc GetFavoritesList(GetFavoritesListReq) returns (GetFavoritesListResp) {}
+
+    // 供可信服务读取元信息；调用方根据操作人执行读写权限校验。
+    rpc GetFavoriteInfo(GetFavoriteInfoReq) returns (GetFavoriteInfoResp) {}
 }
 
 message CreateFavoritesReq {
@@ -63,4 +66,14 @@ message GetFavoritesListResp {
 }
 message GetFavoritesListReq {
     int64 user_id = 1;
+}
+
+message GetFavoriteInfoReq {
+    int64 favorite_id = 1;
+}
+
+message GetFavoriteInfoResp {
+    int64 favorite_id = 1;
+    int64 user_id = 2;
+    bool is_private = 3;
 }

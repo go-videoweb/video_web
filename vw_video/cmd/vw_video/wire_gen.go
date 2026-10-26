@@ -28,7 +28,8 @@ func wireApp(confServer *conf.Server, confData *conf.Data, registry *conf.Regist
 	clusterClient := data.NewRedisClusterClient(confData)
 	discovery := data.NewDiscovery(registry)
 	userinfoClient := data.NewUserinfoClient(discovery, confService)
-	dataData, cleanup, err := data.NewData(db, clusterClient, userinfoClient, logger)
+	favoriteClient := data.NewFavoriteClient(discovery, confService)
+	dataData, cleanup, err := data.NewData(db, clusterClient, userinfoClient, favoriteClient, logger)
 	if err != nil {
 		return nil, nil, err
 	}

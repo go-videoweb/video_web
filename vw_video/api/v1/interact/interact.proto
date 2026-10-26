@@ -45,6 +45,8 @@ message VideoFavoriteReq {
     int64 video_id    = 1;
     int64 favorite_id = 2;
     int32 favorite    = 3;  // 1: Favorite, -1: Cancel favorite
+    // 网关鉴权确认的操作人，必须拥有目标收藏夹。
+    int64 user_id = 4;
 }
 
 message VideoThrowShellsReq {

@@ -16,6 +16,7 @@ import (
 	utilCtx "util/context"
 	"util/dbutil"
 	mysql2 "util/dbutil/mysqlutil"
+	favorv1 "vw_user/api/v1/favorites"
 	infov1 "vw_user/api/v1/userinfo"
 	"vw_video/internal/conf"
 	"vw_video/internal/data/dal/model"
@@ -42,6 +43,7 @@ var ProviderSet = wire.NewSet(
 	NewDiscovery,
 	NewRegistrar,
 	NewUserinfoClient,
+	NewFavoriteClient,
 )
 
 type keyType struct{}
@@ -54,6 +56,7 @@ type Data struct {
 	mysql          *gorm.DB
 	redis          *redis.ClusterClient
 	userInfoClient infov1.UserinfoClient
+	favoriteClient favorv1.FavoriteClient
 }
 
 // NewTransaction return a util.Transaction interface.
@@ -68,6 +71,7 @@ func NewData(
 	mysql *gorm.DB,
 	redisCluster *redis.ClusterClient,
 	userInfoClient infov1.UserinfoClient,
+	favoriteClient favorv1.FavoriteClient,
 	logger log.Logger) (*Data, func(), error) {
 	cleanup := func() {
 		log.NewHelper(logger).Info("closing the data resources")
@@ -76,6 +80,7 @@ func NewData(
 		mysql:          mysql,
 		redis:          redisCluster,
 		userInfoClient: userInfoClient,
+		favoriteClient: favoriteClient,
 	}, cleanup, nil
 }
 
@@ -163,6 +168,18 @@ func NewUserinfoClient(r registry.Discovery, s *conf.Service) infov1.UserinfoCli
 		panic(err)
 	}
 	return infov1.NewUserinfoClient(conn)
+}
+
+// NewFavoriteClient 通过已有用户服务发现配置创建收藏夹元信息客户端。
+// 输入：服务发现与用户服务端点；输出：客户端，连接构造失败沿用现有初始化策略终止启动。
+func NewFavoriteClient(r registry.Discovery, s *conf.Service) favorv1.FavoriteClient {
+	conn, err := grpc.DialInsecure(context.Background(),
+		grpc.WithEndpoint(s.User.Endpoint), grpc.WithDiscovery(r),
+		grpc.WithMiddleware(recovery.Recovery(), tracing.Client()))
+	if err != nil {
+		panic(err)
+	}
+	return favorv1.NewFavoriteClient(conn)
 }
 
 // WithTx 使用 GORM 管理本地事务，向仓储传递同一连接，并向调用方返回提交错误。

@@ -3,10 +3,12 @@ package data
 import (
 	"context"
 	"errors"
+	"google.golang.org/grpc"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+	favorv1 "vw_user/api/v1/favorites"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"gorm.io/driver/mysql"
@@ -15,6 +17,23 @@ import (
 	"vw_video/internal/data/dal/model"
 	"vw_video/internal/data/dal/query"
 )
+
+type favoriteClientStub struct {
+	favorv1.FavoriteClient
+	getInfo func(context.Context, *favorv1.GetFavoriteInfoReq) (*favorv1.GetFavoriteInfoResp, error)
+}
+
+// GetFavoriteInfo 以无网络替身校验传递的上下文和收藏夹 ID，并返回指定元信息。
+func (c *favoriteClientStub) GetFavoriteInfo(ctx context.Context, req *favorv1.GetFavoriteInfoReq, _ ...grpc.CallOption) (*favorv1.GetFavoriteInfoResp, error) {
+	return c.getInfo(ctx, req)
+}
+
+// offlineFavoriteData 提供属于用户 7 的元信息，不建立真实用户服务连接。
+func offlineFavoriteData() *Data {
+	return &Data{favoriteClient: &favoriteClientStub{getInfo: func(_ context.Context, req *favorv1.GetFavoriteInfoReq) (*favorv1.GetFavoriteInfoResp, error) {
+		return &favorv1.GetFavoriteInfoResp{FavoriteId: req.FavoriteId, UserId: 7}, nil
+	}}}
+}
 
 // offlineFavoriteDB 为 SQL 契约测试提供无网络连接的 MySQL DryRun 上下文。
 func offlineFavoriteDB(t *testing.T) (*gorm.DB, context.Context) {
@@ -43,7 +62,6 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 		{name: "本人公开", owner: 7, privacy: 1},
 		{name: "他人公开", owner: 8, privacy: 1},
 		{name: "他人私密", owner: 8, privacy: -1, denied: true},
-		{name: "异常隐私标记", owner: 8, denied: true},
 		{name: "不存在", missing: true},
 		{name: "空页", owner: 7, empty: true},
 		{name: "查询期间转私密", owner: 8, privacy: 1, revoked: true},
@@ -62,6 +80,21 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 			var args [][]interface{}
 			wantErr := errors.New("查询失败")
 			created, collected := time.Unix(100, 0), time.Unix(200, 0)
+			data := &Data{favoriteClient: &favoriteClientStub{getInfo: func(request context.Context, req *favorv1.GetFavoriteInfoReq) (*favorv1.GetFavoriteInfoResp, error) {
+				if request != ctx || req.FavoriteId != 9 {
+					t.Fatal("RPC 丢失请求上下文或收藏夹 ID")
+				}
+				sqls = append(sqls, "RPC GetFavoriteInfo")
+				args = append(args, []interface{}{req.FavoriteId})
+				stage := len(sqls)
+				if tc.failAt == stage {
+					return nil, wantErr
+				}
+				if tc.missing || (stage > 1 && tc.removed) {
+					return nil, kerrors.NotFound("FAVORITE_NOT_FOUND", "收藏夹不存在")
+				}
+				return &favorv1.GetFavoriteInfoResp{FavoriteId: 9, UserId: tc.owner, IsPrivate: tc.privacy != 1 || (stage > 1 && tc.revoked)}, nil
+			}}}
 			if err := db.Callback().Query().Replace("gorm:query", func(tx *gorm.DB) {
 				original(tx)
 				// 子查询只参与 SQL 构建，没有结果接收对象，不计作一次数据库往返。
@@ -76,18 +109,6 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 					return
 				}
 				switch {
-				case stage == 1 || stage == 5 || (tc.empty && stage == 4):
-					if tc.missing || (stage > 1 && tc.removed) {
-						tx.AddError(gorm.ErrRecordNotFound)
-						return
-					}
-					favorite := reflect.ValueOf(tx.Statement.Dest).Elem()
-					favorite.FieldByName("UserID").SetInt(tc.owner)
-					privacy := tc.privacy
-					if stage > 1 && tc.revoked {
-						privacy = -1
-					}
-					favorite.FieldByName("IsPrivate").SetInt(privacy)
 				case stage == 2:
 					*tx.Statement.Dest.(*int64) = 3
 					// COUNT 返回一行聚合结果，避免 GORM 用 RowsAffected 覆盖计数。
@@ -106,13 +127,13 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
-			rows, total, err := (&videoInfoRepo{}).GetFavoriteVideos(ctx, 7, 9, 2, 2)
-			wantAccessSQL := "SELECT user_id, is_private FROM `favorites` WHERE favorites_id = ? LIMIT ?"
-			if sqls[0] != wantAccessSQL || !reflect.DeepEqual(args[0], []interface{}{int64(9), 1}) {
+			rows, total, err := (&videoInfoRepo{data: data}).GetFavoriteVideos(ctx, 7, 9, 2, 2)
+			wantAccessSQL := "RPC GetFavoriteInfo"
+			if sqls[0] != wantAccessSQL || !reflect.DeepEqual(args[0], []interface{}{int64(9)}) {
 				t.Fatalf("权限查询未限定目标收藏夹：%s %#v", sqls[0], args[0])
 			}
 			for _, sqlText := range sqls {
-				if strings.Contains(sqlText, "JOIN") || strings.Contains(sqlText, " OR ") {
+				if strings.Contains(sqlText, "JOIN") || strings.Contains(sqlText, " OR ") || strings.Contains(sqlText, "`favorites`") {
 					t.Fatalf("分步查询意外包含 JOIN 或权限 OR：%s", sqlText)
 				}
 			}
@@ -172,19 +193,17 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 	}
 }
 
-// TestFavoriteRelationQueryOffline 验证先查本人收藏夹再限定视频及有效关系，冲突和错误明确返回。
+// TestFavoriteRelationQueryOffline 验证只读视频域关系表，限定用户和视频，冲突和错误明确返回。
 func TestFavoriteRelationQueryOffline(t *testing.T) {
 	for _, tc := range []struct {
-		name           string
-		favorites, ids []int64
-		failAt         int
+		name   string
+		ids    []int64
+		failAt int
 	}{
-		{name: "没有收藏夹"},
-		{name: "未收藏", favorites: []int64{91, 92}},
-		{name: "已收藏", favorites: []int64{91, 92}, ids: []int64{91}},
-		{name: "历史多归属", favorites: []int64{91, 92}, ids: []int64{91, 92}},
-		{name: "收藏夹查询故障", failAt: 1},
-		{name: "关系查询故障", favorites: []int64{91, 92}, failAt: 2},
+		{name: "未收藏"},
+		{name: "已收藏", ids: []int64{91}},
+		{name: "历史多归属", ids: []int64{91, 92}},
+		{name: "关系查询故障", failAt: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			db, ctx := offlineFavoriteDB(t)
@@ -194,12 +213,8 @@ func TestFavoriteRelationQueryOffline(t *testing.T) {
 			if err := db.Callback().Query().Replace("gorm:query", func(tx *gorm.DB) {
 				original(tx)
 				calls++
-				wantSQL := "SELECT `favorites_id` FROM `favorites` WHERE user_id = ?"
-				wantArgs := []interface{}{int64(7)}
-				if calls == 2 {
-					wantSQL = "SELECT `favorites_id` FROM `favorite_video` WHERE favorites_id IN (?,?) AND video_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT ?"
-					wantArgs = []interface{}{int64(91), int64(92), int64(42), 2}
-				}
+				wantSQL := "SELECT `favorites_id` FROM `favorite_video` WHERE user_id = ? AND video_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT ?"
+				wantArgs := []interface{}{int64(7), int64(42), 2}
 				if tx.Statement.SQL.String() != wantSQL || !reflect.DeepEqual(tx.Statement.Vars, wantArgs) {
 					t.Fatalf("归属查询范围错误：%s %#v", tx.Statement.SQL.String(), tx.Statement.Vars)
 				}
@@ -207,11 +222,7 @@ func TestFavoriteRelationQueryOffline(t *testing.T) {
 					tx.AddError(wantErr)
 					return
 				}
-				ids := tc.favorites
-				if calls == 2 {
-					ids = tc.ids
-				}
-				*tx.Statement.Dest.(*[]int64) = ids
+				*tx.Statement.Dest.(*[]int64) = tc.ids
 			}); err != nil {
 				t.Fatal(err)
 			}
@@ -232,10 +243,7 @@ func TestFavoriteRelationQueryOffline(t *testing.T) {
 			if len(tc.ids) == 1 {
 				want = tc.ids[0]
 			}
-			wantCalls := 2
-			if len(tc.favorites) == 0 {
-				wantCalls = 1
-			}
+			wantCalls := 1
 			if err != nil || id != want || calls != wantCalls {
 				t.Fatalf("归属结果错误：%d %v, calls=%d", id, err, calls)
 			}

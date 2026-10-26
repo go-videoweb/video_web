@@ -56,6 +56,16 @@ func (fs *FavoritesService) GetFavoritesList(ctx context.Context, req *favorv1.G
 	return resp, nil
 }
 
+// GetFavoriteInfo 返回收藏夹 ID、所有者和布尔隐私标记，仅用于可信内部 RPC。
+// 输入：收藏夹 ID；输出：元信息或业务错误，不增加外部 HTTP 入口。
+func (fs *FavoritesService) GetFavoriteInfo(ctx context.Context, req *favorv1.GetFavoriteInfoReq) (*favorv1.GetFavoriteInfoResp, error) {
+	favorite, err := fs.favorites.GetFavoriteInfo(ctx, req.GetFavoriteId())
+	if err != nil {
+		return nil, err
+	}
+	return &favorv1.GetFavoriteInfoResp{FavoriteId: favorite.FavoritesID, UserId: favorite.UserID, IsPrivate: favorite.IsPrivate == -1}, nil
+}
+
 // ModifyFavorites 将可信操作人和可选属性交给业务层执行归属校验。
 func (fs *FavoritesService) ModifyFavorites(ctx context.Context, req *favorv1.ModifyFavoritesReq) (*favorv1.ModifyFavoritesResp, error) {
 	favorites := &domain.FavoritesInfo{FavoritesId: req.FavoritesId, UserId: req.UserId}

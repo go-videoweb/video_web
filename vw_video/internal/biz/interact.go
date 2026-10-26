@@ -6,6 +6,7 @@ import (
 	"github.com/dtm-labs/dtm/client/dtmcli"
 	"github.com/dtm-labs/dtm/client/dtmgrpc"
 	_ "github.com/dtm-labs/dtmdriver-kratos"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/grpc/codes"
 	"strconv"
@@ -27,8 +28,8 @@ type InteractRepo interface {
 
 	AddVideoCntFavorite(ctx context.Context, tx *sql.Tx, videoID int64) error
 	DecrementVideoCntFavorite(ctx context.Context, tx *sql.Tx, videoID int64) error
-	AddUserFavoriteVideo(ctx context.Context, tx *sql.Tx, favoritesID, videoID int64) error
-	DeleteUserFavoriteVideo(ctx context.Context, tx *sql.Tx, favoritesID int64, videoID int64) error
+	AddUserFavoriteVideo(ctx context.Context, tx *sql.Tx, userID, favoritesID, videoID int64) error
+	DeleteUserFavoriteVideo(ctx context.Context, tx *sql.Tx, userID, favoritesID, videoID int64) error
 
 	UpdateVideoShells(ctx context.Context, tx *sql.Tx, videoID int64, countShells int32) error
 	ShareVideo(ctx context.Context, videoID int64) string
@@ -85,7 +86,12 @@ func (u *InteractUsecase) UpvoteVideo(ctx context.Context, videoID int64, upvote
 	return nil
 }
 
-func (u *InteractUsecase) FavoriteVideo(ctx context.Context, videoID, favoriteID int64, favorite int32) error {
+// FavoriteVideo 在原屏障事务中更新收藏计数与带用户归属的关系，不调整分支顺序。
+// 输入：可信正用户、视频和收藏夹 ID，操作只能为 1/-1；非法参数不创建事务。
+func (u *InteractUsecase) FavoriteVideo(ctx context.Context, userID, videoID, favoriteID int64, favorite int32) error {
+	if userID <= 0 || videoID <= 0 || favoriteID <= 0 || (favorite != 1 && favorite != -1) {
+		return kerrors.BadRequest("INVALID_FAVORITE", "用户、视频和收藏夹 ID 必须为正数，操作必须为 1 或 -1")
+	}
 	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
 	if err != nil {
 		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
@@ -102,7 +108,7 @@ func (u *InteractUsecase) FavoriteVideo(ctx context.Context, videoID, favoriteID
 				return err
 			}
 
-			err = u.repo.AddUserFavoriteVideo(ctx, tx, favoriteID, videoID)
+			err = u.repo.AddUserFavoriteVideo(ctx, tx, userID, favoriteID, videoID)
 			if err != nil {
 				return err
 			}
@@ -112,7 +118,7 @@ func (u *InteractUsecase) FavoriteVideo(ctx context.Context, videoID, favoriteID
 				return err
 			}
 
-			err = u.repo.DeleteUserFavoriteVideo(ctx, tx, favoriteID, videoID)
+			err = u.repo.DeleteUserFavoriteVideo(ctx, tx, userID, favoriteID, videoID)
 			if err != nil {
 				return err
 			}

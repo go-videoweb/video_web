@@ -34,8 +34,9 @@ func (s *InteractService) VideoUpvoteRevert(ctx context.Context, req *interactv1
 	return s.VideoUpvote(ctx, req)
 }
 
+// VideoFavorite 将可信身份传给现有收藏分支，不改变 Saga 编排和补偿策略。
 func (s *InteractService) VideoFavorite(ctx context.Context, req *interactv1.VideoFavoriteReq) (*emptypb.Empty, error) {
-	err := s.interactUsecase.FavoriteVideo(ctx, req.VideoId, req.FavoriteId, req.Favorite)
+	err := s.interactUsecase.FavoriteVideo(ctx, req.UserId, req.VideoId, req.FavoriteId, req.Favorite)
 	if err != nil {
 		return nil, err
 	}

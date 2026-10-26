@@ -25,7 +25,7 @@ type FavoritesRepo interface {
 
 	// DeleteFavorites Delete the specified favorites
 	DeleteFavorites(ctx context.Context, userId, favoritesId int64) error
-	// GetFavoritesMetadata 读取收藏夹归属，用于修改和删除前校验。
+	// GetFavoritesMetadata 读取收藏夹元信息，供内部 RPC 和修改、删除前的归属校验使用。
 	GetFavoritesMetadata(ctx context.Context, favoritesId int64) (*model.Favorite, error)
 
 	// CheckIfFavoritesEmpty check if the specified favorites is empty.
@@ -94,6 +94,25 @@ func (uc *FavoritesUsecase) GetFavoritesList(ctx context.Context, userId int64) 
 		return nil, helper.HandleError(errdef.ErrGetFavoritesListFailed, err)
 	}
 	return list, nil
+}
+
+// GetFavoriteInfo 为可信服务读取收藏夹元信息，不替调用方授予读写权限。
+// 输入：收藏夹 ID 必须为正数；输出：有效元信息，不存在返回 404，存储故障原样返回。
+func (uc *FavoritesUsecase) GetFavoriteInfo(ctx context.Context, favoriteId int64) (*model.Favorite, error) {
+	if favoriteId <= 0 {
+		return nil, kerrors.BadRequest("INVALID_FAVORITE", "收藏夹 ID 必须为正数")
+	}
+	favorite, err := uc.repo.GetFavoritesMetadata(ctx, favoriteId)
+	if stderr.Is(err, gorm.ErrRecordNotFound) || (err == nil && favorite == nil) {
+		return nil, kerrors.NotFound("FAVORITE_NOT_FOUND", "收藏夹不存在")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if favorite.FavoritesID != favoriteId || favorite.UserID <= 0 || (favorite.IsPrivate != -1 && favorite.IsPrivate != 1) {
+		return nil, kerrors.InternalServer("INVALID_FAVORITE_METADATA", "收藏夹元信息异常")
+	}
+	return favorite, nil
 }
 
 // DeleteFavorites 校验可信操作人归属后删除空收藏夹，不删除其下的视频关系。

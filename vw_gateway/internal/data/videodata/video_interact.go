@@ -24,6 +24,7 @@ func NewInteractRepo(data *Data, logger log.Logger) videobiz.InteractRepo {
 	}
 }
 
+// FavoriteVideo 将可信身份传入现有收藏分支，不调整 Saga 编排、补偿或提交方式。
 func (i *interactRepo) FavoriteVideo(ctx context.Context, userId, favoriteId, videoId int64) (bool, error) {
 	// 1. Get the current status of the user-video
 	origin, err := i.data.videoInteractClient.GetUserVideoStatus(ctx, &interactGRPC.GetUserVideoStatusReq{
@@ -51,6 +52,7 @@ func (i *interactRepo) FavoriteVideo(ctx context.Context, userId, favoriteId, vi
 			method:           addr + interactGRPC.VideoInteract_VideoFavorite_FullMethodName,
 			compensateMethod: addr + interactGRPC.VideoInteract_VideoFavoriteRevert_FullMethodName,
 			payload: &interactGRPC.VideoFavoriteReq{
+				UserId:     userId,
 				VideoId:    videoId,
 				FavoriteId: favoriteId,
 				Favorite:   -isFavorited,
