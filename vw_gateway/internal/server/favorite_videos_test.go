@@ -40,7 +40,7 @@ func (r *favoriteVideosHTTPRepo) GetFavoriteVideos(_ context.Context, userID, fa
 	return &videov2.GetFavoriteVideosResp{Total: 1, PageNum: 1, PageSize: 20, Videos: []*videov2.FavoriteVideoItem{{Video: &videov2.VideoSummary{VideoId: 9007199254740993, CreatedTime: timestamppb.New(time.Unix(100, 0))}, CollectedAt: timestamppb.New(time.Unix(200, 0))}}}, nil
 }
 func (*favoriteVideosHTTPRepo) GetVideoInfo(context.Context, int64, int64) (*domain.VideoDetail, error) {
-	return &domain.VideoDetail{VideoId: 42, Records: &domain.Records{}, UserVideoStatus: &domain.UserVideoStatus{IsFavorited: 1, FavoriteId: 9007199254740993}}, nil
+	return &domain.VideoDetail{VideoId: 42, Records: &domain.Records{}, UserVideoStatus: &domain.UserVideoStatus{IsFavorited: 1, FavoriteId: 9007199254740993, FavoriteRecordId: 9007199254740994}}, nil
 }
 
 // TestFavoriteVideosHTTP 验证真实路由强制登录、忽略伪造身份、保留 404，详情状态和大 ID JSON 正确返回。
@@ -103,6 +103,7 @@ func TestFavoriteVideosHTTP(t *testing.T) {
 			} `json:"videos"`
 			State *struct {
 				FavoriteID string `json:"favoriteId"`
+				RecordID   string `json:"favoriteRecordId"`
 				Favorited  int32  `json:"isFavorited"`
 			} `json:"userVideoStatus"`
 		}
@@ -114,7 +115,7 @@ func TestFavoriteVideosHTTP(t *testing.T) {
 				if body.State != nil {
 					t.Fatal("游客获得个人状态")
 				}
-			} else if body.State == nil || body.State.FavoriteID != "9007199254740993" || body.State.Favorited != 1 {
+			} else if body.State == nil || body.State.FavoriteID != "9007199254740993" || body.State.RecordID != "9007199254740994" || body.State.Favorited != 1 {
 				t.Fatal("详情收藏状态编码错误")
 			}
 			continue

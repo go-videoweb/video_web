@@ -1,28 +1,32 @@
 package interact
 
 import (
-	"strings"
 	"testing"
 
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// TestFavoriteContractOffline 验证新增身份字段不改变原协议编号，且保留 Saga 正向和补偿 RPC。
-func TestFavoriteContractOffline(t *testing.T) {
-	descriptor := (&VideoFavoriteReq{}).ProtoReflect().Descriptor()
-	for name, number := range map[protoreflect.Name]protoreflect.FieldNumber{"video_id": 1, "favorite_id": 2, "favorite": 3, "user_id": 4} {
-		field := descriptor.Fields().ByName(name)
-		if field == nil || field.Number() != number {
-			t.Fatalf("字段编号发生变化：%s", name)
+// TestFavoriteUserIdentityContract 验证明确操作、用户与记录 ID 的协议编号及大 ID 无损传输。
+func TestFavoriteUserIdentityContract(t *testing.T) {
+	req := &SetVideoFavoriteReq{UserId: 9007199254740993, VideoId: 42, FavoriteId: 91, Favorite: -1, FavoriteRecordId: 9007199254740994}
+	fields := req.ProtoReflect().Descriptor().Fields()
+	for i, name := range []protoreflect.Name{"video_id", "favorite_id", "favorite", "user_id", "favorite_record_id"} {
+		field := fields.ByName(name)
+		if field == nil || field.Number() != protoreflect.FieldNumber(i+1) {
+			t.Fatalf("field number changed: %s", name)
 		}
 	}
-	methods := File_v1_interact_interact_proto.Services().ByName("VideoInteract").Methods()
-	if methods.ByName("VideoFavorite") == nil || methods.ByName("VideoFavoriteRevert") == nil || methods.ByName("SetVideoFavorite") != nil {
-		t.Fatal("第一批不应移除 Saga RPC")
+	data, err := proto.Marshal(req)
+	if err != nil {
+		t.Fatal(err)
 	}
-	encoded, err := protojson.Marshal(&VideoFavoriteReq{UserId: 9007199254740993})
-	if err != nil || !strings.Contains(string(encoded), `"userId":"9007199254740993"`) {
-		t.Fatalf("大用户 ID 编码丢失精度：%s %v", encoded, err)
+	var got SetVideoFavoriteReq
+	if err := proto.Unmarshal(data, &got); err != nil || !proto.Equal(req, &got) {
+		t.Fatalf("favorite payload mismatch: %v %v", &got, err)
+	}
+	methods := File_v1_interact_interact_proto.Services().ByName("VideoInteract").Methods()
+	if methods.ByName("SetVideoFavorite") == nil || methods.ByName("VideoFavorite") != nil || methods.ByName("VideoFavoriteRevert") != nil {
+		t.Fatal("收藏 Saga 入口未移除")
 	}
 }

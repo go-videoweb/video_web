@@ -30,11 +30,12 @@ type VideoDetail struct {
 
 // UserVideoStatus 保存仅属于当前访问者的互动状态，游客使用 nil。
 type UserVideoStatus struct {
-	IsUpvoted      int32
-	IsFavorited    int32
-	IsShared       int32
-	IsThrownShells int32
-	FavoriteId     int64
+	IsUpvoted        int32
+	IsFavorited      int32
+	IsShared         int32
+	IsThrownShells   int32
+	FavoriteId       int64
+	FavoriteRecordId int64
 }
 
 type VideoSummary struct {
@@ -76,6 +77,7 @@ func NewVideoDetail(videoInfo *videoinfov1.GetVideoInfoResp) *VideoDetail {
 		detail.UserVideoStatus = &UserVideoStatus{
 			IsUpvoted: state.IsUpvoted, IsFavorited: state.IsFavorited,
 			IsShared: state.IsShared, IsThrownShells: state.IsThrownShells, FavoriteId: state.FavoriteId,
+			FavoriteRecordId: state.FavoriteRecordId,
 		}
 	}
 	return detail

@@ -164,6 +164,8 @@ message UserVideoStatus {
     int32 is_thrown_shells = 4;
     // 未收藏时为 0，已收藏时为当前用户的收藏夹 ID。
     int64 favorite_id = 5;
+    // 当前有效收藏记录 ID，取消操作必须携带。
+    int64 favorite_record_id = 6;
 }
 
 message GetFavoriteVideosReq {

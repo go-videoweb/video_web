@@ -3,7 +3,6 @@ package data
 import (
 	"context"
 	"time"
-	favorv1 "vw_user/api/v1/favorites"
 
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
@@ -78,41 +77,35 @@ func (d *Data) requireFavoriteAccess(ctx context.Context, userId, favoritesId in
 	if userId <= 0 || favoritesId <= 0 {
 		return kerrors.BadRequest("INVALID_FAVORITE", "用户和收藏夹 ID 必须为正数")
 	}
-	if d == nil || d.favoriteClient == nil {
-		return kerrors.ServiceUnavailable("FAVORITE_SERVICE_UNAVAILABLE", "收藏夹服务不可用")
-	}
-	favorite, err := d.favoriteClient.GetFavoriteInfo(ctx, &favorv1.GetFavoriteInfoReq{FavoriteId: favoritesId})
+	favorite, err := d.getFavoriteMetadata(ctx, favoritesId)
 	if err != nil {
 		return err
 	}
-	if favorite == nil || favorite.FavoriteId != favoritesId || favorite.UserId <= 0 {
-		return kerrors.InternalServer("INVALID_FAVORITE_METADATA", "收藏夹元信息异常")
-	}
-	if favorite.UserId != userId && (write || favorite.IsPrivate) {
+	if favorite.UserID != userId && (write || favorite.IsPrivate) {
 		return kerrors.NotFound("FAVORITE_NOT_FOUND", "收藏夹不存在")
 	}
 	return nil
 }
 
-// GetUserFavoriteID 按用户和视频读取有效收藏归属，不读取用户域表。
-// 无有效关系返回 0；多条关系返回冲突，不能静默选择。
-func (v *videoInfoRepo) GetUserFavoriteID(ctx context.Context, userId, videoId int64) (int64, error) {
+// GetUserFavorite 按用户和视频读取有效关系的收藏夹和记录 ID，不读取用户域表。
+// 无有效关系返回两个零；多条关系或异常 ID 返回冲突，不能静默选择。
+func (v *videoInfoRepo) GetUserFavorite(ctx context.Context, userId, videoId int64) (int64, int64, error) {
 	if userId <= 0 || videoId <= 0 {
-		return 0, kerrors.BadRequest("INVALID_FAVORITE", "用户和视频 ID 必须为正数")
+		return 0, 0, kerrors.BadRequest("INVALID_FAVORITE", "用户和视频 ID 必须为正数")
 	}
 	db := getQuery(ctx).FavoriteVideo.WithContext(ctx).UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
-	var ids []int64
-	err := db.Table("favorite_video").
+	var rows []*model.FavoriteVideo
+	err := db.Table("favorite_video").Unscoped().Select("id, favorites_id").
 		Where("user_id = ? AND video_id = ? AND deleted_at IS NULL", userId, videoId).
-		Order("id DESC").Limit(2).Pluck("favorites_id", &ids).Error
+		Order("id DESC").Limit(2).Find(&rows).Error
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	if len(ids) > 1 {
-		return 0, kerrors.Conflict("FAVORITE_RELATION_CONFLICT", "该视频存在多个收藏归属，需要先核对收藏记录")
+	if len(rows) > 1 || (len(rows) == 1 && (rows[0].ID <= 0 || rows[0].FavoritesID <= 0)) {
+		return 0, 0, kerrors.Conflict("FAVORITE_RELATION_CONFLICT", "收藏关系异常，请核对收藏记录")
 	}
-	if len(ids) == 0 {
-		return 0, nil
+	if len(rows) == 0 {
+		return 0, 0, nil
 	}
-	return ids[0], nil
+	return rows[0].FavoritesID, rows[0].ID, nil
 }

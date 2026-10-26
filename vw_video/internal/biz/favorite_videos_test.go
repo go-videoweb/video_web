@@ -87,5 +87,12 @@ func TestDetailFavoriteUsesRelation(t *testing.T) {
 		if resp.UserVideoStatus.IsFavorited != want || resp.UserVideoStatus.FavoriteId != favoriteID || resp.UserVideoStatus.IsUpvoted != 1 {
 			t.Fatal("收藏状态与所属 ID 不一致或改变了其他状态")
 		}
+		wantRecord := int64(0)
+		if favoriteID > 0 {
+			wantRecord = favoriteID + 1
+		}
+		if resp.UserVideoStatus.FavoriteRecordId != wantRecord {
+			t.Fatal("收藏记录 ID 丢失")
+		}
 	}
 }

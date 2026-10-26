@@ -44,6 +44,7 @@ func (info *InfoService) GetVideoInfo(ctx context.Context, req *videoinfov1.GetV
 		resp.UserVideoStatus = &videoinfov1.UserVideoStatus{
 			IsUpvoted: state.IsUpvoted, IsFavorited: state.IsFavorited,
 			IsShared: state.IsShared, IsThrownShells: state.IsThrownShells, FavoriteId: state.FavoriteId,
+			FavoriteRecordId: state.FavoriteRecordId,
 		}
 	}
 	return resp, nil

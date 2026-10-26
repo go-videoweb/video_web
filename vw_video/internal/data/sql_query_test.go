@@ -29,6 +29,14 @@ type explicitQueryDriver struct {
 	queryArgs, writeArgs                [][]driver.NamedValue
 	favoriteRow                         *model.FavoriteVideo
 	affected                            *int64
+	failWriteAt                         int
+	affectedWriteAt                     int
+	failCommit                          error
+	begins                              int
+	countConflicts                      int
+	videoCount                          *int64
+	videoVersion                        int64
+	missingVideoVersion                 bool
 }
 
 type explicitQueryConn struct{ state *explicitQueryDriver }
@@ -55,6 +63,7 @@ func (*explicitQueryConn) Prepare(string) (driver.Stmt, error) {
 
 // Begin 开启计数事务，实际提交或回滚由调用方决定。
 func (c *explicitQueryConn) Begin() (driver.Tx, error) {
+	c.state.begins++
 	return &explicitQueryTx{state: c.state}, nil
 }
 
@@ -74,7 +83,18 @@ func (c *explicitQueryConn) QueryContext(ctx context.Context, text string, args 
 	}
 	switch {
 	case strings.Contains(text, "FROM `video`"):
-		return &explicitQueryRows{columns: []string{"video_id", "likes", "hot", "cnt_favorited", "cnt_shares", "shells", "version"}, values: []driver.Value{int64(9), int64(4), int64(10), int64(3), int64(2), int64(1), int64(1)}}, nil
+		count := int64(3)
+		if c.state.videoCount != nil {
+			count = *c.state.videoCount
+		}
+		if c.state.videoVersion == 0 {
+			c.state.videoVersion = 1
+		}
+		var version driver.Value = c.state.videoVersion
+		if c.state.missingVideoVersion {
+			version = nil
+		}
+		return &explicitQueryRows{columns: []string{"video_id", "likes", "hot", "cnt_favorited", "cnt_shares", "shells", "version"}, values: []driver.Value{int64(9), int64(4), int64(10), count, int64(2), int64(1), version}}, nil
 	case strings.Contains(text, "FROM `barrages`"):
 		return &explicitQueryRows{columns: []string{"barrage_id", "likes"}, values: []driver.Value{int64(11), int64(2)}}, nil
 	case strings.Contains(text, "FROM `user_video_status`"):
@@ -101,11 +121,29 @@ func (c *explicitQueryConn) ExecContext(ctx context.Context, text string, args [
 	c.state.writes++
 	c.state.writeTables = append(c.state.writeTables, text)
 	c.state.writeArgs = append(c.state.writeArgs, append([]driver.NamedValue(nil), args...))
-	return explicitQueryResult{affected: c.state.affected}, c.state.failWrite
+	err := c.state.failWrite
+	if c.state.failWriteAt > 0 && c.state.writes != c.state.failWriteAt {
+		err = nil
+	}
+	affected := c.state.affected
+	if c.state.affectedWriteAt > 0 && c.state.writes != c.state.affectedWriteAt {
+		affected = nil
+	}
+	if c.state.countConflicts != 0 && strings.HasPrefix(text, "UPDATE `video`") && strings.Contains(text, "cnt_favorited") {
+		if c.state.countConflicts > 0 {
+			c.state.countConflicts--
+		}
+		c.state.videoVersion++
+		if c.state.videoCount != nil {
+			(*c.state.videoCount)++
+		}
+		affected = new(int64)
+	}
+	return explicitQueryResult{affected: affected}, err
 }
 
 // Commit 仅记录调用次数，供测试排除仓储提前提交。
-func (tx *explicitQueryTx) Commit() error { tx.state.commits++; return nil }
+func (tx *explicitQueryTx) Commit() error { tx.state.commits++; return tx.state.failCommit }
 
 // Rollback 仅记录调用次数，供测试核对事务生命周期仍属于调用方。
 func (tx *explicitQueryTx) Rollback() error { tx.state.rollbacks++; return nil }
@@ -165,10 +203,6 @@ func TestVideoExplicitQueryOffline(t *testing.T) {
 	cases := []queryCase{
 		{"点赞", "video", func(ctx context.Context, tx *sql.Tx) error { return i.AddVideoUpvote(ctx, tx, 9) }},
 		{"取消点赞", "video", func(ctx context.Context, tx *sql.Tx) error { return i.DecrementVideoUpvote(ctx, tx, 9) }},
-		{"收藏计数", "video", func(ctx context.Context, tx *sql.Tx) error { return i.AddVideoCntFavorite(ctx, tx, 9) }},
-		{"取消收藏计数", "video", func(ctx context.Context, tx *sql.Tx) error { return i.DecrementVideoCntFavorite(ctx, tx, 9) }},
-		{"收藏关系", "favorite_video", func(ctx context.Context, tx *sql.Tx) error { return i.AddUserFavoriteVideo(ctx, tx, 7, 13, 9) }},
-		{"取消收藏关系", "favorite_video", func(ctx context.Context, tx *sql.Tx) error { return i.DeleteUserFavoriteVideo(ctx, tx, 7, 13, 9) }},
 		{"贝壳计数", "video", func(ctx context.Context, tx *sql.Tx) error { return i.UpdateVideoShells(ctx, tx, 9, 1) }},
 		{"弹幕点赞", "barrages", func(ctx context.Context, tx *sql.Tx) error { return i.AddVideoBarrageUpvote(ctx, tx, 11) }},
 		{"取消弹幕点赞", "barrages", func(ctx context.Context, tx *sql.Tx) error { return i.DecrementVideoBarrageUpvote(ctx, tx, 11) }},

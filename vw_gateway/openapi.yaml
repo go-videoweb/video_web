@@ -1402,6 +1402,13 @@ components:
                     type: string
                 favoriteId:
                     type: string
+                favorite:
+                    type: integer
+                    description: 1 表示收藏，-1 表示取消；不再根据当前状态自动切换。
+                    format: int32
+                favoriteRecordId:
+                    type: string
+                    description: 取消时必须携带当前收藏记录 ID，收藏时必须为 0。
         gateway.api.v1.video.interact.VideoFavoriteResp:
             type: object
             properties:
@@ -1409,6 +1416,12 @@ components:
                     type: integer
                     format: int32
                 message:
+                    type: string
+                isFavorited:
+                    type: boolean
+                favoriteId:
+                    type: string
+                favoriteRecordId:
                     type: string
         gateway.api.v1.video.interact.VideoSendBarrageReq:
             type: object
@@ -1701,6 +1714,9 @@ components:
                 favoriteId:
                     type: string
                     description: 未收藏时为 0，已收藏时为当前用户的收藏夹 ID。
+                favoriteRecordId:
+                    type: string
+                    description: 当前有效收藏记录 ID，取消操作必须携带。
             description: UserVideoStatus 与下游个人状态字段对齐，1 表示已操作，-1 表示未操作。
 tags:
     - name: Captcha

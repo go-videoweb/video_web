@@ -3,6 +3,7 @@ package videodata
 import (
 	"context"
 	stderr "errors"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"util/resolver"
 	interactv1 "vw_gateway/api/v1/video/video_interact"
@@ -24,55 +25,19 @@ func NewInteractRepo(data *Data, logger log.Logger) videobiz.InteractRepo {
 	}
 }
 
-// FavoriteVideo 将可信身份传入现有收藏分支，不调整 Saga 编排、补偿或提交方式。
-func (i *interactRepo) FavoriteVideo(ctx context.Context, userId, favoriteId, videoId int64) (bool, error) {
-	// 1. Get the current status of the user-video
-	origin, err := i.data.videoInteractClient.GetUserVideoStatus(ctx, &interactGRPC.GetUserVideoStatusReq{
-		VideoId: videoId,
-		UserId:  userId,
+// FavoriteVideo 通过一次视频 RPC 转发收藏操作，不调用用户服务、不读取状态、不提交 Saga。
+// 输入：鉴权身份及 HTTP 请求；输出：视频服务提交后的结果，RPC 失败原样返回。
+func (i *interactRepo) FavoriteVideo(ctx context.Context, userId int64, req *interactv1.VideoFavoriteReq) (*interactv1.VideoFavoriteResp, error) {
+	resp, err := i.data.videoInteractClient.SetVideoFavorite(ctx, &interactGRPC.SetVideoFavoriteReq{
+		UserId: userId, VideoId: req.GetVideoId(), FavoriteId: req.GetFavoriteId(), Favorite: req.GetFavorite(), FavoriteRecordId: req.GetFavoriteRecordId(),
 	})
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-
-	gid, saga := newSaga(ctx, i.data.dtmServerAddr)
-	i.logger.Infof("[FavoriteVideo] gid: %s", gid)
-
-	// 2. Get the address of the video service. format --> ip:port
-	addr, err := resolver.GetRandomAddr(ctx, videoService)
-	if err != nil {
-		return false, err
+	if resp == nil {
+		return nil, kerrors.InternalServer("INVALID_VIDEO_RESPONSE", "视频服务未返回收藏结果")
 	}
-
-	// 3.1 Add the first step of the saga, which is to favorite the video
-	isFavorited := checkIsFavorited(origin.Status)
-	wrapSagaAdd(
-		saga,
-		&sagaMember{
-			method:           addr + interactGRPC.VideoInteract_VideoFavorite_FullMethodName,
-			compensateMethod: addr + interactGRPC.VideoInteract_VideoFavoriteRevert_FullMethodName,
-			payload: &interactGRPC.VideoFavoriteReq{
-				UserId:     userId,
-				VideoId:    videoId,
-				FavoriteId: favoriteId,
-				Favorite:   -isFavorited,
-			},
-		},
-		// 3.2 Update User-Video status
-		&sagaMember{
-			addr + interactGRPC.VideoInteract_SetUserVideoStatus_FullMethodName,
-			addr + interactGRPC.VideoInteract_SetUserVideoStatusRevert_FullMethodName,
-			&interactGRPC.SetUserVideoStatusReq{
-				VideoId:      videoId,
-				UserId:       userId,
-				OriginStatus: origin.Status,
-				Statuses: &interactGRPC.SetUserVideoStatusReq_Statuses{
-					IsFavorited: -isFavorited,
-				},
-			},
-		},
-	)
-	return isFavorited == 1, saga.Submit()
+	return &interactv1.VideoFavoriteResp{StatusCode: 200, Message: resp.Message, IsFavorited: resp.IsFavorited, FavoriteId: resp.FavoriteId, FavoriteRecordId: resp.FavoriteRecordId}, nil
 }
 
 func (i *interactRepo) UpvoteVideo(ctx context.Context, userId int64, videoId int64) (bool, error) {

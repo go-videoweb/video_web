@@ -6,13 +6,13 @@ import (
 	"github.com/dtm-labs/dtm/client/dtmcli"
 	"github.com/dtm-labs/dtm/client/dtmgrpc"
 	_ "github.com/dtm-labs/dtmdriver-kratos"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/grpc/codes"
 	"strconv"
 	"util/dbutil/mysqlutil"
 	"util/helper"
 	interactv1 "vw_video/api/v1/interact"
+	"vw_video/internal/data/dal/model"
 	"vw_video/internal/pkg/ecode/errdef"
 )
 
@@ -26,10 +26,18 @@ type InteractRepo interface {
 	AddVideoUpvote(ctx context.Context, tx *sql.Tx, videoID int64) error
 	DecrementVideoUpvote(ctx context.Context, tx *sql.Tx, videoID int64) error
 
-	AddVideoCntFavorite(ctx context.Context, tx *sql.Tx, videoID int64) error
-	DecrementVideoCntFavorite(ctx context.Context, tx *sql.Tx, videoID int64) error
-	AddUserFavoriteVideo(ctx context.Context, tx *sql.Tx, userID, favoritesID, videoID int64) error
-	DeleteUserFavoriteVideo(ctx context.Context, tx *sql.Tx, userID, favoritesID, videoID int64) error
+	// GetFavoriteMetadata 查询用户域元信息，由用例校验归属。
+	GetFavoriteMetadata(ctx context.Context, favoriteID int64) (*FavoriteMetadata, error)
+	// GetFavoriteRelation 普通读取关系，无记录返回 nil，不添加显式行锁。
+	GetFavoriteRelation(ctx context.Context, userID, videoID int64) (*model.FavoriteVideo, error)
+	// CreateFavoriteRelation 保存用例生成的 ID，不忽略唯一键冲突。
+	CreateFavoriteRelation(ctx context.Context, relation *model.FavoriteVideo) error
+	// DeleteFavoriteRelation 精确删除指定代关系，实际删除必须为一行。
+	DeleteFavoriteRelation(ctx context.Context, relation *model.FavoriteVideo) error
+	// UpdateFavoriteCount 调整收藏数和热度，乐观更新失败返回可识别的版本冲突。
+	UpdateFavoriteCount(ctx context.Context, videoID, delta int64) error
+	// SetFavoriteStatus 局部 upsert 收藏状态，不覆盖其他个人数据。
+	SetFavoriteStatus(ctx context.Context, userID, videoID int64, favorite bool) error
 
 	UpdateVideoShells(ctx context.Context, tx *sql.Tx, videoID int64, countShells int32) error
 	ShareVideo(ctx context.Context, videoID int64) string
@@ -79,52 +87,6 @@ func (u *InteractUsecase) UpvoteVideo(ctx context.Context, videoID int64, upvote
 		} else {
 			return u.repo.DecrementVideoUpvote(ctx, tx, videoID)
 		}
-	})
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-	return nil
-}
-
-// FavoriteVideo 在原屏障事务中更新收藏计数与带用户归属的关系，不调整分支顺序。
-// 输入：可信正用户、视频和收藏夹 ID，操作只能为 1/-1；非法参数不创建事务。
-func (u *InteractUsecase) FavoriteVideo(ctx context.Context, userID, videoID, favoriteID int64, favorite int32) error {
-	if userID <= 0 || videoID <= 0 || favoriteID <= 0 || (favorite != 1 && favorite != -1) {
-		return kerrors.BadRequest("INVALID_FAVORITE", "用户、视频和收藏夹 ID 必须为正数，操作必须为 1 或 -1")
-	}
-	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-
-	err = barrier.Call(u.repo.GetSqlTx(), func(tx *sql.Tx) error {
-		var err error
-
-		// 1. update video's favorite count.
-		// 2. update user-favorite relationship.
-		if favorite == 1 {
-			err = u.repo.AddVideoCntFavorite(ctx, tx, videoID)
-			if err != nil {
-				return err
-			}
-
-			err = u.repo.AddUserFavoriteVideo(ctx, tx, userID, favoriteID, videoID)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = u.repo.DecrementVideoCntFavorite(ctx, tx, videoID)
-			if err != nil {
-				return err
-			}
-
-			err = u.repo.DeleteUserFavoriteVideo(ctx, tx, userID, favoriteID, videoID)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
 	})
 	if err != nil {
 		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)

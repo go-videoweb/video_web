@@ -86,7 +86,7 @@ func TestFavoriteVideosGatewayChain(t *testing.T) {
 type favoriteDetailClient struct{ videov2.VideoInfoClient }
 
 func (*favoriteDetailClient) GetVideoInfo(context.Context, *videov2.GetVideoInfoReq, ...grpc.CallOption) (*videov2.GetVideoInfoResp, error) {
-	return &videov2.GetVideoInfoResp{VideoDetail: &videov2.VideoMetaInfo{VideoId: 42, Records: &videov2.VideoMetaInfo_Records{}}, UserVideoStatus: &videov2.GetVideoInfoResp_UserVideoStatus{IsUpvoted: -1, IsFavorited: 1, IsShared: -1, IsThrownShells: -1, FavoriteId: 9007199254740993}}, nil
+	return &videov2.GetVideoInfoResp{VideoDetail: &videov2.VideoMetaInfo{VideoId: 42, Records: &videov2.VideoMetaInfo_Records{}}, UserVideoStatus: &videov2.GetVideoInfoResp_UserVideoStatus{IsUpvoted: -1, IsFavorited: 1, IsShared: -1, IsThrownShells: -1, FavoriteId: 9007199254740993, FavoriteRecordId: 9007199254740994}}, nil
 }
 
 // TestFavoriteDetailGatewayState 验证当前用户状态透传到 HTTP 响应模型，游客即使收到下游状态也不能获得它。
@@ -106,7 +106,7 @@ func TestFavoriteDetailGatewayState(t *testing.T) {
 			if resp.UserVideoStatus != nil {
 				t.Fatal("游客获得个人状态")
 			}
-		} else if resp.UserVideoStatus == nil || resp.UserVideoStatus.FavoriteId != 9007199254740993 || resp.UserVideoStatus.IsFavorited != 1 || resp.UserVideoStatus.IsUpvoted != -1 {
+		} else if resp.UserVideoStatus == nil || resp.UserVideoStatus.FavoriteId != 9007199254740993 || resp.UserVideoStatus.FavoriteRecordId != 9007199254740994 || resp.UserVideoStatus.IsFavorited != 1 || resp.UserVideoStatus.IsUpvoted != -1 {
 			t.Fatal("个人状态映射错误")
 		}
 	}

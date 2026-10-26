@@ -95,6 +95,8 @@ message GetVideoInfoResp {
         int32 is_thrown_shells = 4;
         // 当前用户所属收藏夹 ID；未收藏时为 0。
         int64 favorite_id = 5;
+        // 当前有效收藏记录 ID，取消操作必须携带。
+        int64 favorite_record_id = 6;
     }
     VideoMetaInfo video_detail        = 1;
     repeated BarrageInfo barrages     = 2;

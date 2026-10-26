@@ -213,7 +213,7 @@ func TestFavoriteRelationQueryOffline(t *testing.T) {
 			if err := db.Callback().Query().Replace("gorm:query", func(tx *gorm.DB) {
 				original(tx)
 				calls++
-				wantSQL := "SELECT `favorites_id` FROM `favorite_video` WHERE user_id = ? AND video_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT ?"
+				wantSQL := "SELECT id, favorites_id FROM `favorite_video` WHERE user_id = ? AND video_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT ?"
 				wantArgs := []interface{}{int64(7), int64(42), 2}
 				if tx.Statement.SQL.String() != wantSQL || !reflect.DeepEqual(tx.Statement.Vars, wantArgs) {
 					t.Fatalf("归属查询范围错误：%s %#v", tx.Statement.SQL.String(), tx.Statement.Vars)
@@ -222,11 +222,15 @@ func TestFavoriteRelationQueryOffline(t *testing.T) {
 					tx.AddError(wantErr)
 					return
 				}
-				*tx.Statement.Dest.(*[]int64) = tc.ids
+				rows := make([]*model.FavoriteVideo, len(tc.ids))
+				for i, id := range tc.ids {
+					rows[i] = &model.FavoriteVideo{ID: id + 1, FavoritesID: id}
+				}
+				*tx.Statement.Dest.(*[]*model.FavoriteVideo) = rows
 			}); err != nil {
 				t.Fatal(err)
 			}
-			id, err := (&videoInfoRepo{}).GetUserFavoriteID(ctx, 7, 42)
+			id, recordID, err := (&videoInfoRepo{}).GetUserFavorite(ctx, 7, 42)
 			if tc.failAt != 0 {
 				if !errors.Is(err, wantErr) || calls != tc.failAt || id != 0 {
 					t.Fatal("故障被吞掉或继续访问数据库")
@@ -244,6 +248,9 @@ func TestFavoriteRelationQueryOffline(t *testing.T) {
 				want = tc.ids[0]
 			}
 			wantCalls := 1
+			if want != 0 && recordID != want+1 {
+				t.Fatal("收藏记录 ID 丢失")
+			}
 			if err != nil || id != want || calls != wantCalls {
 				t.Fatalf("归属结果错误：%d %v, calls=%d", id, err, calls)
 			}

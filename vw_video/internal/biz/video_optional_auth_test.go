@@ -41,9 +41,14 @@ func (r *optionalViewerRepo) GetUserVideoStatus(_ context.Context, _, userID int
 	return UpvoteStatus | FavoriteStatus, r.fail("status")
 }
 
-func (r *optionalViewerRepo) GetUserFavoriteID(_ context.Context, userID, videoID int64) (int64, error) {
+// GetUserFavorite 返回测试指定的归属和对应记录 ID，不访问真实数据。
+func (r *optionalViewerRepo) GetUserFavorite(_ context.Context, userID, videoID int64) (int64, int64, error) {
 	r.favoriteCalls++
-	return r.favoriteID, r.fail("favorite")
+	recordID := int64(0)
+	if r.favoriteID > 0 {
+		recordID = r.favoriteID + 1
+	}
+	return r.favoriteID, recordID, r.fail("favorite")
 }
 func (r *optionalViewerRepo) AddVideoCntView(context.Context, int64) error {
 	r.viewCalls++
