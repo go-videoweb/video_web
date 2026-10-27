@@ -1,7 +1,6 @@
 package biz
 
-// Status mask. These statuses are used to store user-xxx status in mongoDB.
-// `xxx` can be video, comment, barrage.
+// RPC 状态位掩码；MySQL 使用独立字段，收藏状态从实际关系读取。
 const (
 	UpvoteStatus     int64 = 1 << iota // 00..0001
 	FavoriteStatus                     // 00..0010

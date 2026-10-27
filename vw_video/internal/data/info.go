@@ -3,14 +3,12 @@ package data
 import (
 	"context"
 	"database/sql"
-	stderr "errors"
 	"github.com/go-kratos/kratos/v2/log"
-	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"time"
-	"util/dbutil/mgutil"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
-	"vw_video/internal/data/dal/query"
 )
 
 type videoInfoRepo struct {
@@ -25,8 +23,9 @@ func NewVideoInfoRepo(data *Data, logger log.Logger) biz.VideoInfoRepo {
 	}
 }
 
+// AddVideoCntView 在上下文选定的连接上增加播放量和热度，数据库错误透传。
 func (v *videoInfoRepo) AddVideoCntView(ctx context.Context, videoId int64) error {
-	video := query.Video
+	video := getQuery(ctx).Video
 	videoDo, videoModel, err := addVideoModel(ctx, videoId)
 	if err != nil {
 		return err
@@ -101,27 +100,40 @@ func (v *videoInfoRepo) GetBarragesByVideoId(ctx context.Context, videoId int64)
 	return barrageDo.Where(barrage.VideoID.Eq(videoId)).Find()
 }
 
+// UpdateVideoCntShare 通过统一查询入口使用显式事务增加分享数和热度，不自行提交。
 func (v *videoInfoRepo) UpdateVideoCntShare(ctx context.Context, tx *sql.Tx, videoID int64) error {
-	video := query.Video
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoID)
+	ctx, err := bindSQLTx(ctx, tx)
 	if err != nil {
 		return err
 	}
-	return db.Model(videoModel).Where(video.VideoID.Eq(videoID)).Updates(map[string]any{
+	video := getQuery(ctx).Video
+	videoDo, videoModel, err := addVideoModel(ctx, videoID)
+	if err != nil {
+		return err
+	}
+	_, err = videoDo.Where(video.VideoID.Eq(videoID)).Updates(map[string]any{
 		"cnt_shares": videoModel.CntShares + 1,
 		"hot":        videoModel.Hot + HotEachShare,
-	}).Error
+	})
+	return err
 }
+
+// UpdateVideoCntShareCompensation 在传入事务内补偿分享数和热度，查询与更新错误透传。
 func (v *videoInfoRepo) UpdateVideoCntShareCompensation(ctx context.Context, tx *sql.Tx, videoID int64) error {
-	video := query.Video
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoID)
+	ctx, err := bindSQLTx(ctx, tx)
 	if err != nil {
 		return err
 	}
-	return db.Model(videoModel).Where(video.VideoID.Eq(videoID)).Updates(map[string]any{
+	video := getQuery(ctx).Video
+	videoDo, videoModel, err := addVideoModel(ctx, videoID)
+	if err != nil {
+		return err
+	}
+	_, err = videoDo.Where(video.VideoID.Eq(videoID)).Updates(map[string]any{
 		"cnt_shares": videoModel.CntShares - 1,
 		"hot":        videoModel.Hot - HotEachShare,
-	}).Error
+	})
+	return err
 }
 
 func (v *videoInfoRepo) GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.Video, error) {
@@ -156,60 +168,44 @@ func (v *videoInfoRepo) GetPublisherIdByVideoId(ctx context.Context, videoId int
 	return res.PublisherID, nil
 }
 
+// GetUserVideoStatus 只读点赞、分享及贝壳状态，保留现有 RPC 位掩码。
+// 输入：用户/视频 ID 必须为正数；输出：无记录返回 0，读取错误透传，收藏归属由另一方法查询。
 func (v *videoInfoRepo) GetUserVideoStatus(ctx context.Context, videoID int64, userID int64) (int64, error) {
-	filter := mgutil.NewBsonM("video_id", videoID, "user_id", userID)
-	res, err := v.data.mongo.FindOne(ctx, uv_status, filter)
-	if err != nil {
-		// Document not found, which means user has not watched this video before.
-		// So we initialize the user-video status document and return 0(initial status).
-		if stderr.Is(err, mongo.ErrNoDocuments) {
-			err = v.data.mongo.InsertOne(ctx, uv_status, &model.UserVideoStatus{
-				UserID:  userID,
-				VideoID: videoID,
-				Status:  0,
-			})
-			if err != nil {
-				return -1, err
-			}
-			return 0, nil
-		}
-		return -1, err
-	}
-
-	return res.Status, nil
+	row, err := readUserVideoStatus(ctx, interactionDB(ctx), userID, videoID)
+	return videoStatusMask(row), err
 }
 
-func (v *videoInfoRepo) SetUserVideoStatus(ctx context.Context, videoID int64, userID int64, status int64) error {
-	filter := mgutil.NewBsonM("video_id", videoID, "user_id", userID)
-	data := &model.UserVideoStatus{
-		Status: status,
+// UpdateUserVideoHistory 只更新最近观看时间，不覆盖互动字段；沿用调用方的 SQL 事务。
+// 输入：用户/视频 ID 必须为正数；观看时间取当前服务时间。
+// 输出：upsert 成功或数据库错误；并发旧请求不会回退时间，不保存视频摘要或播放进度。
+func (v *videoInfoRepo) UpdateUserVideoHistory(ctx context.Context, videoID int64, userID int64) error {
+	if userID <= 0 || videoID <= 0 {
+		return biz.ErrInvalidInteractionIdentity
 	}
-	return v.data.mongo.UpsertOne(ctx, uv_status, filter, data)
+	now := time.Now()
+	row := &model.UserVideoStatus{UserID: userID, VideoID: videoID, LastWatchTime: &now}
+	return interactionDB(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "user_id"}, {Name: "video_id"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"last_watch_time": gorm.Expr("GREATEST(COALESCE(last_watch_time, VALUES(last_watch_time)), VALUES(last_watch_time))"),
+			"deleted_at":      nil,
+		}),
+	}).Create(row).Error
 }
 
-func (v *videoInfoRepo) UpdateUserVideoHistory(ctx context.Context, videoID int64, userID int64, history *model.VideoSummary) error {
-	filter := mgutil.NewBsonM("video_id", videoID, "user_id", userID)
-	//filter, err := mgutil.NewBsonM("video_id", videoID, "user_id", userID)
-	//if err != nil {
-	//	return err
-	//}
-	data := &model.UserVideoHistory{
-		UserID:       userID,
-		VideoID:      videoID,
-		VideoSummary: history,
-		Timestamp:    time.Now().UnixNano(),
-	}
-
-	return v.data.mongo.UpsertOne(ctx, uv_history, filter, data)
-}
-
+// SetVideoHot 通过统一查询入口在传入事务内调整热度，不改变事务生命周期。
 func (v *videoInfoRepo) SetVideoHot(ctx context.Context, tx *sql.Tx, videoId int64, hotCount int64) error {
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoId)
+	ctx, err := bindSQLTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	video := getQuery(ctx).Video
+	videoDo, videoModel, err := addVideoModel(ctx, videoId)
 	if err != nil {
 		return err
 	}
 
-	err = db.Model(videoModel).Where("video_id = ?", videoId).Update("hot", videoModel.Hot+hotCount).Error
+	_, err = videoDo.Where(video.VideoID.Eq(videoId)).Update(video.Hot, videoModel.Hot+hotCount)
 	if err != nil {
 		return err
 	}
@@ -221,14 +217,4 @@ func (v *videoInfoRepo) SetVideoHot(ctx context.Context, tx *sql.Tx, videoId int
 func (v *videoInfoRepo) GetSqlTx() *sql.Tx {
 	tx := v.data.mysql.Begin()
 	return tx.Statement.ConnPool.(*sql.Tx)
-}
-
-// GetMongoClient is a helper function to get *mongo.Client from *mongo.Data.
-// This is used to be the DTM barrier's MongoCall method's argument.
-func (v *videoInfoRepo) GetMongoClient() *mongo.Client {
-	return v.data.mongo.mongoClient
-}
-
-func (v *videoInfoRepo) GetDBAndCollection() (db, collection string) {
-	return v.data.mongo.db, uv_status
 }

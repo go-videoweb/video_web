@@ -11,6 +11,9 @@ service VideoInfo {
 
     rpc GetVideoList(GetVideoListReq) returns (GetVideoListResp) {}
 
+    // 登录用户只能读取自己的收藏夹或其他用户的公开收藏夹。
+    rpc GetFavoriteVideos(GetFavoriteVideosReq) returns (GetFavoriteVideosResp) {}
+
     rpc GetVideoFile(GetVideoFileReq) returns (stream GetVideoFileResp) {}
 
     rpc GetVideoMpd(GetVideoMpdReq) returns (stream GetVideoMpdResp) {}
@@ -90,10 +93,34 @@ message GetVideoInfoResp {
         int32 is_favorited     = 2;
         int32 is_shared        = 3;
         int32 is_thrown_shells = 4;
+        // 当前用户所属收藏夹 ID；未收藏时为 0。
+        int64 favorite_id = 5;
+        // 当前有效收藏记录 ID，取消操作必须携带。
+        int64 favorite_record_id = 6;
     }
     VideoMetaInfo video_detail        = 1;
     repeated BarrageInfo barrages     = 2;
     UserVideoStatus user_video_status = 3;
+}
+
+message GetFavoriteVideosReq {
+    int64 favorites_id = 1;
+    int32 page_num = 2;
+    int32 page_size = 3;
+    // 由可信网关传入的正用户 ID，不接受游客访问。
+    int64 user_id = 4;
+}
+
+message FavoriteVideoItem {
+    VideoSummary video = 1;
+    google.protobuf.Timestamp collected_at = 2;
+}
+
+message GetFavoriteVideosResp {
+    repeated FavoriteVideoItem videos = 1;
+    int64 total = 2;
+    int32 page_num = 3;
+    int32 page_size = 4;
 }
 
 message GetVideoListReq {

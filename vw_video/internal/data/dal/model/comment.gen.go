@@ -13,21 +13,22 @@ import (
 
 const TableNameComment = "comment"
 
-// Comment 评论主表
+// Comment mapped from table <comment>
 type Comment struct {
-	CreatedAt   time.Time              `gorm:"column:created_at;type:datetime(3);comment:创建时间" json:"created_at"`                                                                                 // 创建时间
-	UpdatedAt   time.Time              `gorm:"column:updated_at;type:datetime(3);comment:更新时间" json:"updated_at"`                                                                                 // 更新时间
-	DeletedAt   gorm.DeletedAt         `gorm:"column:deleted_at;type:datetime(3);index:deleted_at__index,priority:1;comment:删除时间" json:"deleted_at"`                                              // 删除时间
-	CommentID   int64                  `gorm:"column:comment_id;type:bigint;primaryKey;autoIncrement:true;comment:评论id" json:"comment_id"`                                                        // 评论id
-	PublisherID int64                  `gorm:"column:publisher_id;type:bigint;comment:评论发布者id" json:"publisher_id"`                                                                               // 评论发布者id
-	VideoID     int64                  `gorm:"column:video_id;type:bigint;index:video_id_idx,priority:1;comment:评论所属视频ID" json:"video_id"`                                                        // 评论所属视频ID
-	RootID      int64                  `gorm:"column:root_id;type:bigint;index:root_id_idx,priority:1;default:-1;comment:根评论id" json:"root_id"`                                                   // 根评论id
-	ParentID    int64                  `gorm:"column:parent_id;type:bigint;index:parent_id_idx,priority:1;index:video_id_idx,priority:2;default:-1;comment:父评论ID，如果不存在父评论，则为-1" json:"parent_id"` // 父评论ID，如果不存在父评论，则为-1
-	Content     string                 `gorm:"column:content;type:text;comment:评论内容" json:"content"`                                                                                              // 评论内容
-	CntUpvote   uint64                 `gorm:"column:cnt_upvote;type:int unsigned;comment:评论获赞数" json:"cnt_upvote"`                                                                               // 评论获赞数
-	IPLocation  string                 `gorm:"column:ip_location;type:varchar(20);comment:评论者ip归属地" json:"ip_location"`                                                                           // 评论者ip归属地
-	CntReplies  int64                  `gorm:"column:cnt_replies;type:int unsigned;comment:该评论下回复个数" json:"cnt_replies"`                                                                          // 该评论下回复个数
-	Version     optimisticlock.Version `gorm:"column:version;type:bigint unsigned;default:1;comment: 版本号" json:"version"`                                                                         //  版本号
+	CreatedAt   time.Time              `gorm:"column:created_at;type:datetime(3)" json:"created_at"`
+	UpdatedAt   time.Time              `gorm:"column:updated_at;type:datetime(3)" json:"updated_at"`
+	DeletedAt   gorm.DeletedAt         `gorm:"column:deleted_at;type:datetime(3);index:idx_comments_deleted_at,priority:1" json:"deleted_at"`
+	CommentID   int64                  `gorm:"column:comment_id;type:bigint;primaryKey;autoIncrement:true" json:"comment_id"`
+	PublisherID int64                  `gorm:"column:publisher_id;type:bigint;index:fk_user_comments,priority:1" json:"publisher_id"`
+	ParentID    int64                  `gorm:"column:parent_id;type:bigint;not null;index:idx_comment_parent,priority:1;index:idx_comment_video_parent,priority:2;index:idx_to_vid,priority:1;default:-1" json:"parent_id"`
+	VideoID     int64                  `gorm:"column:video_id;type:bigint;index:idx_comment_video_parent,priority:1;index:idx_to_vid,priority:2" json:"video_id"`
+	Content     string                 `gorm:"column:content;type:text" json:"content"`
+	CntUpvote   uint64                 `gorm:"column:cnt_upvote;type:int unsigned;not null" json:"cnt_upvote"`
+	Dislikes    int64                  `gorm:"column:dislikes;type:int unsigned" json:"dislikes"`
+	IPLocation  string                 `gorm:"column:ip_location;type:varchar(20)" json:"ip_location"`
+	RootID      int64                  `gorm:"column:root_id;type:bigint;not null;index:idx_comment_root,priority:1;default:-1" json:"root_id"`
+	CntReplies  int64                  `gorm:"column:cnt_replies;type:int unsigned;not null" json:"cnt_replies"`
+	Version     optimisticlock.Version `gorm:"column:version;type:bigint unsigned;not null;default:1" json:"version"`
 }
 
 // TableName Comment's table name

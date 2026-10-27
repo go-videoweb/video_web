@@ -35,13 +35,12 @@ func newVideoClass(db *gorm.DB, opts ...gen.DOOption) videoClass {
 	return _videoClass
 }
 
-// videoClass 视频分类表，存储每个视频的类别信息
 type videoClass struct {
 	videoClassDo
 
 	ALL     field.Asterisk
-	VideoID field.Int64  // 视频id，
-	Class   field.String // 视频分类
+	VideoID field.Int64
+	Class   field.String
 
 	fieldMap map[string]field.Expr
 }

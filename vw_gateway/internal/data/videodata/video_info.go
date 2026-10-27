@@ -46,6 +46,25 @@ func (v *videoInfoRepo) GetVideoInfo(ctx context.Context, videoId, userId int64)
 	return domain.NewVideoDetail(resp), nil
 }
 
+// GetFavoriteVideos 仅传递网关鉴权确认的身份，不以客户端参数作为访问者。
+func (v *videoInfoRepo) GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) (*videoinfov1.GetFavoriteVideosResp, error) {
+	resp, err := v.data.videoInfoClient.GetFavoriteVideos(ctx, &videoinfov1.GetFavoriteVideosReq{
+		UserId: userId, FavoritesId: favoritesId, PageNum: pageNum, PageSize: pageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, kerrors.InternalServer("FAVORITE_VIDEOS_MISSING", "视频服务未返回收藏夹内容响应")
+	}
+	for _, item := range resp.Videos {
+		if item.GetVideo() == nil {
+			return nil, kerrors.InternalServer("FAVORITE_VIDEO_INVALID", "视频服务返回了缺少视频摘要的收藏记录")
+		}
+	}
+	return resp, nil
+}
+
 func (v *videoInfoRepo) GetVideoList(ctx context.Context, class []string, num int32, size int32) ([]*videoinfov1.VideoSummary, error) {
 	resp, err := v.data.videoInfoClient.GetVideoList(ctx, &videoinfov1.GetVideoListReq{
 		Class:    class,

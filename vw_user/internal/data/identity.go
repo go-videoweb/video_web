@@ -41,8 +41,11 @@ func (u *userIdentityRepo) CheckPassword(ctx context.Context, password, hashedPa
 	return nil
 }
 
+// AddExpForLogin 在当天尚未领取时增加登录经验，MySQL 访问沿用上下文事务。
+// 输入：ctx 可携带本地事务；userId 为登录用户 ID。
+// 输出：读取或更新失败时返回错误；Redis 登录标记不受 MySQL 回滚保护。
 func (u *userIdentityRepo) AddExpForLogin(ctx context.Context, userId int64) error {
-	userLevel := query.UserLevel
+	userLevel := getQuery(ctx).UserLevel
 	userLevelDo := userLevel.WithContext(ctx)
 	level, err := userLevelDo.Where(userLevel.UserID.Eq(userId)).First()
 	if err != nil {
@@ -82,8 +85,10 @@ func (u *userIdentityRepo) CacheAccessToken(ctx context.Context, userId, accessT
 	return nil
 }
 
+// CreatRecordsForRegister 原子创建用户及默认关注列表、收藏夹和等级记录。
+// 输入：newUser 为待创建用户；ctx 可携带已有事务，使用该事务上的保存点，不独立提交外层事务。
+// 输出：创建或事务错误；无外层事务时创建本地事务，出错或 panic 时由 GORM 处理回滚。
 func (u *userIdentityRepo) CreatRecordsForRegister(ctx context.Context, newUser *model.User) error {
-	var err error
 	defaultFavorites := &model.Favorite{
 		FavoritesID:   getid.GetID(),
 		UserID:        newUser.UserID,
@@ -107,40 +112,20 @@ func (u *userIdentityRepo) CreatRecordsForRegister(ctx context.Context, newUser 
 		ListName: "默认关注列表",
 	}
 
-	tx := query.Q.Begin()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
+	// 复用生成器的事务克隆，保留各模型独立的表信息；已有事务使用保存点。
+	return getQuery(ctx).Transaction(func(tx *query.Query) error {
+		txQuery := tx.WithContext(ctx)
+		if err := txQuery.User.Create(newUser); err != nil {
+			return err
 		}
-		if r := recover(); r != nil {
-			tx.Rollback()
+		if err := txQuery.FollowList.Create(defaultFollowList); err != nil {
+			return err
 		}
-	}()
-	err = tx.User.Create(newUser)
-	if err != nil {
-		return err
-	}
-
-	err = tx.FollowList.Create(defaultFollowList)
-	if err != nil {
-		return err
-	}
-
-	err = tx.Favorite.Create(defaultFavorites, privateFavorites)
-	if err != nil {
-		return err
-	}
-
-	err = tx.UserLevel.Create(userLevel)
-	if err != nil {
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-	return nil
+		if err := txQuery.Favorite.Create(defaultFavorites, privateFavorites); err != nil {
+			return err
+		}
+		return txQuery.UserLevel.Create(userLevel)
+	})
 }
 
 func (u *userIdentityRepo) DeleteCachedAccessToken(ctx context.Context, userId string) error {

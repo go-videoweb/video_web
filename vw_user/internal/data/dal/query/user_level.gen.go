@@ -27,24 +27,25 @@ func newUserLevel(db *gorm.DB, opts ...gen.DOOption) userLevel {
 
 	tableName := _userLevel.userLevelDo.TableName()
 	_userLevel.ALL = field.NewAsterisk(tableName)
-	_userLevel.UserID = field.NewInt64(tableName, "user_id")
-	_userLevel.NextExp = field.NewUint32(tableName, "next_exp")
-	_userLevel.Exp = field.NewUint32(tableName, "exp")
 	_userLevel.Level = field.NewUint32(tableName, "level")
+	_userLevel.Exp = field.NewUint32(tableName, "exp")
+	_userLevel.NextExp = field.NewUint32(tableName, "next_exp")
+	_userLevel.UserID = field.NewInt64(tableName, "user_id")
 
 	_userLevel.fillFieldMap()
 
 	return _userLevel
 }
 
+// userLevel 用户等级表
 type userLevel struct {
 	userLevelDo
 
 	ALL     field.Asterisk
-	UserID  field.Int64
-	NextExp field.Uint32 // 升级到下一级所需总经验
-	Exp     field.Uint32 // 当前已获得的经验值
 	Level   field.Uint32
+	Exp     field.Uint32
+	NextExp field.Uint32
+	UserID  field.Int64
 
 	fieldMap map[string]field.Expr
 }
@@ -61,10 +62,10 @@ func (u userLevel) As(alias string) *userLevel {
 
 func (u *userLevel) updateTableName(table string) *userLevel {
 	u.ALL = field.NewAsterisk(table)
-	u.UserID = field.NewInt64(table, "user_id")
-	u.NextExp = field.NewUint32(table, "next_exp")
-	u.Exp = field.NewUint32(table, "exp")
 	u.Level = field.NewUint32(table, "level")
+	u.Exp = field.NewUint32(table, "exp")
+	u.NextExp = field.NewUint32(table, "next_exp")
+	u.UserID = field.NewInt64(table, "user_id")
 
 	u.fillFieldMap()
 
@@ -82,10 +83,10 @@ func (u *userLevel) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 
 func (u *userLevel) fillFieldMap() {
 	u.fieldMap = make(map[string]field.Expr, 4)
-	u.fieldMap["user_id"] = u.UserID
-	u.fieldMap["next_exp"] = u.NextExp
-	u.fieldMap["exp"] = u.Exp
 	u.fieldMap["level"] = u.Level
+	u.fieldMap["exp"] = u.Exp
+	u.fieldMap["next_exp"] = u.NextExp
+	u.fieldMap["user_id"] = u.UserID
 }
 
 func (u userLevel) clone(db *gorm.DB) userLevel {

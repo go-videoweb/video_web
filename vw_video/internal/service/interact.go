@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	"github.com/go-kratos/kratos/v2/log"
-	"google.golang.org/protobuf/types/known/emptypb"
 	interactv1 "vw_video/api/v1/interact"
 	"vw_video/internal/biz"
+
+	"github.com/go-kratos/kratos/v2/log"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type InteractService struct {
@@ -33,16 +34,20 @@ func (s *InteractService) VideoUpvoteRevert(ctx context.Context, req *interactv1
 	return s.VideoUpvote(ctx, req)
 }
 
-func (s *InteractService) VideoFavorite(ctx context.Context, req *interactv1.VideoFavoriteReq) (*emptypb.Empty, error) {
-	err := s.interactUsecase.FavoriteVideo(ctx, req.VideoId, req.FavoriteId, req.Favorite)
+// SetVideoFavorite 将明确操作和关系 ID 交给视频用例；不读取个人状态或编排 Saga。
+// 输出：本地事务提交后的状态；取消后的记录 ID 为 0，失败时不构造成功响应。
+func (s *InteractService) SetVideoFavorite(ctx context.Context, req *interactv1.SetVideoFavoriteReq) (*interactv1.SetVideoFavoriteResp, error) {
+	result, err := s.interactUsecase.SetVideoFavorite(ctx, &biz.FavoriteCommand{
+		UserID: req.GetUserId(), VideoID: req.GetVideoId(), FavoriteID: req.GetFavoriteId(), RecordID: req.GetFavoriteRecordId(), Favorite: req.GetFavorite(),
+	})
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
-}
-func (s *InteractService) VideoFavoriteRevert(ctx context.Context, req *interactv1.VideoFavoriteReq) (*emptypb.Empty, error) {
-	req.Favorite = -req.Favorite
-	return s.VideoFavorite(ctx, req)
+	message := "取消收藏成功"
+	if result.IsFavorited {
+		message = "收藏成功"
+	}
+	return &interactv1.SetVideoFavoriteResp{IsFavorited: result.IsFavorited, FavoriteId: result.FavoriteID, FavoriteRecordId: result.RecordID, Message: message}, nil
 }
 
 func (s *InteractService) VideoThrowShells(ctx context.Context, req *interactv1.VideoThrowShellsReq) (*emptypb.Empty, error) {

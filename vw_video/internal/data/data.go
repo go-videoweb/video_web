@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/go-kratos/kratos/contrib/registry/consul/v2"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
@@ -10,16 +11,12 @@ import (
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"os"
-	"time"
 	utilCtx "util/context"
-	"util/dbutil/mgutil"
+	"util/dbutil"
 	mysql2 "util/dbutil/mysqlutil"
+	favorv1 "vw_user/api/v1/favorites"
 	infov1 "vw_user/api/v1/userinfo"
 	"vw_video/internal/conf"
 	"vw_video/internal/data/dal/model"
@@ -36,7 +33,6 @@ var ProviderSet = wire.NewSet(
 	NewTransaction,
 	NewMySQL,
 	NewRedisClusterClient,
-	NewMongo,
 
 	// Repo
 	NewVideoInfoRepo,
@@ -47,6 +43,7 @@ var ProviderSet = wire.NewSet(
 	NewDiscovery,
 	NewRegistrar,
 	NewUserinfoClient,
+	NewFavoriteClient,
 )
 
 type keyType struct{}
@@ -58,8 +55,8 @@ type transactionKey keyType
 type Data struct {
 	mysql          *gorm.DB
 	redis          *redis.ClusterClient
-	mongo          *MongoDB
 	userInfoClient infov1.UserinfoClient
+	favoriteClient favorv1.FavoriteClient
 }
 
 // NewTransaction return a util.Transaction interface.
@@ -67,12 +64,14 @@ func NewTransaction(d *Data) mysql2.Transaction {
 	return d
 }
 
-// NewData .
+// NewData 组装视频仓储共享的 MySQL、Redis 和用户服务客户端，不再创建 MongoDB 客户端。
+// 输入：依赖由 Wire 构造并完成各自初始化；logger 用于记录资源清理。
+// 输出：共享数据容器、清理回调及错误；此函数不执行表结构迁移或额外数据库连接。
 func NewData(
 	mysql *gorm.DB,
 	redisCluster *redis.ClusterClient,
-	mongo *MongoDB,
 	userInfoClient infov1.UserinfoClient,
+	favoriteClient favorv1.FavoriteClient,
 	logger log.Logger) (*Data, func(), error) {
 	cleanup := func() {
 		log.NewHelper(logger).Info("closing the data resources")
@@ -80,8 +79,8 @@ func NewData(
 	return &Data{
 		mysql:          mysql,
 		redis:          redisCluster,
-		mongo:          mongo,
 		userInfoClient: userInfoClient,
+		favoriteClient: favoriteClient,
 	}, cleanup, nil
 }
 
@@ -155,75 +154,6 @@ func NewRedisClusterClient(c *conf.Data) *redis.ClusterClient {
 	return redisCluster
 }
 
-func NewMongo(c *conf.Data) *MongoDB {
-	ctx, cancel := context.WithTimeout(utilCtx.NewBaseContext(), time.Duration(c.Mongo.ConnTimeout.Seconds)*time.Second)
-	defer cancel()
-
-	// 1. Get and wrap mongo client
-	mongoCli, err := mongo.Connect(
-		ctx,
-		options.Client().
-			SetConnectTimeout(c.Mongo.ConnTimeout.AsDuration()).
-			SetAppName("vw_video").
-			SetMaxPoolSize(uint64(c.Mongo.MaxOpen)).
-			SetRetryReads(true).
-			SetRetryWrites(true).
-			ApplyURI(fmt.Sprintf("mongodb://%s:%s@%s:%s/?replicaSet=rs0", c.Mongo.Username, c.Mongo.Password, c.Mongo.Host, c.Mongo.Port)),
-	)
-	if err != nil {
-		panic(err)
-	}
-	if err := mongoCli.Ping(ctx, nil); err != nil {
-		panic(err)
-	}
-	mdb := &MongoDB{
-		db:          "video_web",
-		mongoClient: mongoCli,
-	}
-
-	// 2. Create video_user_id_idx on video_user_status Collection
-	key := mgutil.NewBsonD("video_id", 1, "user_id", 1)
-	err = setUniqueIndex(ctx, mdb, uv_status, *key, "video_user_id_idx")
-	if err != nil {
-		panic(err)
-	}
-
-	// 3. Create video_id_idx on video_barrage_status Collection
-	key = mgutil.NewBsonD("barrage_id", 1, "user_id", 1)
-	err = setUniqueIndex(ctx, mdb, ub_status, *key, "barrage_id_idx")
-	if err != nil {
-		panic(err)
-	}
-
-	// 3. Create video_id_idx on video_barrage_status Collection
-	key = mgutil.NewBsonD("video_id", 1, "user_id", 1)
-	err = setUniqueIndex(ctx, mdb, uv_history, *key, "video_user_id_idx")
-	if err != nil {
-		panic(err)
-	}
-
-	// 4. Create comment_id__user_id_unique_idx on video_comment_status Collection
-	key = mgutil.NewBsonD("comment_id", 1, "user_id", 1)
-	err = setUniqueIndex(ctx, mdb, uc_status, *key, "comment_id__user_id_unique_idx")
-	if err != nil {
-		panic(err)
-	}
-
-	return mdb
-}
-func setUniqueIndex(ctx context.Context, mdb *MongoDB, collection string, keys bson.D, indexName string) error {
-	idxName, err := mdb.Collection(collection).Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    keys,
-		Options: options.Index().SetName(indexName).SetUnique(true),
-	})
-	logger := log.NewHelper(log.With(log.NewStdLogger(os.Stdout)))
-	if err != nil {
-		return err
-	}
-	logger.Infof("create unique index %s on Collection %s success", idxName, collection)
-	return nil
-}
-
 func NewUserinfoClient(r registry.Discovery, s *conf.Service) infov1.UserinfoClient {
 	conn, err := grpc.DialInsecure(
 		context.Background(),
@@ -240,56 +170,32 @@ func NewUserinfoClient(r registry.Discovery, s *conf.Service) infov1.UserinfoCli
 	return infov1.NewUserinfoClient(conn)
 }
 
-// startTx sets transactionKey to context and starts a transaction.
-func startTx(ctx context.Context) (context.Context, func(err error)) {
-	tx := query.Q.Begin()
-	ctx = utilCtx.WithValue(ctx, transactionKey{}, tx) // set transactionKey to context
-	return ctx, func(err error) { commitTx(ctx, err) }
-}
-
-// commitTx commits the transactionKey in context.
-// err is the error that out of the transaction.
-func commitTx(ctx context.Context, err error) {
-	value := utilCtx.MustGetValue(ctx, transactionKey{})
-
-	tx := value.(*query.QueryTx)
-
-	// Handle panic which could occur in tilCtx.MustGetValue.
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic: %v", r) // 确保 err 被赋值，事务正确回滚
-			tx.Rollback()
-			panic(r) // 继续抛出 panic，防止业务逻辑被吞掉
-		}
-	}()
-
-	if err != nil || tx.Error != nil {
-		tx.Rollback()
-		return
+// NewFavoriteClient 通过已有用户服务发现配置创建收藏夹元信息客户端。
+// 输入：服务发现与用户服务端点；输出：客户端，连接构造失败沿用现有初始化策略终止启动。
+func NewFavoriteClient(r registry.Discovery, s *conf.Service) favorv1.FavoriteClient {
+	conn, err := grpc.DialInsecure(context.Background(),
+		grpc.WithEndpoint(s.User.Endpoint), grpc.WithDiscovery(r),
+		grpc.WithMiddleware(recovery.Recovery(), tracing.Client()))
+	if err != nil {
+		panic(err)
 	}
-	tx.Commit()
+	return favorv1.NewFavoriteClient(conn)
 }
 
-// WithTx starts and commits(or rollbacks) a transaction Automatically.
-// Closure function fn is defined at Biz layer, and it contains the transaction logic you want to execute.
+// WithTx 使用 GORM 管理本地事务，向仓储传递同一连接，并向调用方返回提交错误。
+// 输入：ctx 传递取消、超时及请求信息；fn 内的仓储操作必须使用回调收到的上下文。
+// 输出：开启、业务执行或提交的错误；业务失败时回滚，panic 时尝试回滚并继续传播。
+// 不复用 ctx 中已有事务，也不覆盖绕过 getQuery 的操作、Redis 或跨服务 RPC。
 func (d *Data) WithTx(ctx context.Context, fn func(context.Context) error) error {
-	var err error
-	ctx, commit := startTx(ctx)
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("error: %v", r) // 确保 err 被赋值，事务正确回滚
-			commit(err)
-			panic(r) // 继续抛出 panic，防止业务逻辑被吞掉
-		}
-		commit(err)
-	}()
-	err = fn(ctx)
-	return err
+	return d.mysql.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txContext := context.WithValue(ctx, transactionKey{}, &query.QueryTx{Query: query.Use(tx)})
+		return fn(txContext)
+	})
 }
 
-// getQuery is a helper function.
-// It returns common query *query.Query or transactional query *(query.QueryTx).Query.
-// With this function, methods of data layer don't need to care about if it's in transactionKey or not.
+// getQuery 返回上下文中的事务查询器，无事务时使用默认查询器。
+// 输入：ctx 可包含本地事务或经 bindSQLTx 适配的显式 SQL 事务。
+// 输出：选定连接的查询器，不开启、提交或回滚事务；调用方仍需传递请求上下文。
 func getQuery(ctx context.Context) *query.Query {
 	// if ctx has transactionKey, return transactional query
 	tx, ok := utilCtx.GetValue(ctx, transactionKey{})
@@ -299,10 +205,25 @@ func getQuery(ctx context.Context) *query.Query {
 	return query.Q
 }
 
-// addVideoModel is a helper function.
-// It replaces the underlying gorm.DB's model with a video model, so that gorm-gen can use optimistic lock.
-// Use the function when need to UPDATE a video model.
-// See https://github.com/go-gorm/optimisticlock/issues/36 for more details.
+// bindSQLTx 将显式 SQL 事务绑定到新上下文，供仓储统一通过 getQuery 取连接。
+// 输入：tx 必须是调用方或 DTM 屏障提供的有效事务；ctx 保留取消、超时及请求信息。
+// 输出：显式事务优先于原上下文中的事务；nil 事务或适配失败返回错误，不回退普通连接。
+// 不执行业务查询、开启或结束事务，也不修改调用方持有的 ctx。
+func bindSQLTx(ctx context.Context, tx *sql.Tx) (context.Context, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidTransaction
+	}
+	db, err := dbutil.SqlTxToGormDB(tx)
+	if err != nil {
+		return nil, err
+	}
+	txContext := context.WithValue(ctx, transactionKey{}, &query.QueryTx{Query: query.Use(db)})
+	return txContext, nil
+}
+
+// addVideoModel 从 getQuery 选择的连接读取视频，并附加读取到的版本条件供后续更新使用。
+// 输入：ctx 可携带本地或显式 SQL 事务；videoId 为待更新的视频 ID。
+// 输出：附带版本筛选的查询对象及模型；读取失败返回错误，不调整事务生命周期。
 func addVideoModel(ctx context.Context, videoId int64) (query.IVideoDo, *model.Video, error) {
 	video := getQuery(ctx).Video
 	videoDo := video.WithContext(ctx)
@@ -310,7 +231,10 @@ func addVideoModel(ctx context.Context, videoId int64) (query.IVideoDo, *model.V
 	if err != nil {
 		return videoDo, nil, err
 	}
-	videoDo.ReplaceDB(videoDo.UnderlyingDB().Model(videoModel))
+	// Gen 更新会重建模型，不能只靠 ReplaceDB(Model(...)) 传递旧版本；版本递增仍由插件完成。
+	if videoModel.Version.Valid {
+		videoDo = videoDo.Where(video.Version.Eq(videoModel.Version))
+	}
 	return videoDo, videoModel, nil
 }
 

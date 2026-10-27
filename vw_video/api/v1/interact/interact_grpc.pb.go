@@ -22,8 +22,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	VideoInteract_VideoUpvote_FullMethodName                = "/video.v1.interact.VideoInteract/VideoUpvote"
 	VideoInteract_VideoUpvoteRevert_FullMethodName          = "/video.v1.interact.VideoInteract/VideoUpvoteRevert"
-	VideoInteract_VideoFavorite_FullMethodName              = "/video.v1.interact.VideoInteract/VideoFavorite"
-	VideoInteract_VideoFavoriteRevert_FullMethodName        = "/video.v1.interact.VideoInteract/VideoFavoriteRevert"
+	VideoInteract_SetVideoFavorite_FullMethodName           = "/video.v1.interact.VideoInteract/SetVideoFavorite"
 	VideoInteract_VideoThrowShells_FullMethodName           = "/video.v1.interact.VideoInteract/VideoThrowShells"
 	VideoInteract_VideoThrowShellsRevert_FullMethodName     = "/video.v1.interact.VideoInteract/VideoThrowShellsRevert"
 	VideoInteract_VideoShare_FullMethodName                 = "/video.v1.interact.VideoInteract/VideoShare"
@@ -47,8 +46,8 @@ type VideoInteractClient interface {
 	// used by DTM saga transaction.
 	VideoUpvote(ctx context.Context, in *VideoUpvoteReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	VideoUpvoteRevert(ctx context.Context, in *VideoUpvoteReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	VideoFavorite(ctx context.Context, in *VideoFavoriteReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	VideoFavoriteRevert(ctx context.Context, in *VideoFavoriteReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// 收藏业务由视频服务使用 MySQL 本地事务完成，无补偿 RPC。
+	SetVideoFavorite(ctx context.Context, in *SetVideoFavoriteReq, opts ...grpc.CallOption) (*SetVideoFavoriteResp, error)
 	VideoThrowShells(ctx context.Context, in *VideoThrowShellsReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	VideoThrowShellsRevert(ctx context.Context, in *VideoThrowShellsReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	VideoShare(ctx context.Context, in *VideoShareReq, opts ...grpc.CallOption) (*VideoShareResp, error)
@@ -91,20 +90,10 @@ func (c *videoInteractClient) VideoUpvoteRevert(ctx context.Context, in *VideoUp
 	return out, nil
 }
 
-func (c *videoInteractClient) VideoFavorite(ctx context.Context, in *VideoFavoriteReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *videoInteractClient) SetVideoFavorite(ctx context.Context, in *SetVideoFavoriteReq, opts ...grpc.CallOption) (*SetVideoFavoriteResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, VideoInteract_VideoFavorite_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *videoInteractClient) VideoFavoriteRevert(ctx context.Context, in *VideoFavoriteReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, VideoInteract_VideoFavoriteRevert_FullMethodName, in, out, cOpts...)
+	out := new(SetVideoFavoriteResp)
+	err := c.cc.Invoke(ctx, VideoInteract_SetVideoFavorite_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -240,8 +229,8 @@ type VideoInteractServer interface {
 	// used by DTM saga transaction.
 	VideoUpvote(context.Context, *VideoUpvoteReq) (*emptypb.Empty, error)
 	VideoUpvoteRevert(context.Context, *VideoUpvoteReq) (*emptypb.Empty, error)
-	VideoFavorite(context.Context, *VideoFavoriteReq) (*emptypb.Empty, error)
-	VideoFavoriteRevert(context.Context, *VideoFavoriteReq) (*emptypb.Empty, error)
+	// 收藏业务由视频服务使用 MySQL 本地事务完成，无补偿 RPC。
+	SetVideoFavorite(context.Context, *SetVideoFavoriteReq) (*SetVideoFavoriteResp, error)
 	VideoThrowShells(context.Context, *VideoThrowShellsReq) (*emptypb.Empty, error)
 	VideoThrowShellsRevert(context.Context, *VideoThrowShellsReq) (*emptypb.Empty, error)
 	VideoShare(context.Context, *VideoShareReq) (*VideoShareResp, error)
@@ -270,11 +259,8 @@ func (UnimplementedVideoInteractServer) VideoUpvote(context.Context, *VideoUpvot
 func (UnimplementedVideoInteractServer) VideoUpvoteRevert(context.Context, *VideoUpvoteReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VideoUpvoteRevert not implemented")
 }
-func (UnimplementedVideoInteractServer) VideoFavorite(context.Context, *VideoFavoriteReq) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method VideoFavorite not implemented")
-}
-func (UnimplementedVideoInteractServer) VideoFavoriteRevert(context.Context, *VideoFavoriteReq) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method VideoFavoriteRevert not implemented")
+func (UnimplementedVideoInteractServer) SetVideoFavorite(context.Context, *SetVideoFavoriteReq) (*SetVideoFavoriteResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetVideoFavorite not implemented")
 }
 func (UnimplementedVideoInteractServer) VideoThrowShells(context.Context, *VideoThrowShellsReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VideoThrowShells not implemented")
@@ -369,38 +355,20 @@ func _VideoInteract_VideoUpvoteRevert_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _VideoInteract_VideoFavorite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(VideoFavoriteReq)
+func _VideoInteract_SetVideoFavorite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetVideoFavoriteReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(VideoInteractServer).VideoFavorite(ctx, in)
+		return srv.(VideoInteractServer).SetVideoFavorite(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: VideoInteract_VideoFavorite_FullMethodName,
+		FullMethod: VideoInteract_SetVideoFavorite_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VideoInteractServer).VideoFavorite(ctx, req.(*VideoFavoriteReq))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _VideoInteract_VideoFavoriteRevert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(VideoFavoriteReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(VideoInteractServer).VideoFavoriteRevert(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: VideoInteract_VideoFavoriteRevert_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VideoInteractServer).VideoFavoriteRevert(ctx, req.(*VideoFavoriteReq))
+		return srv.(VideoInteractServer).SetVideoFavorite(ctx, req.(*SetVideoFavoriteReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -637,12 +605,8 @@ var VideoInteract_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _VideoInteract_VideoUpvoteRevert_Handler,
 		},
 		{
-			MethodName: "VideoFavorite",
-			Handler:    _VideoInteract_VideoFavorite_Handler,
-		},
-		{
-			MethodName: "VideoFavoriteRevert",
-			Handler:    _VideoInteract_VideoFavoriteRevert_Handler,
+			MethodName: "SetVideoFavorite",
+			Handler:    _VideoInteract_SetVideoFavorite_Handler,
 		},
 		{
 			MethodName: "VideoThrowShells",

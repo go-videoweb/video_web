@@ -29,6 +29,30 @@ func (s *VideoInfoService) GetVideoInfo(ctx context.Context, req *videoinfov1.Ge
 	return s.info.GetVideoInfoById(ctx, req.VideoId, req.UserId)
 }
 
+// GetFavoriteVideos 返回按收藏时间分页的视频摘要，收藏时间与视频发布时间分别编码。
+func (s *VideoInfoService) GetFavoriteVideos(ctx context.Context, req *videoinfov1.GetFavoriteVideosReq) (*videoinfov1.GetFavoriteVideosResp, error) {
+	rows, total, pageNum, pageSize, err := s.info.GetFavoriteVideos(ctx, req.UserId, req.FavoritesId, req.PageNum, req.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	resp := &videoinfov1.GetFavoriteVideosResp{
+		Videos: make([]*videoinfov1.FavoriteVideoItem, len(rows)), Total: total, PageNum: pageNum, PageSize: pageSize,
+	}
+	for i, row := range rows {
+		v := row.Video
+		item := &videoinfov1.FavoriteVideoItem{Video: &videoinfov1.VideoSummary{
+			VideoId: v.VideoID, Title: v.Title, Description: v.Description, Duration: v.Duration,
+			PublisherName: v.PublisherName, CoverPath: v.CoverPath, VideoPath: v.VideoPath,
+			CntBarrages: v.CntBarrages, CntViewed: v.CntViewed, CreatedTime: timestamppb.New(v.CreatedAt),
+		}}
+		if row.CollectedAt != nil {
+			item.CollectedAt = timestamppb.New(*row.CollectedAt)
+		}
+		resp.Videos[i] = item
+	}
+	return resp, nil
+}
+
 func (s *VideoInfoService) GetVideoList(ctx context.Context, req *videoinfov1.GetVideoListReq) (*videoinfov1.GetVideoListResp, error) {
 	//spanCtx := trace.SpanContextFromContext(ctx)
 	//fmt.Println("[video grpc service GetVideoList] Span ID:", spanCtx.SpanID().String())

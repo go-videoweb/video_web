@@ -491,6 +491,204 @@ func (x *GetVideoInfoResp) GetUserVideoStatus() *GetVideoInfoResp_UserVideoStatu
 	return nil
 }
 
+type GetFavoriteVideosReq struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	FavoritesId int64 `protobuf:"varint,1,opt,name=favorites_id,json=favoritesId,proto3" json:"favorites_id,omitempty"`
+	PageNum     int32 `protobuf:"varint,2,opt,name=page_num,json=pageNum,proto3" json:"page_num,omitempty"`
+	PageSize    int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// 由可信网关传入的正用户 ID，不接受游客访问。
+	UserId int64 `protobuf:"varint,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+}
+
+func (x *GetFavoriteVideosReq) Reset() {
+	*x = GetFavoriteVideosReq{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetFavoriteVideosReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFavoriteVideosReq) ProtoMessage() {}
+
+func (x *GetFavoriteVideosReq) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFavoriteVideosReq.ProtoReflect.Descriptor instead.
+func (*GetFavoriteVideosReq) Descriptor() ([]byte, []int) {
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetFavoriteVideosReq) GetFavoritesId() int64 {
+	if x != nil {
+		return x.FavoritesId
+	}
+	return 0
+}
+
+func (x *GetFavoriteVideosReq) GetPageNum() int32 {
+	if x != nil {
+		return x.PageNum
+	}
+	return 0
+}
+
+func (x *GetFavoriteVideosReq) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *GetFavoriteVideosReq) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+type FavoriteVideoItem struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Video       *VideoSummary          `protobuf:"bytes,1,opt,name=video,proto3" json:"video,omitempty"`
+	CollectedAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=collected_at,json=collectedAt,proto3" json:"collected_at,omitempty"`
+}
+
+func (x *FavoriteVideoItem) Reset() {
+	*x = FavoriteVideoItem{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *FavoriteVideoItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FavoriteVideoItem) ProtoMessage() {}
+
+func (x *FavoriteVideoItem) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FavoriteVideoItem.ProtoReflect.Descriptor instead.
+func (*FavoriteVideoItem) Descriptor() ([]byte, []int) {
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *FavoriteVideoItem) GetVideo() *VideoSummary {
+	if x != nil {
+		return x.Video
+	}
+	return nil
+}
+
+func (x *FavoriteVideoItem) GetCollectedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CollectedAt
+	}
+	return nil
+}
+
+type GetFavoriteVideosResp struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Videos   []*FavoriteVideoItem `protobuf:"bytes,1,rep,name=videos,proto3" json:"videos,omitempty"`
+	Total    int64                `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	PageNum  int32                `protobuf:"varint,3,opt,name=page_num,json=pageNum,proto3" json:"page_num,omitempty"`
+	PageSize int32                `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+}
+
+func (x *GetFavoriteVideosResp) Reset() {
+	*x = GetFavoriteVideosResp{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetFavoriteVideosResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFavoriteVideosResp) ProtoMessage() {}
+
+func (x *GetFavoriteVideosResp) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFavoriteVideosResp.ProtoReflect.Descriptor instead.
+func (*GetFavoriteVideosResp) Descriptor() ([]byte, []int) {
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetFavoriteVideosResp) GetVideos() []*FavoriteVideoItem {
+	if x != nil {
+		return x.Videos
+	}
+	return nil
+}
+
+func (x *GetFavoriteVideosResp) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *GetFavoriteVideosResp) GetPageNum() int32 {
+	if x != nil {
+		return x.PageNum
+	}
+	return 0
+}
+
+func (x *GetFavoriteVideosResp) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
 type GetVideoListReq struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -504,7 +702,7 @@ type GetVideoListReq struct {
 func (x *GetVideoListReq) Reset() {
 	*x = GetVideoListReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[5]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -517,7 +715,7 @@ func (x *GetVideoListReq) String() string {
 func (*GetVideoListReq) ProtoMessage() {}
 
 func (x *GetVideoListReq) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[5]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -530,7 +728,7 @@ func (x *GetVideoListReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVideoListReq.ProtoReflect.Descriptor instead.
 func (*GetVideoListReq) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{5}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetVideoListReq) GetClass() []string {
@@ -565,7 +763,7 @@ type GetVideoListResp struct {
 func (x *GetVideoListResp) Reset() {
 	*x = GetVideoListResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[6]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -578,7 +776,7 @@ func (x *GetVideoListResp) String() string {
 func (*GetVideoListResp) ProtoMessage() {}
 
 func (x *GetVideoListResp) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[6]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -591,7 +789,7 @@ func (x *GetVideoListResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVideoListResp.ProtoReflect.Descriptor instead.
 func (*GetVideoListResp) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{6}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetVideoListResp) GetVideoSummary() []*VideoSummary {
@@ -612,7 +810,7 @@ type GetVideoFileReq struct {
 func (x *GetVideoFileReq) Reset() {
 	*x = GetVideoFileReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[7]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -625,7 +823,7 @@ func (x *GetVideoFileReq) String() string {
 func (*GetVideoFileReq) ProtoMessage() {}
 
 func (x *GetVideoFileReq) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[7]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -638,7 +836,7 @@ func (x *GetVideoFileReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVideoFileReq.ProtoReflect.Descriptor instead.
 func (*GetVideoFileReq) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{7}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetVideoFileReq) GetVideoId() int64 {
@@ -659,7 +857,7 @@ type GetVideoFileResp struct {
 func (x *GetVideoFileResp) Reset() {
 	*x = GetVideoFileResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[8]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -672,7 +870,7 @@ func (x *GetVideoFileResp) String() string {
 func (*GetVideoFileResp) ProtoMessage() {}
 
 func (x *GetVideoFileResp) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[8]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -685,7 +883,7 @@ func (x *GetVideoFileResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVideoFileResp.ProtoReflect.Descriptor instead.
 func (*GetVideoFileResp) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{8}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetVideoFileResp) GetVideoFile() *FileResp {
@@ -706,7 +904,7 @@ type GetVideoMpdReq struct {
 func (x *GetVideoMpdReq) Reset() {
 	*x = GetVideoMpdReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[9]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -719,7 +917,7 @@ func (x *GetVideoMpdReq) String() string {
 func (*GetVideoMpdReq) ProtoMessage() {}
 
 func (x *GetVideoMpdReq) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[9]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -732,7 +930,7 @@ func (x *GetVideoMpdReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVideoMpdReq.ProtoReflect.Descriptor instead.
 func (*GetVideoMpdReq) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{9}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetVideoMpdReq) GetVideoId() int64 {
@@ -753,7 +951,7 @@ type GetVideoMpdResp struct {
 func (x *GetVideoMpdResp) Reset() {
 	*x = GetVideoMpdResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[10]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -766,7 +964,7 @@ func (x *GetVideoMpdResp) String() string {
 func (*GetVideoMpdResp) ProtoMessage() {}
 
 func (x *GetVideoMpdResp) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[10]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -779,7 +977,7 @@ func (x *GetVideoMpdResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVideoMpdResp.ProtoReflect.Descriptor instead.
 func (*GetVideoMpdResp) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{10}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetVideoMpdResp) GetMpdFile() *FileResp {
@@ -805,7 +1003,7 @@ type GetVideoSegmentReq struct {
 func (x *GetVideoSegmentReq) Reset() {
 	*x = GetVideoSegmentReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[11]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -818,7 +1016,7 @@ func (x *GetVideoSegmentReq) String() string {
 func (*GetVideoSegmentReq) ProtoMessage() {}
 
 func (x *GetVideoSegmentReq) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[11]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -831,7 +1029,7 @@ func (x *GetVideoSegmentReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVideoSegmentReq.ProtoReflect.Descriptor instead.
 func (*GetVideoSegmentReq) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{11}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{14}
 }
 
 // Deprecated: Marked as deprecated in v1/videoinfo/video_info.proto.
@@ -867,7 +1065,7 @@ type GetVideoSegmentResp struct {
 func (x *GetVideoSegmentResp) Reset() {
 	*x = GetVideoSegmentResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[12]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -880,7 +1078,7 @@ func (x *GetVideoSegmentResp) String() string {
 func (*GetVideoSegmentResp) ProtoMessage() {}
 
 func (x *GetVideoSegmentResp) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[12]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -893,7 +1091,7 @@ func (x *GetVideoSegmentResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVideoSegmentResp.ProtoReflect.Descriptor instead.
 func (*GetVideoSegmentResp) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{12}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetVideoSegmentResp) GetSegmentFile() *FileResp {
@@ -914,7 +1112,7 @@ type GetVideoCoverReq struct {
 func (x *GetVideoCoverReq) Reset() {
 	*x = GetVideoCoverReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[13]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -927,7 +1125,7 @@ func (x *GetVideoCoverReq) String() string {
 func (*GetVideoCoverReq) ProtoMessage() {}
 
 func (x *GetVideoCoverReq) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[13]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -940,7 +1138,7 @@ func (x *GetVideoCoverReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVideoCoverReq.ProtoReflect.Descriptor instead.
 func (*GetVideoCoverReq) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{13}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetVideoCoverReq) GetVideoId() int64 {
@@ -961,7 +1159,7 @@ type GetVideoCoverResp struct {
 func (x *GetVideoCoverResp) Reset() {
 	*x = GetVideoCoverResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[14]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -974,7 +1172,7 @@ func (x *GetVideoCoverResp) String() string {
 func (*GetVideoCoverResp) ProtoMessage() {}
 
 func (x *GetVideoCoverResp) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[14]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -987,7 +1185,7 @@ func (x *GetVideoCoverResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVideoCoverResp.ProtoReflect.Descriptor instead.
 func (*GetVideoCoverResp) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{14}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetVideoCoverResp) GetCoverFile() *FileResp {
@@ -1008,7 +1206,7 @@ type UploadVideoInfoReq struct {
 func (x *UploadVideoInfoReq) Reset() {
 	*x = UploadVideoInfoReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[15]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1021,7 +1219,7 @@ func (x *UploadVideoInfoReq) String() string {
 func (*UploadVideoInfoReq) ProtoMessage() {}
 
 func (x *UploadVideoInfoReq) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[15]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1034,7 +1232,7 @@ func (x *UploadVideoInfoReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadVideoInfoReq.ProtoReflect.Descriptor instead.
 func (*UploadVideoInfoReq) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{15}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *UploadVideoInfoReq) GetVideoInfo() *VideoMetaInfo {
@@ -1055,7 +1253,7 @@ type UploadVideoInfoResp struct {
 func (x *UploadVideoInfoResp) Reset() {
 	*x = UploadVideoInfoResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[16]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1068,7 +1266,7 @@ func (x *UploadVideoInfoResp) String() string {
 func (*UploadVideoInfoResp) ProtoMessage() {}
 
 func (x *UploadVideoInfoResp) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[16]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1081,7 +1279,7 @@ func (x *UploadVideoInfoResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadVideoInfoResp.ProtoReflect.Descriptor instead.
 func (*UploadVideoInfoResp) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{16}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UploadVideoInfoResp) GetVideoId() int64 {
@@ -1106,7 +1304,7 @@ type UploadVideoFileReq struct {
 func (x *UploadVideoFileReq) Reset() {
 	*x = UploadVideoFileReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[17]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1119,7 +1317,7 @@ func (x *UploadVideoFileReq) String() string {
 func (*UploadVideoFileReq) ProtoMessage() {}
 
 func (x *UploadVideoFileReq) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[17]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1132,7 +1330,7 @@ func (x *UploadVideoFileReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadVideoFileReq.ProtoReflect.Descriptor instead.
 func (*UploadVideoFileReq) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{17}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{20}
 }
 
 func (m *UploadVideoFileReq) GetVideoFile() isUploadVideoFileReq_VideoFile {
@@ -1187,7 +1385,7 @@ type UploadVideoCoverReq struct {
 func (x *UploadVideoCoverReq) Reset() {
 	*x = UploadVideoCoverReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[18]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1200,7 +1398,7 @@ func (x *UploadVideoCoverReq) String() string {
 func (*UploadVideoCoverReq) ProtoMessage() {}
 
 func (x *UploadVideoCoverReq) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[18]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1213,7 +1411,7 @@ func (x *UploadVideoCoverReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadVideoCoverReq.ProtoReflect.Descriptor instead.
 func (*UploadVideoCoverReq) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{18}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{21}
 }
 
 func (m *UploadVideoCoverReq) GetCoverFile() isUploadVideoCoverReq_CoverFile {
@@ -1264,7 +1462,7 @@ type GetPublisherIdByVideoIdReq struct {
 func (x *GetPublisherIdByVideoIdReq) Reset() {
 	*x = GetPublisherIdByVideoIdReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[19]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1277,7 +1475,7 @@ func (x *GetPublisherIdByVideoIdReq) String() string {
 func (*GetPublisherIdByVideoIdReq) ProtoMessage() {}
 
 func (x *GetPublisherIdByVideoIdReq) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[19]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1290,7 +1488,7 @@ func (x *GetPublisherIdByVideoIdReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPublisherIdByVideoIdReq.ProtoReflect.Descriptor instead.
 func (*GetPublisherIdByVideoIdReq) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{19}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetPublisherIdByVideoIdReq) GetVideoId() int64 {
@@ -1311,7 +1509,7 @@ type GetPublisherIdByVideoIdResp struct {
 func (x *GetPublisherIdByVideoIdResp) Reset() {
 	*x = GetPublisherIdByVideoIdResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[20]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1324,7 +1522,7 @@ func (x *GetPublisherIdByVideoIdResp) String() string {
 func (*GetPublisherIdByVideoIdResp) ProtoMessage() {}
 
 func (x *GetPublisherIdByVideoIdResp) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[20]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1337,7 +1535,7 @@ func (x *GetPublisherIdByVideoIdResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPublisherIdByVideoIdResp.ProtoReflect.Descriptor instead.
 func (*GetPublisherIdByVideoIdResp) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{20}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetPublisherIdByVideoIdResp) GetPublisherId() int64 {
@@ -1359,7 +1557,7 @@ type AddVideoCntSharedReq struct {
 func (x *AddVideoCntSharedReq) Reset() {
 	*x = AddVideoCntSharedReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[21]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1372,7 +1570,7 @@ func (x *AddVideoCntSharedReq) String() string {
 func (*AddVideoCntSharedReq) ProtoMessage() {}
 
 func (x *AddVideoCntSharedReq) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[21]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1385,7 +1583,7 @@ func (x *AddVideoCntSharedReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddVideoCntSharedReq.ProtoReflect.Descriptor instead.
 func (*AddVideoCntSharedReq) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{21}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *AddVideoCntSharedReq) GetVideoId() int64 {
@@ -1416,7 +1614,7 @@ type VideoMetaInfo_Records struct {
 func (x *VideoMetaInfo_Records) Reset() {
 	*x = VideoMetaInfo_Records{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[22]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1429,7 +1627,7 @@ func (x *VideoMetaInfo_Records) String() string {
 func (*VideoMetaInfo_Records) ProtoMessage() {}
 
 func (x *VideoMetaInfo_Records) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[22]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1487,7 +1685,7 @@ type GetVideoInfoResp_BarrageInfo struct {
 func (x *GetVideoInfoResp_BarrageInfo) Reset() {
 	*x = GetVideoInfoResp_BarrageInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[23]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1500,7 +1698,7 @@ func (x *GetVideoInfoResp_BarrageInfo) String() string {
 func (*GetVideoInfoResp_BarrageInfo) ProtoMessage() {}
 
 func (x *GetVideoInfoResp_BarrageInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[23]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1553,12 +1751,16 @@ type GetVideoInfoResp_UserVideoStatus struct {
 	IsFavorited    int32 `protobuf:"varint,2,opt,name=is_favorited,json=isFavorited,proto3" json:"is_favorited,omitempty"`
 	IsShared       int32 `protobuf:"varint,3,opt,name=is_shared,json=isShared,proto3" json:"is_shared,omitempty"`
 	IsThrownShells int32 `protobuf:"varint,4,opt,name=is_thrown_shells,json=isThrownShells,proto3" json:"is_thrown_shells,omitempty"`
+	// 当前用户所属收藏夹 ID；未收藏时为 0。
+	FavoriteId int64 `protobuf:"varint,5,opt,name=favorite_id,json=favoriteId,proto3" json:"favorite_id,omitempty"`
+	// 当前有效收藏记录 ID，取消操作必须携带。
+	FavoriteRecordId int64 `protobuf:"varint,6,opt,name=favorite_record_id,json=favoriteRecordId,proto3" json:"favorite_record_id,omitempty"`
 }
 
 func (x *GetVideoInfoResp_UserVideoStatus) Reset() {
 	*x = GetVideoInfoResp_UserVideoStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[24]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[27]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1571,7 +1773,7 @@ func (x *GetVideoInfoResp_UserVideoStatus) String() string {
 func (*GetVideoInfoResp_UserVideoStatus) ProtoMessage() {}
 
 func (x *GetVideoInfoResp_UserVideoStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[24]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[27]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1615,6 +1817,20 @@ func (x *GetVideoInfoResp_UserVideoStatus) GetIsThrownShells() int32 {
 	return 0
 }
 
+func (x *GetVideoInfoResp_UserVideoStatus) GetFavoriteId() int64 {
+	if x != nil {
+		return x.FavoriteId
+	}
+	return 0
+}
+
+func (x *GetVideoInfoResp_UserVideoStatus) GetFavoriteRecordId() int64 {
+	if x != nil {
+		return x.FavoriteRecordId
+	}
+	return 0
+}
+
 type UploadVideoFileReq_VideoFileInfo struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1628,7 +1844,7 @@ type UploadVideoFileReq_VideoFileInfo struct {
 func (x *UploadVideoFileReq_VideoFileInfo) Reset() {
 	*x = UploadVideoFileReq_VideoFileInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[25]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[28]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1641,7 +1857,7 @@ func (x *UploadVideoFileReq_VideoFileInfo) String() string {
 func (*UploadVideoFileReq_VideoFileInfo) ProtoMessage() {}
 
 func (x *UploadVideoFileReq_VideoFileInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[25]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[28]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1654,7 +1870,7 @@ func (x *UploadVideoFileReq_VideoFileInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadVideoFileReq_VideoFileInfo.ProtoReflect.Descriptor instead.
 func (*UploadVideoFileReq_VideoFileInfo) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{17, 0}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{20, 0}
 }
 
 func (x *UploadVideoFileReq_VideoFileInfo) GetVideoId() int64 {
@@ -1691,7 +1907,7 @@ type UploadVideoCoverReq_CoverInfo struct {
 func (x *UploadVideoCoverReq_CoverInfo) Reset() {
 	*x = UploadVideoCoverReq_CoverInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_v1_videoinfo_video_info_proto_msgTypes[26]
+		mi := &file_v1_videoinfo_video_info_proto_msgTypes[29]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1704,7 +1920,7 @@ func (x *UploadVideoCoverReq_CoverInfo) String() string {
 func (*UploadVideoCoverReq_CoverInfo) ProtoMessage() {}
 
 func (x *UploadVideoCoverReq_CoverInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_videoinfo_video_info_proto_msgTypes[26]
+	mi := &file_v1_videoinfo_video_info_proto_msgTypes[29]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1717,7 +1933,7 @@ func (x *UploadVideoCoverReq_CoverInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadVideoCoverReq_CoverInfo.ProtoReflect.Descriptor instead.
 func (*UploadVideoCoverReq_CoverInfo) Descriptor() ([]byte, []int) {
-	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{18, 0}
+	return file_v1_videoinfo_video_info_proto_rawDescGZIP(), []int{21, 0}
 }
 
 func (x *UploadVideoCoverReq_CoverInfo) GetVideoId() int64 {
@@ -1822,7 +2038,7 @@ var file_v1_videoinfo_video_info_proto_rawDesc = []byte{
 	0x0a, 0x08, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03,
 	0x52, 0x07, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x75, 0x73, 0x65,
 	0x72, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x06, 0x75, 0x73, 0x65, 0x72,
-	0x49, 0x64, 0x22, 0x97, 0x04, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49,
+	0x49, 0x64, 0x22, 0xe6, 0x04, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49,
 	0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x12, 0x44, 0x0a, 0x0c, 0x76, 0x69, 0x64, 0x65, 0x6f,
 	0x5f, 0x64, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x21, 0x2e,
 	0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e,
@@ -1846,7 +2062,7 @@ var file_v1_videoinfo_video_info_proto_rawDesc = []byte{
 	0x6e, 0x74, 0x65, 0x6e, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x69, 0x6d, 0x65, 0x18, 0x03, 0x20,
 	0x01, 0x28, 0x09, 0x52, 0x04, 0x74, 0x69, 0x6d, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x63, 0x6f, 0x6c,
 	0x6f, 0x72, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x63, 0x6f, 0x6c, 0x6f, 0x72, 0x1a,
-	0x9a, 0x01, 0x0a, 0x0f, 0x55, 0x73, 0x65, 0x72, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x53, 0x74, 0x61,
+	0xe9, 0x01, 0x0a, 0x0f, 0x55, 0x73, 0x65, 0x72, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x53, 0x74, 0x61,
 	0x74, 0x75, 0x73, 0x12, 0x1d, 0x0a, 0x0a, 0x69, 0x73, 0x5f, 0x75, 0x70, 0x76, 0x6f, 0x74, 0x65,
 	0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x09, 0x69, 0x73, 0x55, 0x70, 0x76, 0x6f, 0x74,
 	0x65, 0x64, 0x12, 0x21, 0x0a, 0x0c, 0x69, 0x73, 0x5f, 0x66, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74,
@@ -1855,7 +2071,40 @@ var file_v1_videoinfo_video_info_proto_rawDesc = []byte{
 	0x65, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x05, 0x52, 0x08, 0x69, 0x73, 0x53, 0x68, 0x61, 0x72,
 	0x65, 0x64, 0x12, 0x28, 0x0a, 0x10, 0x69, 0x73, 0x5f, 0x74, 0x68, 0x72, 0x6f, 0x77, 0x6e, 0x5f,
 	0x73, 0x68, 0x65, 0x6c, 0x6c, 0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0e, 0x69, 0x73,
-	0x54, 0x68, 0x72, 0x6f, 0x77, 0x6e, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x73, 0x22, 0x5f, 0x0a, 0x0f,
+	0x54, 0x68, 0x72, 0x6f, 0x77, 0x6e, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x73, 0x12, 0x1f, 0x0a, 0x0b,
+	0x66, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x05, 0x20, 0x01, 0x28,
+	0x03, 0x52, 0x0a, 0x66, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74, 0x65, 0x49, 0x64, 0x12, 0x2c, 0x0a,
+	0x12, 0x66, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74, 0x65, 0x5f, 0x72, 0x65, 0x63, 0x6f, 0x72, 0x64,
+	0x5f, 0x69, 0x64, 0x18, 0x06, 0x20, 0x01, 0x28, 0x03, 0x52, 0x10, 0x66, 0x61, 0x76, 0x6f, 0x72,
+	0x69, 0x74, 0x65, 0x52, 0x65, 0x63, 0x6f, 0x72, 0x64, 0x49, 0x64, 0x22, 0x8a, 0x01, 0x0a, 0x14,
+	0x47, 0x65, 0x74, 0x46, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74, 0x65, 0x56, 0x69, 0x64, 0x65, 0x6f,
+	0x73, 0x52, 0x65, 0x71, 0x12, 0x21, 0x0a, 0x0c, 0x66, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74, 0x65,
+	0x73, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0b, 0x66, 0x61, 0x76, 0x6f,
+	0x72, 0x69, 0x74, 0x65, 0x73, 0x49, 0x64, 0x12, 0x19, 0x0a, 0x08, 0x70, 0x61, 0x67, 0x65, 0x5f,
+	0x6e, 0x75, 0x6d, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x70, 0x61, 0x67, 0x65, 0x4e,
+	0x75, 0x6d, 0x12, 0x1b, 0x0a, 0x09, 0x70, 0x61, 0x67, 0x65, 0x5f, 0x73, 0x69, 0x7a, 0x65, 0x18,
+	0x03, 0x20, 0x01, 0x28, 0x05, 0x52, 0x08, 0x70, 0x61, 0x67, 0x65, 0x53, 0x69, 0x7a, 0x65, 0x12,
+	0x17, 0x0a, 0x07, 0x75, 0x73, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x04, 0x20, 0x01, 0x28, 0x03,
+	0x52, 0x06, 0x75, 0x73, 0x65, 0x72, 0x49, 0x64, 0x22, 0x8a, 0x01, 0x0a, 0x11, 0x46, 0x61, 0x76,
+	0x6f, 0x72, 0x69, 0x74, 0x65, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x74, 0x65, 0x6d, 0x12, 0x36,
+	0x0a, 0x05, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x20, 0x2e,
+	0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e,
+	0x66, 0x6f, 0x2e, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x53, 0x75, 0x6d, 0x6d, 0x61, 0x72, 0x79, 0x52,
+	0x05, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x12, 0x3d, 0x0a, 0x0c, 0x63, 0x6f, 0x6c, 0x6c, 0x65, 0x63,
+	0x74, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67,
+	0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54,
+	0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x0b, 0x63, 0x6f, 0x6c, 0x6c, 0x65, 0x63,
+	0x74, 0x65, 0x64, 0x41, 0x74, 0x22, 0xa4, 0x01, 0x0a, 0x15, 0x47, 0x65, 0x74, 0x46, 0x61, 0x76,
+	0x6f, 0x72, 0x69, 0x74, 0x65, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x73, 0x52, 0x65, 0x73, 0x70, 0x12,
+	0x3d, 0x0a, 0x06, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32,
+	0x25, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f,
+	0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x46, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74, 0x65, 0x56, 0x69, 0x64,
+	0x65, 0x6f, 0x49, 0x74, 0x65, 0x6d, 0x52, 0x06, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x73, 0x12, 0x14,
+	0x0a, 0x05, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x74,
+	0x6f, 0x74, 0x61, 0x6c, 0x12, 0x19, 0x0a, 0x08, 0x70, 0x61, 0x67, 0x65, 0x5f, 0x6e, 0x75, 0x6d,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x70, 0x61, 0x67, 0x65, 0x4e, 0x75, 0x6d, 0x12,
+	0x1b, 0x0a, 0x09, 0x70, 0x61, 0x67, 0x65, 0x5f, 0x73, 0x69, 0x7a, 0x65, 0x18, 0x04, 0x20, 0x01,
+	0x28, 0x05, 0x52, 0x08, 0x70, 0x61, 0x67, 0x65, 0x53, 0x69, 0x7a, 0x65, 0x22, 0x5f, 0x0a, 0x0f,
 	0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x12,
 	0x14, 0x0a, 0x05, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x05,
 	0x63, 0x6c, 0x61, 0x73, 0x73, 0x12, 0x19, 0x0a, 0x08, 0x70, 0x61, 0x67, 0x65, 0x5f, 0x6e, 0x75,
@@ -1963,7 +2212,7 @@ var file_v1_videoinfo_video_info_proto_rawDesc = []byte{
 	0x28, 0x03, 0x52, 0x07, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x64, 0x12, 0x27, 0x0a, 0x0f, 0x69,
 	0x73, 0x5f, 0x63, 0x6f, 0x6d, 0x70, 0x65, 0x6e, 0x73, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02,
 	0x20, 0x01, 0x28, 0x08, 0x52, 0x0e, 0x69, 0x73, 0x43, 0x6f, 0x6d, 0x70, 0x65, 0x6e, 0x73, 0x61,
-	0x74, 0x69, 0x6f, 0x6e, 0x32, 0x97, 0x09, 0x0a, 0x09, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x6e,
+	0x74, 0x69, 0x6f, 0x6e, 0x32, 0x83, 0x0a, 0x0a, 0x09, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x6e,
 	0x66, 0x6f, 0x12, 0x5b, 0x0a, 0x0c, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x6e,
 	0x66, 0x6f, 0x12, 0x23, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69,
 	0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f,
@@ -1975,72 +2224,78 @@ var file_v1_videoinfo_video_info_proto_rawDesc = []byte{
 	0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x4c, 0x69, 0x73,
 	0x74, 0x52, 0x65, 0x71, 0x1a, 0x24, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e,
 	0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64,
-	0x65, 0x6f, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x22, 0x00, 0x12, 0x5d, 0x0a, 0x0c,
-	0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x23, 0x2e, 0x76,
-	0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66,
-	0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65,
-	0x71, 0x1a, 0x24, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64,
-	0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x46,
-	0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x22, 0x00, 0x30, 0x01, 0x12, 0x5a, 0x0a, 0x0b, 0x47,
-	0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x4d, 0x70, 0x64, 0x12, 0x22, 0x2e, 0x76, 0x69, 0x64,
-	0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e,
-	0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x4d, 0x70, 0x64, 0x52, 0x65, 0x71, 0x1a, 0x23,
-	0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69,
-	0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x4d, 0x70, 0x64, 0x52,
-	0x65, 0x73, 0x70, 0x22, 0x00, 0x30, 0x01, 0x12, 0x67, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x56, 0x69,
-	0x64, 0x65, 0x6f, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x26, 0x2e, 0x76, 0x69,
+	0x65, 0x6f, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x22, 0x00, 0x12, 0x6a, 0x0a, 0x11,
+	0x47, 0x65, 0x74, 0x46, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74, 0x65, 0x56, 0x69, 0x64, 0x65, 0x6f,
+	0x73, 0x12, 0x28, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64,
+	0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x61, 0x76, 0x6f, 0x72, 0x69,
+	0x74, 0x65, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x73, 0x52, 0x65, 0x71, 0x1a, 0x29, 0x2e, 0x76, 0x69,
 	0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f,
-	0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74,
-	0x52, 0x65, 0x71, 0x1a, 0x27, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76,
-	0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65,
-	0x6f, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x22, 0x00, 0x30, 0x01,
-	0x12, 0x60, 0x0a, 0x0d, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6f, 0x76, 0x65,
-	0x72, 0x12, 0x24, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64,
-	0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43,
-	0x6f, 0x76, 0x65, 0x72, 0x52, 0x65, 0x71, 0x1a, 0x25, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e,
-	0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74,
-	0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6f, 0x76, 0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x22, 0x00,
-	0x30, 0x01, 0x12, 0x64, 0x0a, 0x0f, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56, 0x69, 0x64, 0x65,
-	0x6f, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x26, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31,
-	0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x55, 0x70, 0x6c, 0x6f, 0x61,
-	0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x71, 0x1a, 0x27, 0x2e,
+	0x2e, 0x47, 0x65, 0x74, 0x46, 0x61, 0x76, 0x6f, 0x72, 0x69, 0x74, 0x65, 0x56, 0x69, 0x64, 0x65,
+	0x6f, 0x73, 0x52, 0x65, 0x73, 0x70, 0x22, 0x00, 0x12, 0x5d, 0x0a, 0x0c, 0x47, 0x65, 0x74, 0x56,
+	0x69, 0x64, 0x65, 0x6f, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x23, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f,
+	0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65,
+	0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x1a, 0x24, 0x2e,
 	0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e,
-	0x66, 0x6f, 0x2e, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x6e,
-	0x66, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x22, 0x00, 0x12, 0x55, 0x0a, 0x0f, 0x55, 0x70, 0x6c, 0x6f,
-	0x61, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x26, 0x2e, 0x76, 0x69,
-	0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f,
-	0x2e, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x46, 0x69, 0x6c, 0x65,
-	0x52, 0x65, 0x71, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x28, 0x01, 0x12,
-	0x57, 0x0a, 0x10, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6f,
-	0x76, 0x65, 0x72, 0x12, 0x27, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76,
-	0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56,
-	0x69, 0x64, 0x65, 0x6f, 0x43, 0x6f, 0x76, 0x65, 0x72, 0x52, 0x65, 0x71, 0x1a, 0x16, 0x2e, 0x67,
-	0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45,
-	0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x28, 0x01, 0x12, 0x7c, 0x0a, 0x17, 0x47, 0x65, 0x74, 0x50,
-	0x75, 0x62, 0x6c, 0x69, 0x73, 0x68, 0x65, 0x72, 0x49, 0x64, 0x42, 0x79, 0x56, 0x69, 0x64, 0x65,
-	0x6f, 0x49, 0x64, 0x12, 0x2e, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76,
-	0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x50, 0x75, 0x62, 0x6c,
-	0x69, 0x73, 0x68, 0x65, 0x72, 0x49, 0x64, 0x42, 0x79, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x64,
-	0x52, 0x65, 0x71, 0x1a, 0x2f, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76,
-	0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x50, 0x75, 0x62, 0x6c,
-	0x69, 0x73, 0x68, 0x65, 0x72, 0x49, 0x64, 0x42, 0x79, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x64,
-	0x52, 0x65, 0x73, 0x70, 0x22, 0x00, 0x12, 0x57, 0x0a, 0x11, 0x41, 0x64, 0x64, 0x56, 0x69, 0x64,
-	0x65, 0x6f, 0x43, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72, 0x65, 0x64, 0x12, 0x28, 0x2e, 0x76, 0x69,
-	0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f,
-	0x2e, 0x41, 0x64, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72,
-	0x65, 0x64, 0x52, 0x65, 0x71, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x12,
-	0x5d, 0x0a, 0x17, 0x41, 0x64, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6e, 0x74, 0x53, 0x68,
-	0x61, 0x72, 0x65, 0x64, 0x52, 0x65, 0x76, 0x65, 0x72, 0x74, 0x12, 0x28, 0x2e, 0x76, 0x69, 0x64,
+	0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x46, 0x69, 0x6c, 0x65, 0x52,
+	0x65, 0x73, 0x70, 0x22, 0x00, 0x30, 0x01, 0x12, 0x5a, 0x0a, 0x0b, 0x47, 0x65, 0x74, 0x56, 0x69,
+	0x64, 0x65, 0x6f, 0x4d, 0x70, 0x64, 0x12, 0x22, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76,
+	0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56,
+	0x69, 0x64, 0x65, 0x6f, 0x4d, 0x70, 0x64, 0x52, 0x65, 0x71, 0x1a, 0x23, 0x2e, 0x76, 0x69, 0x64,
 	0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e,
-	0x41, 0x64, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72, 0x65,
-	0x64, 0x52, 0x65, 0x71, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x42, 0x2c,
-	0x5a, 0x2a, 0x76, 0x77, 0x5f, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76,
-	0x69, 0x64, 0x65, 0x6f, 0x2f, 0x76, 0x31, 0x2f, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x5f, 0x69, 0x6e,
-	0x66, 0x6f, 0x3b, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x62, 0x06, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x33,
+	0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x4d, 0x70, 0x64, 0x52, 0x65, 0x73, 0x70, 0x22,
+	0x00, 0x30, 0x01, 0x12, 0x67, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x53,
+	0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x26, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e,
+	0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74,
+	0x56, 0x69, 0x64, 0x65, 0x6f, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x1a,
+	0x27, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f,
+	0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x53, 0x65, 0x67,
+	0x6d, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x22, 0x00, 0x30, 0x01, 0x12, 0x60, 0x0a, 0x0d,
+	0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6f, 0x76, 0x65, 0x72, 0x12, 0x24, 0x2e,
+	0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e,
+	0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6f, 0x76, 0x65, 0x72,
+	0x52, 0x65, 0x71, 0x1a, 0x25, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76,
+	0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x56, 0x69, 0x64, 0x65,
+	0x6f, 0x43, 0x6f, 0x76, 0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x22, 0x00, 0x30, 0x01, 0x12, 0x64,
+	0x0a, 0x0f, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x6e, 0x66,
+	0x6f, 0x12, 0x26, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64,
+	0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56, 0x69, 0x64,
+	0x65, 0x6f, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x71, 0x1a, 0x27, 0x2e, 0x76, 0x69, 0x64, 0x65,
+	0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x55,
+	0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65,
+	0x73, 0x70, 0x22, 0x00, 0x12, 0x55, 0x0a, 0x0f, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56, 0x69,
+	0x64, 0x65, 0x6f, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x26, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e,
+	0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x55, 0x70, 0x6c,
+	0x6f, 0x61, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x1a,
+	0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75,
+	0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x28, 0x01, 0x12, 0x57, 0x0a, 0x10, 0x55,
+	0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6f, 0x76, 0x65, 0x72, 0x12,
+	0x27, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f,
+	0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f,
+	0x43, 0x6f, 0x76, 0x65, 0x72, 0x52, 0x65, 0x71, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c,
+	0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79,
+	0x22, 0x00, 0x28, 0x01, 0x12, 0x7c, 0x0a, 0x17, 0x47, 0x65, 0x74, 0x50, 0x75, 0x62, 0x6c, 0x69,
+	0x73, 0x68, 0x65, 0x72, 0x49, 0x64, 0x42, 0x79, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x64, 0x12,
+	0x2e, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f,
+	0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x50, 0x75, 0x62, 0x6c, 0x69, 0x73, 0x68, 0x65,
+	0x72, 0x49, 0x64, 0x42, 0x79, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x64, 0x52, 0x65, 0x71, 0x1a,
+	0x2f, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f,
+	0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x50, 0x75, 0x62, 0x6c, 0x69, 0x73, 0x68, 0x65,
+	0x72, 0x49, 0x64, 0x42, 0x79, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x49, 0x64, 0x52, 0x65, 0x73, 0x70,
+	0x22, 0x00, 0x12, 0x57, 0x0a, 0x11, 0x41, 0x64, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6e,
+	0x74, 0x53, 0x68, 0x61, 0x72, 0x65, 0x64, 0x12, 0x28, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e,
+	0x76, 0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x41, 0x64, 0x64,
+	0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72, 0x65, 0x64, 0x52, 0x65,
+	0x71, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x12, 0x5d, 0x0a, 0x17, 0x41,
+	0x64, 0x64, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x43, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72, 0x65, 0x64,
+	0x52, 0x65, 0x76, 0x65, 0x72, 0x74, 0x12, 0x28, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x76,
+	0x31, 0x2e, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x41, 0x64, 0x64, 0x56,
+	0x69, 0x64, 0x65, 0x6f, 0x43, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72, 0x65, 0x64, 0x52, 0x65, 0x71,
+	0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
+	0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x42, 0x2c, 0x5a, 0x2a, 0x76, 0x77,
+	0x5f, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x69, 0x64, 0x65, 0x6f,
+	0x2f, 0x76, 0x31, 0x2f, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x5f, 0x69, 0x6e, 0x66, 0x6f, 0x3b, 0x76,
+	0x69, 0x64, 0x65, 0x6f, 0x69, 0x6e, 0x66, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -2055,82 +2310,90 @@ func file_v1_videoinfo_video_info_proto_rawDescGZIP() []byte {
 	return file_v1_videoinfo_video_info_proto_rawDescData
 }
 
-var file_v1_videoinfo_video_info_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_v1_videoinfo_video_info_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_v1_videoinfo_video_info_proto_goTypes = []any{
 	(*FileResp)(nil),                         // 0: video.v1.videoinfo.FileResp
 	(*VideoMetaInfo)(nil),                    // 1: video.v1.videoinfo.VideoMetaInfo
 	(*VideoSummary)(nil),                     // 2: video.v1.videoinfo.VideoSummary
 	(*GetVideoInfoReq)(nil),                  // 3: video.v1.videoinfo.GetVideoInfoReq
 	(*GetVideoInfoResp)(nil),                 // 4: video.v1.videoinfo.GetVideoInfoResp
-	(*GetVideoListReq)(nil),                  // 5: video.v1.videoinfo.GetVideoListReq
-	(*GetVideoListResp)(nil),                 // 6: video.v1.videoinfo.GetVideoListResp
-	(*GetVideoFileReq)(nil),                  // 7: video.v1.videoinfo.GetVideoFileReq
-	(*GetVideoFileResp)(nil),                 // 8: video.v1.videoinfo.GetVideoFileResp
-	(*GetVideoMpdReq)(nil),                   // 9: video.v1.videoinfo.GetVideoMpdReq
-	(*GetVideoMpdResp)(nil),                  // 10: video.v1.videoinfo.GetVideoMpdResp
-	(*GetVideoSegmentReq)(nil),               // 11: video.v1.videoinfo.GetVideoSegmentReq
-	(*GetVideoSegmentResp)(nil),              // 12: video.v1.videoinfo.GetVideoSegmentResp
-	(*GetVideoCoverReq)(nil),                 // 13: video.v1.videoinfo.GetVideoCoverReq
-	(*GetVideoCoverResp)(nil),                // 14: video.v1.videoinfo.GetVideoCoverResp
-	(*UploadVideoInfoReq)(nil),               // 15: video.v1.videoinfo.UploadVideoInfoReq
-	(*UploadVideoInfoResp)(nil),              // 16: video.v1.videoinfo.UploadVideoInfoResp
-	(*UploadVideoFileReq)(nil),               // 17: video.v1.videoinfo.UploadVideoFileReq
-	(*UploadVideoCoverReq)(nil),              // 18: video.v1.videoinfo.UploadVideoCoverReq
-	(*GetPublisherIdByVideoIdReq)(nil),       // 19: video.v1.videoinfo.GetPublisherIdByVideoIdReq
-	(*GetPublisherIdByVideoIdResp)(nil),      // 20: video.v1.videoinfo.GetPublisherIdByVideoIdResp
-	(*AddVideoCntSharedReq)(nil),             // 21: video.v1.videoinfo.AddVideoCntSharedReq
-	(*VideoMetaInfo_Records)(nil),            // 22: video.v1.videoinfo.VideoMetaInfo.Records
-	(*GetVideoInfoResp_BarrageInfo)(nil),     // 23: video.v1.videoinfo.GetVideoInfoResp.BarrageInfo
-	(*GetVideoInfoResp_UserVideoStatus)(nil), // 24: video.v1.videoinfo.GetVideoInfoResp.UserVideoStatus
-	(*UploadVideoFileReq_VideoFileInfo)(nil), // 25: video.v1.videoinfo.UploadVideoFileReq.VideoFileInfo
-	(*UploadVideoCoverReq_CoverInfo)(nil),    // 26: video.v1.videoinfo.UploadVideoCoverReq.CoverInfo
-	(*timestamppb.Timestamp)(nil),            // 27: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),                    // 28: google.protobuf.Empty
+	(*GetFavoriteVideosReq)(nil),             // 5: video.v1.videoinfo.GetFavoriteVideosReq
+	(*FavoriteVideoItem)(nil),                // 6: video.v1.videoinfo.FavoriteVideoItem
+	(*GetFavoriteVideosResp)(nil),            // 7: video.v1.videoinfo.GetFavoriteVideosResp
+	(*GetVideoListReq)(nil),                  // 8: video.v1.videoinfo.GetVideoListReq
+	(*GetVideoListResp)(nil),                 // 9: video.v1.videoinfo.GetVideoListResp
+	(*GetVideoFileReq)(nil),                  // 10: video.v1.videoinfo.GetVideoFileReq
+	(*GetVideoFileResp)(nil),                 // 11: video.v1.videoinfo.GetVideoFileResp
+	(*GetVideoMpdReq)(nil),                   // 12: video.v1.videoinfo.GetVideoMpdReq
+	(*GetVideoMpdResp)(nil),                  // 13: video.v1.videoinfo.GetVideoMpdResp
+	(*GetVideoSegmentReq)(nil),               // 14: video.v1.videoinfo.GetVideoSegmentReq
+	(*GetVideoSegmentResp)(nil),              // 15: video.v1.videoinfo.GetVideoSegmentResp
+	(*GetVideoCoverReq)(nil),                 // 16: video.v1.videoinfo.GetVideoCoverReq
+	(*GetVideoCoverResp)(nil),                // 17: video.v1.videoinfo.GetVideoCoverResp
+	(*UploadVideoInfoReq)(nil),               // 18: video.v1.videoinfo.UploadVideoInfoReq
+	(*UploadVideoInfoResp)(nil),              // 19: video.v1.videoinfo.UploadVideoInfoResp
+	(*UploadVideoFileReq)(nil),               // 20: video.v1.videoinfo.UploadVideoFileReq
+	(*UploadVideoCoverReq)(nil),              // 21: video.v1.videoinfo.UploadVideoCoverReq
+	(*GetPublisherIdByVideoIdReq)(nil),       // 22: video.v1.videoinfo.GetPublisherIdByVideoIdReq
+	(*GetPublisherIdByVideoIdResp)(nil),      // 23: video.v1.videoinfo.GetPublisherIdByVideoIdResp
+	(*AddVideoCntSharedReq)(nil),             // 24: video.v1.videoinfo.AddVideoCntSharedReq
+	(*VideoMetaInfo_Records)(nil),            // 25: video.v1.videoinfo.VideoMetaInfo.Records
+	(*GetVideoInfoResp_BarrageInfo)(nil),     // 26: video.v1.videoinfo.GetVideoInfoResp.BarrageInfo
+	(*GetVideoInfoResp_UserVideoStatus)(nil), // 27: video.v1.videoinfo.GetVideoInfoResp.UserVideoStatus
+	(*UploadVideoFileReq_VideoFileInfo)(nil), // 28: video.v1.videoinfo.UploadVideoFileReq.VideoFileInfo
+	(*UploadVideoCoverReq_CoverInfo)(nil),    // 29: video.v1.videoinfo.UploadVideoCoverReq.CoverInfo
+	(*timestamppb.Timestamp)(nil),            // 30: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                    // 31: google.protobuf.Empty
 }
 var file_v1_videoinfo_video_info_proto_depIdxs = []int32{
-	22, // 0: video.v1.videoinfo.VideoMetaInfo.records:type_name -> video.v1.videoinfo.VideoMetaInfo.Records
-	27, // 1: video.v1.videoinfo.VideoMetaInfo.created_time:type_name -> google.protobuf.Timestamp
-	27, // 2: video.v1.videoinfo.VideoSummary.created_time:type_name -> google.protobuf.Timestamp
+	25, // 0: video.v1.videoinfo.VideoMetaInfo.records:type_name -> video.v1.videoinfo.VideoMetaInfo.Records
+	30, // 1: video.v1.videoinfo.VideoMetaInfo.created_time:type_name -> google.protobuf.Timestamp
+	30, // 2: video.v1.videoinfo.VideoSummary.created_time:type_name -> google.protobuf.Timestamp
 	1,  // 3: video.v1.videoinfo.GetVideoInfoResp.video_detail:type_name -> video.v1.videoinfo.VideoMetaInfo
-	23, // 4: video.v1.videoinfo.GetVideoInfoResp.barrages:type_name -> video.v1.videoinfo.GetVideoInfoResp.BarrageInfo
-	24, // 5: video.v1.videoinfo.GetVideoInfoResp.user_video_status:type_name -> video.v1.videoinfo.GetVideoInfoResp.UserVideoStatus
-	2,  // 6: video.v1.videoinfo.GetVideoListResp.VideoSummary:type_name -> video.v1.videoinfo.VideoSummary
-	0,  // 7: video.v1.videoinfo.GetVideoFileResp.video_file:type_name -> video.v1.videoinfo.FileResp
-	0,  // 8: video.v1.videoinfo.GetVideoMpdResp.mpd_file:type_name -> video.v1.videoinfo.FileResp
-	0,  // 9: video.v1.videoinfo.GetVideoSegmentResp.segment_file:type_name -> video.v1.videoinfo.FileResp
-	0,  // 10: video.v1.videoinfo.GetVideoCoverResp.cover_file:type_name -> video.v1.videoinfo.FileResp
-	1,  // 11: video.v1.videoinfo.UploadVideoInfoReq.video_info:type_name -> video.v1.videoinfo.VideoMetaInfo
-	25, // 12: video.v1.videoinfo.UploadVideoFileReq.video_metadata:type_name -> video.v1.videoinfo.UploadVideoFileReq.VideoFileInfo
-	26, // 13: video.v1.videoinfo.UploadVideoCoverReq.cover_metadata:type_name -> video.v1.videoinfo.UploadVideoCoverReq.CoverInfo
-	3,  // 14: video.v1.videoinfo.VideoInfo.GetVideoInfo:input_type -> video.v1.videoinfo.GetVideoInfoReq
-	5,  // 15: video.v1.videoinfo.VideoInfo.GetVideoList:input_type -> video.v1.videoinfo.GetVideoListReq
-	7,  // 16: video.v1.videoinfo.VideoInfo.GetVideoFile:input_type -> video.v1.videoinfo.GetVideoFileReq
-	9,  // 17: video.v1.videoinfo.VideoInfo.GetVideoMpd:input_type -> video.v1.videoinfo.GetVideoMpdReq
-	11, // 18: video.v1.videoinfo.VideoInfo.GetVideoSegments:input_type -> video.v1.videoinfo.GetVideoSegmentReq
-	13, // 19: video.v1.videoinfo.VideoInfo.GetVideoCover:input_type -> video.v1.videoinfo.GetVideoCoverReq
-	15, // 20: video.v1.videoinfo.VideoInfo.UploadVideoInfo:input_type -> video.v1.videoinfo.UploadVideoInfoReq
-	17, // 21: video.v1.videoinfo.VideoInfo.UploadVideoFile:input_type -> video.v1.videoinfo.UploadVideoFileReq
-	18, // 22: video.v1.videoinfo.VideoInfo.UploadVideoCover:input_type -> video.v1.videoinfo.UploadVideoCoverReq
-	19, // 23: video.v1.videoinfo.VideoInfo.GetPublisherIdByVideoId:input_type -> video.v1.videoinfo.GetPublisherIdByVideoIdReq
-	21, // 24: video.v1.videoinfo.VideoInfo.AddVideoCntShared:input_type -> video.v1.videoinfo.AddVideoCntSharedReq
-	21, // 25: video.v1.videoinfo.VideoInfo.AddVideoCntSharedRevert:input_type -> video.v1.videoinfo.AddVideoCntSharedReq
-	4,  // 26: video.v1.videoinfo.VideoInfo.GetVideoInfo:output_type -> video.v1.videoinfo.GetVideoInfoResp
-	6,  // 27: video.v1.videoinfo.VideoInfo.GetVideoList:output_type -> video.v1.videoinfo.GetVideoListResp
-	8,  // 28: video.v1.videoinfo.VideoInfo.GetVideoFile:output_type -> video.v1.videoinfo.GetVideoFileResp
-	10, // 29: video.v1.videoinfo.VideoInfo.GetVideoMpd:output_type -> video.v1.videoinfo.GetVideoMpdResp
-	12, // 30: video.v1.videoinfo.VideoInfo.GetVideoSegments:output_type -> video.v1.videoinfo.GetVideoSegmentResp
-	14, // 31: video.v1.videoinfo.VideoInfo.GetVideoCover:output_type -> video.v1.videoinfo.GetVideoCoverResp
-	16, // 32: video.v1.videoinfo.VideoInfo.UploadVideoInfo:output_type -> video.v1.videoinfo.UploadVideoInfoResp
-	28, // 33: video.v1.videoinfo.VideoInfo.UploadVideoFile:output_type -> google.protobuf.Empty
-	28, // 34: video.v1.videoinfo.VideoInfo.UploadVideoCover:output_type -> google.protobuf.Empty
-	20, // 35: video.v1.videoinfo.VideoInfo.GetPublisherIdByVideoId:output_type -> video.v1.videoinfo.GetPublisherIdByVideoIdResp
-	28, // 36: video.v1.videoinfo.VideoInfo.AddVideoCntShared:output_type -> google.protobuf.Empty
-	28, // 37: video.v1.videoinfo.VideoInfo.AddVideoCntSharedRevert:output_type -> google.protobuf.Empty
-	26, // [26:38] is the sub-list for method output_type
-	14, // [14:26] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	26, // 4: video.v1.videoinfo.GetVideoInfoResp.barrages:type_name -> video.v1.videoinfo.GetVideoInfoResp.BarrageInfo
+	27, // 5: video.v1.videoinfo.GetVideoInfoResp.user_video_status:type_name -> video.v1.videoinfo.GetVideoInfoResp.UserVideoStatus
+	2,  // 6: video.v1.videoinfo.FavoriteVideoItem.video:type_name -> video.v1.videoinfo.VideoSummary
+	30, // 7: video.v1.videoinfo.FavoriteVideoItem.collected_at:type_name -> google.protobuf.Timestamp
+	6,  // 8: video.v1.videoinfo.GetFavoriteVideosResp.videos:type_name -> video.v1.videoinfo.FavoriteVideoItem
+	2,  // 9: video.v1.videoinfo.GetVideoListResp.VideoSummary:type_name -> video.v1.videoinfo.VideoSummary
+	0,  // 10: video.v1.videoinfo.GetVideoFileResp.video_file:type_name -> video.v1.videoinfo.FileResp
+	0,  // 11: video.v1.videoinfo.GetVideoMpdResp.mpd_file:type_name -> video.v1.videoinfo.FileResp
+	0,  // 12: video.v1.videoinfo.GetVideoSegmentResp.segment_file:type_name -> video.v1.videoinfo.FileResp
+	0,  // 13: video.v1.videoinfo.GetVideoCoverResp.cover_file:type_name -> video.v1.videoinfo.FileResp
+	1,  // 14: video.v1.videoinfo.UploadVideoInfoReq.video_info:type_name -> video.v1.videoinfo.VideoMetaInfo
+	28, // 15: video.v1.videoinfo.UploadVideoFileReq.video_metadata:type_name -> video.v1.videoinfo.UploadVideoFileReq.VideoFileInfo
+	29, // 16: video.v1.videoinfo.UploadVideoCoverReq.cover_metadata:type_name -> video.v1.videoinfo.UploadVideoCoverReq.CoverInfo
+	3,  // 17: video.v1.videoinfo.VideoInfo.GetVideoInfo:input_type -> video.v1.videoinfo.GetVideoInfoReq
+	8,  // 18: video.v1.videoinfo.VideoInfo.GetVideoList:input_type -> video.v1.videoinfo.GetVideoListReq
+	5,  // 19: video.v1.videoinfo.VideoInfo.GetFavoriteVideos:input_type -> video.v1.videoinfo.GetFavoriteVideosReq
+	10, // 20: video.v1.videoinfo.VideoInfo.GetVideoFile:input_type -> video.v1.videoinfo.GetVideoFileReq
+	12, // 21: video.v1.videoinfo.VideoInfo.GetVideoMpd:input_type -> video.v1.videoinfo.GetVideoMpdReq
+	14, // 22: video.v1.videoinfo.VideoInfo.GetVideoSegments:input_type -> video.v1.videoinfo.GetVideoSegmentReq
+	16, // 23: video.v1.videoinfo.VideoInfo.GetVideoCover:input_type -> video.v1.videoinfo.GetVideoCoverReq
+	18, // 24: video.v1.videoinfo.VideoInfo.UploadVideoInfo:input_type -> video.v1.videoinfo.UploadVideoInfoReq
+	20, // 25: video.v1.videoinfo.VideoInfo.UploadVideoFile:input_type -> video.v1.videoinfo.UploadVideoFileReq
+	21, // 26: video.v1.videoinfo.VideoInfo.UploadVideoCover:input_type -> video.v1.videoinfo.UploadVideoCoverReq
+	22, // 27: video.v1.videoinfo.VideoInfo.GetPublisherIdByVideoId:input_type -> video.v1.videoinfo.GetPublisherIdByVideoIdReq
+	24, // 28: video.v1.videoinfo.VideoInfo.AddVideoCntShared:input_type -> video.v1.videoinfo.AddVideoCntSharedReq
+	24, // 29: video.v1.videoinfo.VideoInfo.AddVideoCntSharedRevert:input_type -> video.v1.videoinfo.AddVideoCntSharedReq
+	4,  // 30: video.v1.videoinfo.VideoInfo.GetVideoInfo:output_type -> video.v1.videoinfo.GetVideoInfoResp
+	9,  // 31: video.v1.videoinfo.VideoInfo.GetVideoList:output_type -> video.v1.videoinfo.GetVideoListResp
+	7,  // 32: video.v1.videoinfo.VideoInfo.GetFavoriteVideos:output_type -> video.v1.videoinfo.GetFavoriteVideosResp
+	11, // 33: video.v1.videoinfo.VideoInfo.GetVideoFile:output_type -> video.v1.videoinfo.GetVideoFileResp
+	13, // 34: video.v1.videoinfo.VideoInfo.GetVideoMpd:output_type -> video.v1.videoinfo.GetVideoMpdResp
+	15, // 35: video.v1.videoinfo.VideoInfo.GetVideoSegments:output_type -> video.v1.videoinfo.GetVideoSegmentResp
+	17, // 36: video.v1.videoinfo.VideoInfo.GetVideoCover:output_type -> video.v1.videoinfo.GetVideoCoverResp
+	19, // 37: video.v1.videoinfo.VideoInfo.UploadVideoInfo:output_type -> video.v1.videoinfo.UploadVideoInfoResp
+	31, // 38: video.v1.videoinfo.VideoInfo.UploadVideoFile:output_type -> google.protobuf.Empty
+	31, // 39: video.v1.videoinfo.VideoInfo.UploadVideoCover:output_type -> google.protobuf.Empty
+	23, // 40: video.v1.videoinfo.VideoInfo.GetPublisherIdByVideoId:output_type -> video.v1.videoinfo.GetPublisherIdByVideoIdResp
+	31, // 41: video.v1.videoinfo.VideoInfo.AddVideoCntShared:output_type -> google.protobuf.Empty
+	31, // 42: video.v1.videoinfo.VideoInfo.AddVideoCntSharedRevert:output_type -> google.protobuf.Empty
+	30, // [30:43] is the sub-list for method output_type
+	17, // [17:30] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_v1_videoinfo_video_info_proto_init() }
@@ -2200,7 +2463,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[5].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoListReq); i {
+			switch v := v.(*GetFavoriteVideosReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2212,7 +2475,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[6].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoListResp); i {
+			switch v := v.(*FavoriteVideoItem); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2224,7 +2487,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[7].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoFileReq); i {
+			switch v := v.(*GetFavoriteVideosResp); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2236,7 +2499,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[8].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoFileResp); i {
+			switch v := v.(*GetVideoListReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2248,7 +2511,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[9].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoMpdReq); i {
+			switch v := v.(*GetVideoListResp); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2260,7 +2523,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[10].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoMpdResp); i {
+			switch v := v.(*GetVideoFileReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2272,7 +2535,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[11].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoSegmentReq); i {
+			switch v := v.(*GetVideoFileResp); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2284,7 +2547,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[12].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoSegmentResp); i {
+			switch v := v.(*GetVideoMpdReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2296,7 +2559,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[13].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoCoverReq); i {
+			switch v := v.(*GetVideoMpdResp); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2308,7 +2571,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[14].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoCoverResp); i {
+			switch v := v.(*GetVideoSegmentReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2320,7 +2583,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[15].Exporter = func(v any, i int) any {
-			switch v := v.(*UploadVideoInfoReq); i {
+			switch v := v.(*GetVideoSegmentResp); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2332,7 +2595,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[16].Exporter = func(v any, i int) any {
-			switch v := v.(*UploadVideoInfoResp); i {
+			switch v := v.(*GetVideoCoverReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2344,7 +2607,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[17].Exporter = func(v any, i int) any {
-			switch v := v.(*UploadVideoFileReq); i {
+			switch v := v.(*GetVideoCoverResp); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2356,7 +2619,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[18].Exporter = func(v any, i int) any {
-			switch v := v.(*UploadVideoCoverReq); i {
+			switch v := v.(*UploadVideoInfoReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2368,7 +2631,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[19].Exporter = func(v any, i int) any {
-			switch v := v.(*GetPublisherIdByVideoIdReq); i {
+			switch v := v.(*UploadVideoInfoResp); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2380,7 +2643,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[20].Exporter = func(v any, i int) any {
-			switch v := v.(*GetPublisherIdByVideoIdResp); i {
+			switch v := v.(*UploadVideoFileReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2392,7 +2655,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[21].Exporter = func(v any, i int) any {
-			switch v := v.(*AddVideoCntSharedReq); i {
+			switch v := v.(*UploadVideoCoverReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2404,7 +2667,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[22].Exporter = func(v any, i int) any {
-			switch v := v.(*VideoMetaInfo_Records); i {
+			switch v := v.(*GetPublisherIdByVideoIdReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2416,7 +2679,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[23].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoInfoResp_BarrageInfo); i {
+			switch v := v.(*GetPublisherIdByVideoIdResp); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2428,7 +2691,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[24].Exporter = func(v any, i int) any {
-			switch v := v.(*GetVideoInfoResp_UserVideoStatus); i {
+			switch v := v.(*AddVideoCntSharedReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2440,7 +2703,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[25].Exporter = func(v any, i int) any {
-			switch v := v.(*UploadVideoFileReq_VideoFileInfo); i {
+			switch v := v.(*VideoMetaInfo_Records); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2452,6 +2715,42 @@ func file_v1_videoinfo_video_info_proto_init() {
 			}
 		}
 		file_v1_videoinfo_video_info_proto_msgTypes[26].Exporter = func(v any, i int) any {
+			switch v := v.(*GetVideoInfoResp_BarrageInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_v1_videoinfo_video_info_proto_msgTypes[27].Exporter = func(v any, i int) any {
+			switch v := v.(*GetVideoInfoResp_UserVideoStatus); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_v1_videoinfo_video_info_proto_msgTypes[28].Exporter = func(v any, i int) any {
+			switch v := v.(*UploadVideoFileReq_VideoFileInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_v1_videoinfo_video_info_proto_msgTypes[29].Exporter = func(v any, i int) any {
 			switch v := v.(*UploadVideoCoverReq_CoverInfo); i {
 			case 0:
 				return &v.state
@@ -2468,11 +2767,11 @@ func file_v1_videoinfo_video_info_proto_init() {
 		(*FileResp_FileData)(nil),
 		(*FileResp_Filename)(nil),
 	}
-	file_v1_videoinfo_video_info_proto_msgTypes[17].OneofWrappers = []any{
+	file_v1_videoinfo_video_info_proto_msgTypes[20].OneofWrappers = []any{
 		(*UploadVideoFileReq_VideoMetadata)(nil),
 		(*UploadVideoFileReq_VideoFileData)(nil),
 	}
-	file_v1_videoinfo_video_info_proto_msgTypes[18].OneofWrappers = []any{
+	file_v1_videoinfo_video_info_proto_msgTypes[21].OneofWrappers = []any{
 		(*UploadVideoCoverReq_CoverMetadata)(nil),
 		(*UploadVideoCoverReq_CoverFileData)(nil),
 	}
@@ -2482,7 +2781,7 @@ func file_v1_videoinfo_video_info_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_v1_videoinfo_video_info_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   27,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

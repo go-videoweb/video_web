@@ -20,6 +20,8 @@ import (
 type VideoInfoRepo interface {
 	GetVideoInfo(ctx context.Context, videoId, userId int64) (*domain.VideoDetail, error)
 	GetVideoList(ctx context.Context, class []string, num int32, size int32) ([]*videoinfov2.VideoSummary, error)
+	// GetFavoriteVideos 传递可信访问者身份，读取收藏夹视频分页结果。
+	GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) (*videoinfov2.GetFavoriteVideosResp, error)
 	GetVideoFile(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
 	GetVideoMpd(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
 	GetVideoSegment(ctx context.Context, videoId int64, segmentName string) (*videoinfov1.FileResp, error)
@@ -47,6 +49,11 @@ func (uc *VideoInfoUsecase) GetVideoDetail(ctx context.Context, videoId, userId 
 		return nil, helper.HandleError(verr.ErrGetVideoListFailed, err)
 	}
 	return resp, nil
+}
+
+// GetFavoriteVideos 转发收藏夹分页查询，保留权限、参数和下游错误的原始语义。
+func (uc *VideoInfoUsecase) GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) (*videoinfov2.GetFavoriteVideosResp, error) {
+	return uc.repo.GetFavoriteVideos(ctx, userId, favoritesId, pageNum, pageSize)
 }
 
 func (uc *VideoInfoUsecase) GetVideoList(ctx context.Context, class []string, num int32, size int32) ([]*domain.VideoSummary, error) {

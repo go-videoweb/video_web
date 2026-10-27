@@ -31,6 +31,7 @@ func newFavoriteVideo(db *gorm.DB, opts ...gen.DOOption) favoriteVideo {
 	_favoriteVideo.CreatedAt = field.NewTime(tableName, "created_at")
 	_favoriteVideo.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_favoriteVideo.DeletedAt = field.NewField(tableName, "deleted_at")
+	_favoriteVideo.UserID = field.NewInt64(tableName, "user_id")
 	_favoriteVideo.FavoritesID = field.NewInt64(tableName, "favorites_id")
 	_favoriteVideo.VideoID = field.NewInt64(tableName, "video_id")
 
@@ -44,9 +45,10 @@ type favoriteVideo struct {
 
 	ALL         field.Asterisk
 	ID          field.Int64
-	CreatedAt   field.Time  // 创建时间
-	UpdatedAt   field.Time  // 更新时间
-	DeletedAt   field.Field // 删除时间（用于软删除）
+	CreatedAt   field.Time
+	UpdatedAt   field.Time
+	DeletedAt   field.Field
+	UserID      field.Int64
 	FavoritesID field.Int64
 	VideoID     field.Int64
 
@@ -69,6 +71,7 @@ func (f *favoriteVideo) updateTableName(table string) *favoriteVideo {
 	f.CreatedAt = field.NewTime(table, "created_at")
 	f.UpdatedAt = field.NewTime(table, "updated_at")
 	f.DeletedAt = field.NewField(table, "deleted_at")
+	f.UserID = field.NewInt64(table, "user_id")
 	f.FavoritesID = field.NewInt64(table, "favorites_id")
 	f.VideoID = field.NewInt64(table, "video_id")
 
@@ -87,11 +90,12 @@ func (f *favoriteVideo) GetFieldByName(fieldName string) (field.OrderExpr, bool)
 }
 
 func (f *favoriteVideo) fillFieldMap() {
-	f.fieldMap = make(map[string]field.Expr, 6)
+	f.fieldMap = make(map[string]field.Expr, 7)
 	f.fieldMap["id"] = f.ID
 	f.fieldMap["created_at"] = f.CreatedAt
 	f.fieldMap["updated_at"] = f.UpdatedAt
 	f.fieldMap["deleted_at"] = f.DeletedAt
+	f.fieldMap["user_id"] = f.UserID
 	f.fieldMap["favorites_id"] = f.FavoritesID
 	f.fieldMap["video_id"] = f.VideoID
 }

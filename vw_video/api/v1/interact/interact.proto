@@ -12,8 +12,8 @@ service VideoInteract {
     rpc VideoUpvote(VideoUpvoteReq) returns (google.protobuf.Empty) {}
     rpc VideoUpvoteRevert(VideoUpvoteReq) returns (google.protobuf.Empty) {}
 
-    rpc VideoFavorite(VideoFavoriteReq) returns (google.protobuf.Empty) {}
-    rpc VideoFavoriteRevert(VideoFavoriteReq) returns (google.protobuf.Empty) {}
+    // 收藏业务由视频服务使用 MySQL 本地事务完成，无补偿 RPC。
+    rpc SetVideoFavorite(SetVideoFavoriteReq) returns (SetVideoFavoriteResp) {}
 
     rpc VideoThrowShells(VideoThrowShellsReq) returns (google.protobuf.Empty) {}
     rpc VideoThrowShellsRevert(VideoThrowShellsReq) returns (google.protobuf.Empty) {}
@@ -41,10 +41,21 @@ message VideoUpvoteReq {
     int32 upvote_flag = 2;  // 1: Upvote, -1: Cancel upvote
 }
 
-message VideoFavoriteReq {
+message SetVideoFavoriteReq {
     int64 video_id    = 1;
     int64 favorite_id = 2;
     int32 favorite    = 3;  // 1: Favorite, -1: Cancel favorite
+    // 网关鉴权确认的操作人，必须拥有目标收藏夹。
+    int64 user_id = 4;
+    // 取消时必须为当前收藏记录 ID；收藏时必须为 0。
+    int64 favorite_record_id = 5;
+}
+message SetVideoFavoriteResp {
+    bool is_favorited = 1;
+    int64 favorite_id = 2;
+    // 收藏成功返回当前记录 ID；取消成功返回 0。
+    int64 favorite_record_id = 3;
+    string message = 4;
 }
 
 message VideoThrowShellsReq {
@@ -108,6 +119,8 @@ message SetUserVideoStatusReq {
     int64 origin_status = 3;
     int32 shells_count  = 4;
     Statuses statuses   = 5;
+    // 补偿只恢复本次贝壳变更前的数量，不影响其他互动字段。
+    int32 origin_shells_count = 6;
 }
 
 message SetUserBarrageStatusReq {

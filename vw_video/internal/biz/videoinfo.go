@@ -8,7 +8,6 @@ import (
 	"github.com/dtm-labs/dtm/client/dtmcli"
 	"github.com/dtm-labs/dtm/client/dtmgrpc"
 	"github.com/go-kratos/kratos/v2/log"
-	"go.mongodb.org/mongo-driver/mongo"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -34,11 +33,10 @@ import (
 	"vw_video/internal/pkg/ecode/errdef"
 )
 
+// VideoInfoRepo 定义公共视频信息、个人状态和最近观看时间的仓储能力。
 type VideoInfoRepo interface {
 	/* Used for dtm */
 	GetSqlTx() *sql.Tx
-	GetMongoClient() *mongo.Client
-	GetDBAndCollection() (db, collection string)
 
 	GetVideoInfoById(ctx context.Context, videoId int64) (*model.Video, error)
 	GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.Video, error)
@@ -52,9 +50,14 @@ type VideoInfoRepo interface {
 	GetBarragesByVideoId(ctx context.Context, videoId int64) ([]*model.Barrage, error)
 	UpdateVideoCntShare(ctx context.Context, tx *sql.Tx, videoID int64) error
 	UpdateVideoCntShareCompensation(ctx context.Context, tx *sql.Tx, videoID int64) error
+	// GetUserVideoStatus 只读个人互动字段，无记录返回默认位掩码；收藏归属另行查询。
 	GetUserVideoStatus(ctx context.Context, videoId int64, userId int64) (int64, error)
-	SetUserVideoStatus(ctx context.Context, videoId int64, userId int64, status int64) error
-	UpdateUserVideoHistory(ctx context.Context, videoId int64, userId int64, history *model.VideoSummary) error
+	// GetUserFavorite 从有效关系读取收藏夹及关系 ID，无记录时两个 ID 均为零。
+	GetUserFavorite(ctx context.Context, userId, videoId int64) (int64, int64, error)
+	// GetFavoriteVideos 在权限校验后分页读取有效视频，返回相同筛选范围的总数。
+	GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) ([]*FavoriteVideo, int64, error)
+	// UpdateUserVideoHistory 在上下文事务内更新最近观看时间，不覆盖互动或收藏状态。
+	UpdateUserVideoHistory(ctx context.Context, videoId int64, userId int64) error
 }
 
 type VideoInfoUsecase struct {
@@ -75,7 +78,7 @@ func NewVideoInfoUsecase(repo VideoInfoRepo, tx mysqlutil.Transaction, logger lo
 // 输入：ctx 为请求上下文；videoId 为目标视频 ID；userId 为 0 表示游客，正数须由可信调用方验证。
 // 输出：游客返回公共详情和弹幕，不包含个人互动状态；登录用户额外返回个人互动状态。
 // userId 为负数时返回 InvalidArgument，且不访问仓储；查询或更新失败时返回 nil 和包装后的业务错误。
-// 游客和登录用户均沿用增加播放量和热度的行为，只有登录用户写入观看历史。
+// 游客和登录用户均沿用增加播放量和热度的行为，只有登录用户更新最近观看时间，不保存摘要副本。
 func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userId int64) (*videoinfov1.GetVideoInfoResp, error) {
 	if userId < 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id must not be negative")
@@ -133,11 +136,21 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 			if err != nil {
 				return err
 			}
+			favoriteID, recordID, err := uc.repo.GetUserFavorite(ctx, userId, videoId)
+			if err != nil {
+				return err
+			}
+			isFavorited := int32(-1)
+			if favoriteID > 0 {
+				isFavorited = 1
+			}
 			ret.UserVideoStatus = &videoinfov1.GetVideoInfoResp_UserVideoStatus{
-				IsFavorited:    checkIsFavorited(status),
-				IsShared:       checkIsShared(status),
-				IsUpvoted:      checkIsUpvoted(status),
-				IsThrownShells: checkIsThrownShell(status),
+				IsFavorited:      isFavorited,
+				FavoriteId:       favoriteID,
+				FavoriteRecordId: recordID,
+				IsShared:         checkIsShared(status),
+				IsUpvoted:        checkIsUpvoted(status),
+				IsThrownShells:   checkIsThrownShell(status),
 			}
 		}
 
@@ -151,15 +164,7 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 		if userId == 0 {
 			return nil
 		}
-		err = uc.repo.UpdateUserVideoHistory(ctx, videoId, userId, &model.VideoSummary{
-			VideoId:       videoDetail.VideoID,
-			CntBarrages:   videoDetail.CntBarrages,
-			CntViewed:     videoDetail.CntViewed,
-			Title:         videoDetail.Title,
-			Duration:      videoDetail.Duration,
-			CoverPath:     videoDetail.CoverPath,
-			PublisherName: videoDetail.PublisherName,
-		})
+		err = uc.repo.UpdateUserVideoHistory(ctx, videoId, userId)
 		if err != nil {
 			return err
 		}

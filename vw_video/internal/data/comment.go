@@ -2,9 +2,7 @@ package data
 
 import (
 	"context"
-	stderr "errors"
 	"github.com/go-kratos/kratos/v2/log"
-	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gen/field"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
@@ -118,12 +116,13 @@ func (v *videoCommentRepo) GetRootIDByParentID(ctx context.Context, videoId, par
 	return ret.RootID, nil
 }
 
+// IncrementCommentCntReplies 使用上下文选定的连接调整回复数，负 ID 表示无需更新。
 func (v *videoCommentRepo) IncrementCommentCntReplies(ctx context.Context, commentId int64) error {
 	// This case indicated that the child comment is a root comment, so we don't need to increment the cnt_replies field.
 	if commentId < 0 {
 		return nil
 	}
-	comment := query.Comment
+	comment := getQuery(ctx).Comment
 	commentDo, commentModel, err := addCommentModel(ctx, commentId)
 	if err != nil {
 		return err
@@ -163,8 +162,9 @@ func (v *videoCommentRepo) DecrementCommentCntUpvote(ctx context.Context, commen
 	return err
 }
 
+// AddVideoHotAndCntCommentsByComment 使用上下文选定的连接调整评论数和热度。
 func (v *videoCommentRepo) AddVideoHotAndCntCommentsByComment(ctx context.Context, videoId int64) error {
-	video := query.Video
+	video := getQuery(ctx).Video
 	videoDo, videoModel, err := addVideoModel(ctx, videoId)
 	if err != nil {
 		return err
@@ -177,8 +177,9 @@ func (v *videoCommentRepo) AddVideoHotAndCntCommentsByComment(ctx context.Contex
 	return nil
 }
 
+// AddVideoHotAndCntCommentsByReply 使用上下文选定的连接调整回复关联视频的评论数和热度。
 func (v *videoCommentRepo) AddVideoHotAndCntCommentsByReply(ctx context.Context, videoId int64) error {
-	video := query.Video
+	video := getQuery(ctx).Video
 	videoDo, videoModel, err := addVideoModel(ctx, videoId)
 	if err != nil {
 		return err
@@ -201,31 +202,20 @@ func (v *videoCommentRepo) GetCommentInfo(ctx context.Context, commentId int64) 
 	return c, nil
 }
 
-func (v *videoCommentRepo) CommentSetUpvoted(ctx context.Context, commentId int64, userId int64) error {
-	return v.data.mongo.InsertOne(ctx, uc_status, &model.UserCommentUpvoted{
-		UserID:    userId,
-		CommentID: commentId,
-	})
+// CommentSetUpvoted 暂不创建个人评论点赞关系。
+// 输入：保留原用户/评论 ID；输出：未支持错误，不写入任何状态表。
+func (v *videoCommentRepo) CommentSetUpvoted(ctx context.Context, commentId, userId int64) error {
+	return biz.ErrInteractionNotSupported
 }
 
-func (v *videoCommentRepo) CommentCancelUpvoted(ctx context.Context, commentId int64, userId int64) error {
-	return v.data.mongo.DeleteOne(ctx, &model.UserCommentUpvoted{
-		UserID:    userId,
-		CommentID: commentId,
-	})
+// CommentCancelUpvoted 暂不删除个人评论点赞关系。
+// 输入：保留原用户/评论 ID；输出：未支持错误，不修改点赞关系或计数。
+func (v *videoCommentRepo) CommentCancelUpvoted(ctx context.Context, commentId, userId int64) error {
+	return biz.ErrInteractionNotSupported
 }
 
-func (v *videoCommentRepo) CheckIfUserUpvotedComment(ctx context.Context, commentId int64, userId int64) (bool, error) {
-	filter := &model.UserCommentUpvoted{
-		CommentID: commentId,
-		UserID:    userId,
-	}
-	_, err := v.data.mongo.FindOne(ctx, uc_status, filter)
-	if err != nil {
-		if stderr.Is(err, mongo.ErrNoDocuments) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
+// CheckIfUserUpvotedComment 暂不读取个人评论点赞关系。
+// 输入：保留原用户/评论 ID；输出：false 和未支持错误，不伪装成未点赞的成功响应。
+func (v *videoCommentRepo) CheckIfUserUpvotedComment(ctx context.Context, commentId, userId int64) (bool, error) {
+	return false, biz.ErrInteractionNotSupported
 }

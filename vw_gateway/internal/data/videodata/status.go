@@ -1,6 +1,6 @@
 package videodata
 
-// Status mask. These statuses are used to store user-xxx status in mongoDB.
+// 视频 RPC 的状态位掩码，与下游 MySQL 存储方式解耦。
 // `xxx` can be video, comment, barrage.
 const (
 	UpvoteStatus     int64 = 1 << iota // 00..0001

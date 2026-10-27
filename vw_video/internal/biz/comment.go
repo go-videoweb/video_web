@@ -10,6 +10,7 @@ import (
 	"vw_video/internal/data/dal/model"
 )
 
+// VideoCommentRepo 定义评论读写及保留的个人点赞接口，后者在模型确定前明确拒绝执行。
 type VideoCommentRepo interface {
 	GetRootComment(ctx context.Context, videoId int64, sortBy, order string, pageNum, pageSize int32) ([]*model.Comment, error)
 	GetReplyComments(ctx context.Context, parentId int64, sortBy, order string, pageNum, pageSize int32) ([]*model.Comment, error)
@@ -23,11 +24,11 @@ type VideoCommentRepo interface {
 	AddVideoHotAndCntCommentsByReply(ctx context.Context, videoId int64) error
 	GetCommentInfo(ctx context.Context, commentId int64) (*model.Comment, error)
 
-	/*MongoDB related methods*/
-	// CommentSetUpvoted Insert a document into comment_upvoted table.
+	/* 个人点赞功能暂未启用 */
+	// CommentSetUpvoted 评论个人点赞设计确定后实现。
 	CommentSetUpvoted(ctx context.Context, commentId int64, userId int64) error
 
-	// CommentCancelUpvoted Delete a document from comment_upvoted table.
+	// CommentCancelUpvoted 评论个人点赞设计确定后实现。
 	CommentCancelUpvoted(ctx context.Context, commentId int64, userId int64) error
 
 	// CheckIfUserUpvotedComment Check if a user has upvoted a comment.
@@ -130,43 +131,16 @@ func (u *VideoCommentUsecase) GetCommentReplies(ctx context.Context, commentId i
 	return result, nil
 }
 
-func (u *VideoCommentUsecase) UpvoteComment(ctx context.Context, commentId int64, userId int64, isUpvoted bool) error {
-	err := u.tx.WithTx(ctx, func(ctx context.Context) error {
-		var err error
-		// 1. Update comment's cnt_upvote field.
-		// 2. Insert or delete a document into user_comment_upvoted table.
-		if !isUpvoted {
-			err = u.repo.IncrementCommentCntUpvote(ctx, commentId)
-			if err != nil {
-				return err
-			}
-
-			err = u.repo.CommentSetUpvoted(ctx, commentId, userId)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = u.repo.DecrementCommentCntUpvote(ctx, commentId)
-			if err != nil {
-				return err
-			}
-
-			err = u.repo.CommentCancelUpvoted(ctx, commentId, userId)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return nil
+// UpvoteComment 在个人评论状态设计确定前拒绝点赞及取消操作。
+// 输入：保留现有用户、评论和原点赞标记；输出：未支持错误，不开启事务或修改计数。
+func (u *VideoCommentUsecase) UpvoteComment(ctx context.Context, commentId, userId int64, isUpvoted bool) error {
+	return ErrInteractionNotSupported
 }
 
-func (u *VideoCommentUsecase) CheckIfUserUpvotedComment(ctx context.Context, commentId int64, userId int64) (bool, error) {
-	return u.repo.CheckIfUserUpvotedComment(ctx, commentId, userId)
+// CheckIfUserUpvotedComment 在个人评论状态设计确定前拒绝读取。
+// 输入：保留现有用户/评论 ID；输出：false 和未支持错误，false 不代表查询成功。
+func (u *VideoCommentUsecase) CheckIfUserUpvotedComment(ctx context.Context, commentId, userId int64) (bool, error) {
+	return false, ErrInteractionNotSupported
 }
 
 func (u *VideoCommentUsecase) GetPublisherId(ctx context.Context, commentId int64) (int64, error) {

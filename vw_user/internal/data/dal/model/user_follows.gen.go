@@ -12,14 +12,14 @@ import (
 
 const TableNameUserFollow = "user_follows"
 
-// UserFollow 存放用户关注的用户的id
+// UserFollow 用户关注列表 表
 type UserFollow struct {
-	FollowlistID int64          `gorm:"column:followlist_id;type:bigint unsigned;not null" json:"followlist_id"`
-	FollowUserID int64          `gorm:"column:follow_user_id;type:bigint unsigned;primaryKey;comment:被关注的用户id" json:"follow_user_id"` // 被关注的用户id
-	UserID       int64          `gorm:"column:user_id;type:bigint unsigned;primaryKey" json:"user_id"`
-	UpdatedAt    time.Time      `gorm:"column:updated_at;type:datetime(3);not null" json:"updated_at"`
-	DeletedAt    gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(3);index:user_follows_deletedAt,priority:1" json:"deleted_at"`
 	CreatedAt    time.Time      `gorm:"column:created_at;type:datetime(3);not null" json:"created_at"`
+	UpdatedAt    time.Time      `gorm:"column:updated_at;type:datetime(3);not null" json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(3);index:idx_user_follows_deleted_at,priority:1" json:"deleted_at"`
+	FollowlistID int64          `gorm:"column:followlist_id;type:bigint;not null;index:index_UID,priority:1" json:"followlist_id"`
+	UserID       int64          `gorm:"column:user_id;type:bigint;primaryKey;index:index_UID,priority:2" json:"user_id"`
+	FollowUserID int64          `gorm:"column:follow_user_id;type:bigint;primaryKey;index:index_FollowsID,priority:1" json:"follow_user_id"`
 }
 
 // TableName UserFollow's table name

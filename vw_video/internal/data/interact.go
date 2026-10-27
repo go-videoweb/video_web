@@ -5,15 +5,10 @@ import (
 	"database/sql"
 	stderr "errors"
 	"github.com/go-kratos/kratos/v2/log"
-	"go.mongodb.org/mongo-driver/mongo"
-	"gorm.io/gorm"
 	"strings"
-	"util/dbutil"
-	"util/dbutil/mgutil"
 	interactv1 "vw_video/api/v1/interact"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
-	"vw_video/internal/data/dal/query"
 )
 
 type interactRepo struct {
@@ -28,124 +23,69 @@ func NewInteractRepo(data *Data, logger log.Logger) biz.InteractRepo {
 	}
 }
 
+// AddVideoUpvote 在传入的屏障事务内增加点赞数和热度，查询及更新均经过统一入口。
 func (i *interactRepo) AddVideoUpvote(ctx context.Context, tx *sql.Tx, videoID int64) error {
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoID)
+	ctx, err := bindSQLTx(ctx, tx)
 	if err != nil {
 		return err
 	}
-
-	err = db.Model(videoModel).
-		Where("video_id = ?", videoID).
-		// * Use Updates, instead of Update().Update()....,
-		// * because multi Update will assemble multi sql statement,
-		// * which uses the SAME optimistic-lock version as where condition,
-		// * which will cause optimistic-lock conflict and could only update one column.
-		// * So, use Updates to avoid this problem.
-		// * Besides, I use map as argument of Updates, rather than struct, because when the struct filed is zero-value, gorm will not update it.
-		// * Use map[string]interface{} can update zero-value field.
-		// * In this method, use struct is okay, because AddVideoUpvote will not meet zero-value field problem.
+	video := getQuery(ctx).Video
+	videoDo, videoModel, err := addVideoModel(ctx, videoID)
+	if err != nil {
+		return err
+	}
+	// 一次更新两个字段，避免拆成多条 SQL 后重复使用同一旧版本号。
+	_, err = videoDo.Where(video.VideoID.Eq(videoID)).
 		Updates(map[string]interface{}{
 			"likes": videoModel.Likes + 1,
 			"hot":   videoModel.Hot + HotEachUpvote,
-		}).Error
+		})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+// DecrementVideoUpvote 在传入事务内减少点赞数和热度，数据库错误透传。
 func (i *interactRepo) DecrementVideoUpvote(ctx context.Context, tx *sql.Tx, videoID int64) error {
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoID)
+	ctx, err := bindSQLTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	video := getQuery(ctx).Video
+	videoDo, videoModel, err := addVideoModel(ctx, videoID)
 	if err != nil {
 		return err
 	}
 
-	err = db.Model(videoModel).
-		Where("video_id = ?", videoID).
+	_, err = videoDo.Where(video.VideoID.Eq(videoID)).
 		Updates(map[string]interface{}{
 			"likes": videoModel.Likes - 1,
 			"hot":   videoModel.Hot - HotEachUpvote,
-		}).Error
+		})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (i *interactRepo) AddVideoCntFavorite(ctx context.Context, tx *sql.Tx, videoID int64) error {
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoID)
-	if err != nil {
-		return err
-	}
-
-	err = db.Model(videoModel).Debug().
-		Where("video_id = ?", videoID).
-		Updates(map[string]interface{}{
-			"cnt_favorited": videoModel.CntFavorited + 1,
-			"hot":           videoModel.Hot + HotEachFavorite,
-		}).Error
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (i *interactRepo) DecrementVideoCntFavorite(ctx context.Context, tx *sql.Tx, videoID int64) error {
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoID)
-	if err != nil {
-		return err
-	}
-
-	err = db.Model(videoModel).
-		Where("video_id = ?", videoID).
-		Updates(map[string]interface{}{
-			"cnt_favorited": videoModel.CntFavorited - 1,
-			"hot":           videoModel.Hot - HotEachFavorite,
-		}).Error
-
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (i *interactRepo) AddUserFavoriteVideo(ctx context.Context, tx *sql.Tx, favoritesID, videoID int64) error {
-	db, _, err := getGormDBAndVideoModel(tx, videoID)
-	if err != nil {
-		return err
-	}
-	return db.Model(&model.FavoriteVideo{}).Create(&model.FavoriteVideo{
-		FavoritesID: favoritesID,
-		VideoID:     videoID,
-	}).Error
-}
-
-func (i *interactRepo) DeleteUserFavoriteVideo(ctx context.Context, tx *sql.Tx, favoritesID int64, videoID int64) error {
-	favoriteVideo := query.FavoriteVideo
-	db, _, err := getGormDBAndVideoModel(tx, videoID)
-	if err != nil {
-		return err
-	}
-	return db.Model(&model.FavoriteVideo{}).Where(favoriteVideo.FavoritesID.Eq(favoritesID)).
-		Unscoped().
-		Delete(&model.FavoriteVideo{
-			FavoritesID: favoritesID,
-			VideoID:     videoID,
-		}).Error
-}
-
+// UpdateVideoShells 沿统一入口在传入事务内调整视频贝壳数和热度。
 func (i *interactRepo) UpdateVideoShells(ctx context.Context, tx *sql.Tx, videoID int64, countShells int32) error {
-	db, videoModel, err := getGormDBAndVideoModel(tx, videoID)
+	ctx, err := bindSQLTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	video := getQuery(ctx).Video
+	videoDo, videoModel, err := addVideoModel(ctx, videoID)
 	if err != nil {
 		return err
 	}
 
-	err = db.Model(videoModel).
-		Where("video_id = ?", videoID).
+	_, err = videoDo.Where(video.VideoID.Eq(videoID)).
 		Updates(map[string]interface{}{
 			"shells": videoModel.Shells + int64(countShells),
 			"hot":    videoModel.Hot + int64(HotEachShell*countShells),
-		}).Error
+		})
 	if err != nil {
 		return err
 	}
@@ -156,19 +96,9 @@ func (i *interactRepo) ShareVideo(ctx context.Context, videoID int64) string {
 	return ""
 }
 
+// AddVideoCntBarrage 在上下文选定的连接上增加弹幕数和热度，数据库错误透传。
 func (i *interactRepo) AddVideoCntBarrage(ctx context.Context /*tx *sql.Tx,*/, videoID int64) error {
-	//db, videoModel, err := getGormDBAndVideoModel(tx, videoID)
-	//if err != nil {
-	//	return err
-	//}
-	//err = db.Model(videoModel).
-	//	Where("video_id = ?", videoID).
-	//	Update("cnt_barrages", videoModel.CntBarrages+1).Update("hot", videoModel.Hot+HotEachBarrage).Error
-	//if err != nil {
-	//	return err
-	//}
-	//return nil
-	video := query.Video
+	video := getQuery(ctx).Video
 	videoDo, videoModel, err := addVideoModel(ctx, videoID)
 	if err != nil {
 		return err
@@ -183,42 +113,40 @@ func (i *interactRepo) AddVideoCntBarrage(ctx context.Context /*tx *sql.Tx,*/, v
 	return nil
 }
 
+// AddVideoBarrageUpvote 在传入事务内增加弹幕点赞数，沿用既有未启用入口的仓储能力。
 func (i *interactRepo) AddVideoBarrageUpvote(ctx context.Context, tx *sql.Tx, barrageID int64) error {
-	db, err := dbutil.SqlTxToGormDB(tx)
+	ctx, err := bindSQLTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	barrage := getQuery(ctx).Barrage
+	barrageDo := barrage.WithContext(ctx)
+	barrageModel, err := barrageDo.Where(barrage.BarrageID.Eq(barrageID)).First()
 	if err != nil {
 		return err
 	}
 
-	var barrage model.Barrage
-	err = db.Where("barrage_id = ?", barrageID).First(&barrage).Error
-	if err != nil {
-		return err
-	}
-
-	err = db.Model(&barrage).
-		Where("barrage_id = ?", barrageID).
-		Update("likes", barrage.Likes+1).Error
+	_, err = barrageDo.Where(barrage.BarrageID.Eq(barrageID)).Update(barrage.Likes, barrageModel.Likes+1)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+// DecrementVideoBarrageUpvote 在传入事务内减少弹幕点赞数，数据库错误透传。
 func (i *interactRepo) DecrementVideoBarrageUpvote(ctx context.Context, tx *sql.Tx, barrageID int64) error {
-	db, err := dbutil.SqlTxToGormDB(tx)
+	ctx, err := bindSQLTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	barrage := getQuery(ctx).Barrage
+	barrageDo := barrage.WithContext(ctx)
+	barrageModel, err := barrageDo.Where(barrage.BarrageID.Eq(barrageID)).First()
 	if err != nil {
 		return err
 	}
 
-	var barrage model.Barrage
-	err = db.Where("barrage_id = ?", barrageID).First(&barrage).Error
-	if err != nil {
-		return err
-	}
-
-	err = db.Model(&barrage).
-		Where("barrage_id = ?", barrageID).
-		Update("likes", barrage.Likes-1).Error
+	_, err = barrageDo.Where(barrage.BarrageID.Eq(barrageID)).Update(barrage.Likes, barrageModel.Likes-1)
 	if err != nil {
 		return err
 	}
@@ -265,54 +193,29 @@ func (i *interactRepo) GetPublisherIdByVideoId(ctx context.Context, videoID int6
 	return video.PublisherID, nil
 }
 
-func (i *interactRepo) GetUserVideoStatus(ctx context.Context, userID, videoID int64) (status int64, shellsCount int32, err error) {
-	filter := mgutil.NewBsonM("user_id", userID, "video_id", videoID)
-	res, err := i.data.mongo.FindOne(ctx, uv_status, filter)
+// GetUserVideoStatus 从 MySQL 读取状态；收藏位由实际收藏关系计算。
+// 输入：用户/视频 ID 必须为正数；输出：RPC 状态位和已投贝壳数量，任何读取错误均透传。
+// 不初始化记录，也不把状态表中的兼容 is_favor 列作为收藏事实来源。
+func (i *interactRepo) GetUserVideoStatus(ctx context.Context, userID, videoID int64) (int64, int32, error) {
+	row, err := readUserVideoStatus(ctx, interactionDB(ctx), userID, videoID)
 	if err != nil {
-		if stderr.Is(err, mongo.ErrNoDocuments) {
-			err = i.data.mongo.InsertOne(ctx, ub_status, &model.UserVideoStatus{
-				UserID:  userID,
-				VideoID: videoID,
-				Status:  0,
-			})
-			if err != nil {
-				return -1, -1, err
-			}
-			return 0, 0, nil
-		}
-		return -1, -1, err
+		return 0, 0, err
 	}
-	return res.Status, int32(res.ShellsCount), nil
+	status := videoStatusMask(row)
+	favoriteID, _, err := (&videoInfoRepo{data: i.data}).GetUserFavorite(ctx, userID, videoID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if favoriteID > 0 {
+		status |= biz.FavoriteStatus
+	}
+	return status, int32(row.ShellsCount), nil
 }
 
-func (i *interactRepo) GetUserBarrageStatus(ctx context.Context, userID int64, barrageID int64) (int64, error) {
-	filter := mgutil.NewBsonM("user_id", userID, "barrage_id", barrageID)
-	res, err := i.data.mongo.FindOne(ctx, ub_status, filter)
-	if err != nil {
-		if stderr.Is(err, mongo.ErrNoDocuments) {
-			err = i.data.mongo.InsertOne(ctx, ub_status, &model.UserBarrageStatus{
-				UserID:    userID,
-				BarrageID: barrageID,
-				Status:    0,
-			})
-			if err != nil {
-				return -1, err
-			}
-			return 0, nil
-		}
-		return -1, err
-	}
-	return res.Status, nil
-}
-
-func (i *interactRepo) SetUserVideoStatus(ctx context.Context, userID, videoID int64, status int64) error {
-	filter := mgutil.NewBsonM("user_id", userID, "video_id", videoID)
-	data := &model.UserVideoStatus{
-		UserID:  userID,
-		VideoID: videoID,
-		Status:  status,
-	}
-	return i.data.mongo.UpsertOne(ctx, uv_status, filter, data)
+// GetUserBarrageStatus 保留仓储接口但暂不接入个人弹幕状态。
+// 输入：保留原用户/弹幕 ID；输出：0 和未支持错误，不访问数据库。
+func (i *interactRepo) GetUserBarrageStatus(ctx context.Context, userID, barrageID int64) (int64, error) {
+	return 0, biz.ErrInteractionNotSupported
 }
 
 // GetSqlTx is a helper function to get *sql.Tx from *gorm.DB.
@@ -320,28 +223,4 @@ func (i *interactRepo) SetUserVideoStatus(ctx context.Context, userID, videoID i
 func (i *interactRepo) GetSqlTx() *sql.Tx {
 	tx := i.data.mysql.Begin()
 	return tx.Statement.ConnPool.(*sql.Tx)
-}
-
-// GetMongoClient is a helper function to get *mongo.Client from *mongo.Data.
-// This is used to be the DTM barrier's MongoCall method's argument.
-func (i *interactRepo) GetMongoClient() *mongo.Client {
-	return i.data.mongo.mongoClient
-}
-
-func (i *interactRepo) GetDB() (db string) {
-	return i.data.mongo.db
-}
-
-func getGormDBAndVideoModel(tx *sql.Tx, videoID int64) (*gorm.DB, *model.Video, error) {
-	db, err := dbutil.SqlTxToGormDB(tx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var videoModel model.Video
-	err = db.Where("video_id = ?", videoID).First(&videoModel).Error
-	if err != nil {
-		return nil, nil, err
-	}
-	return db, &videoModel, nil
 }

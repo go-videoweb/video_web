@@ -27,18 +27,18 @@ func newBarrage(db *gorm.DB, opts ...gen.DOOption) barrage {
 
 	tableName := _barrage.barrageDo.TableName()
 	_barrage.ALL = field.NewAsterisk(tableName)
-	_barrage.BarrageID = field.NewInt64(tableName, "barrage_id")
-	_barrage.VideoID = field.NewInt64(tableName, "video_id")
-	_barrage.PublisherID = field.NewInt64(tableName, "publisher_id")
 	_barrage.Hour = field.NewString(tableName, "hour")
 	_barrage.Minute = field.NewString(tableName, "minute")
 	_barrage.Second = field.NewString(tableName, "second")
-	_barrage.Content = field.NewString(tableName, "content")
-	_barrage.Color = field.NewString(tableName, "color")
-	_barrage.Likes = field.NewInt64(tableName, "likes")
+	_barrage.BarrageID = field.NewInt64(tableName, "barrage_id")
+	_barrage.PublisherID = field.NewInt64(tableName, "publisher_id")
+	_barrage.VideoID = field.NewInt64(tableName, "video_id")
 	_barrage.CreatedAt = field.NewTime(tableName, "created_at")
 	_barrage.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_barrage.DeletedAt = field.NewField(tableName, "deleted_at")
+	_barrage.Content = field.NewString(tableName, "content")
+	_barrage.Color = field.NewString(tableName, "color")
+	_barrage.Likes = field.NewInt64(tableName, "likes")
 
 	_barrage.fillFieldMap()
 
@@ -49,18 +49,18 @@ type barrage struct {
 	barrageDo
 
 	ALL         field.Asterisk
-	BarrageID   field.Int64  // “弹幕ID”
-	VideoID     field.Int64  // 视频id
-	PublisherID field.Int64  //  发布者 id
-	Hour        field.String // 弹幕出现时间--小时
-	Minute      field.String // 弹幕出现时间--分钟
-	Second      field.String // 弹幕出现时间--秒
-	Content     field.String // 弹幕内容
-	Color       field.String // 弹幕颜色，使用十六进制表示
-	Likes       field.Int64  // 弹幕获赞数
-	CreatedAt   field.Time   // 创建时间
-	UpdatedAt   field.Time   // 更新时间
-	DeletedAt   field.Field  // 删除时间
+	Hour        field.String
+	Minute      field.String
+	Second      field.String
+	BarrageID   field.Int64
+	PublisherID field.Int64
+	VideoID     field.Int64
+	CreatedAt   field.Time
+	UpdatedAt   field.Time
+	DeletedAt   field.Field
+	Content     field.String
+	Color       field.String
+	Likes       field.Int64
 
 	fieldMap map[string]field.Expr
 }
@@ -77,18 +77,18 @@ func (b barrage) As(alias string) *barrage {
 
 func (b *barrage) updateTableName(table string) *barrage {
 	b.ALL = field.NewAsterisk(table)
-	b.BarrageID = field.NewInt64(table, "barrage_id")
-	b.VideoID = field.NewInt64(table, "video_id")
-	b.PublisherID = field.NewInt64(table, "publisher_id")
 	b.Hour = field.NewString(table, "hour")
 	b.Minute = field.NewString(table, "minute")
 	b.Second = field.NewString(table, "second")
-	b.Content = field.NewString(table, "content")
-	b.Color = field.NewString(table, "color")
-	b.Likes = field.NewInt64(table, "likes")
+	b.BarrageID = field.NewInt64(table, "barrage_id")
+	b.PublisherID = field.NewInt64(table, "publisher_id")
+	b.VideoID = field.NewInt64(table, "video_id")
 	b.CreatedAt = field.NewTime(table, "created_at")
 	b.UpdatedAt = field.NewTime(table, "updated_at")
 	b.DeletedAt = field.NewField(table, "deleted_at")
+	b.Content = field.NewString(table, "content")
+	b.Color = field.NewString(table, "color")
+	b.Likes = field.NewInt64(table, "likes")
 
 	b.fillFieldMap()
 
@@ -106,18 +106,18 @@ func (b *barrage) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 
 func (b *barrage) fillFieldMap() {
 	b.fieldMap = make(map[string]field.Expr, 12)
-	b.fieldMap["barrage_id"] = b.BarrageID
-	b.fieldMap["video_id"] = b.VideoID
-	b.fieldMap["publisher_id"] = b.PublisherID
 	b.fieldMap["hour"] = b.Hour
 	b.fieldMap["minute"] = b.Minute
 	b.fieldMap["second"] = b.Second
-	b.fieldMap["content"] = b.Content
-	b.fieldMap["color"] = b.Color
-	b.fieldMap["likes"] = b.Likes
+	b.fieldMap["barrage_id"] = b.BarrageID
+	b.fieldMap["publisher_id"] = b.PublisherID
+	b.fieldMap["video_id"] = b.VideoID
 	b.fieldMap["created_at"] = b.CreatedAt
 	b.fieldMap["updated_at"] = b.UpdatedAt
 	b.fieldMap["deleted_at"] = b.DeletedAt
+	b.fieldMap["content"] = b.Content
+	b.fieldMap["color"] = b.Color
+	b.fieldMap["likes"] = b.Likes
 }
 
 func (b barrage) clone(db *gorm.DB) barrage {

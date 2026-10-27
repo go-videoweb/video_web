@@ -12,11 +12,11 @@ import (
 
 const TableNameUserFan = "user_fans"
 
-// UserFan 用户粉丝表
+// UserFan mapped from table <user_fans>
 type UserFan struct {
-	UserID     int64          `gorm:"column:user_id;type:bigint unsigned;primaryKey" json:"user_id"`
-	FollowerID int64          `gorm:"column:follower_id;type:bigint unsigned;primaryKey" json:"follower_id"`
-	DeletedAt  gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(3);index:user_followed_deletedAt,priority:1" json:"deleted_at"`
+	UserID     int64          `gorm:"column:user_id;type:bigint;primaryKey;comment:被关注的用户" json:"user_id"`                                                // 被关注的用户
+	FollowerID int64          `gorm:"column:follower_id;type:bigint;primaryKey;index:idx_user_fans_follower,priority:1;comment:关注发起者" json:"follower_id"` // 关注发起者
+	DeletedAt  gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(3);index:idx_user_fans_deleted_at,priority:1" json:"deleted_at"`
 	UpdatedAt  time.Time      `gorm:"column:updated_at;type:datetime(3);not null" json:"updated_at"`
 	CreatedAt  time.Time      `gorm:"column:created_at;type:datetime(3);not null" json:"created_at"`
 }

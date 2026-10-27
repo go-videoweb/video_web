@@ -7,7 +7,7 @@ import (
 )
 
 type InteractRepo interface {
-	FavoriteVideo(ctx context.Context, userId, favoriteId, videoId int64) (bool, error)
+	FavoriteVideo(ctx context.Context, userId int64, req *interactv1.VideoFavoriteReq) (*interactv1.VideoFavoriteResp, error)
 	UpvoteVideo(ctx context.Context, userId int64, videoId int64) (bool, error)
 	UpvoteBarrage(ctx context.Context, userId int64, barrageId int64) error
 	SendBarrage(ctx context.Context, userId int64, req *interactv1.VideoSendBarrageReq) error
@@ -27,8 +27,9 @@ func NewInteractUsecase(repo InteractRepo, logger log.Logger) *InteractUsecase {
 	}
 }
 
-func (u *InteractUsecase) Favorite(ctx context.Context, userId, favoriteId, videoId int64) (bool, error) {
-	return u.repo.FavoriteVideo(ctx, userId, videoId, favoriteId)
+// Favorite 只转交鉴权身份和明确操作，不在网关判断收藏状态或组合业务步骤。
+func (u *InteractUsecase) Favorite(ctx context.Context, userId int64, req *interactv1.VideoFavoriteReq) (*interactv1.VideoFavoriteResp, error) {
+	return u.repo.FavoriteVideo(ctx, userId, req)
 }
 
 func (u *InteractUsecase) Upvote(ctx context.Context, userId int64, videoId int64) (bool, error) {

@@ -2,6 +2,7 @@ package video
 
 import (
 	"context"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"net/http"
 	interactv1 "vw_gateway/api/v1/video/video_interact"
@@ -21,24 +22,13 @@ func NewInteractService(interactUsecase *videobiz.InteractUsecase, logger log.Lo
 	}
 }
 
+// VideoFavorite 仅从鉴权上下文提取身份并转交请求，不推断操作或查询用户视频状态。
 func (s *InteractService) VideoFavorite(ctx context.Context, req *interactv1.VideoFavoriteReq) (*interactv1.VideoFavoriteResp, error) {
-	curUserId := ctx.Value(userIdKey).(int64)
-	isFavorited, err := s.interactUsecase.Favorite(ctx, curUserId, req.VideoId, req.FavoriteId)
-	if err != nil {
-		return nil, err
+	curUserId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || curUserId <= 0 {
+		return nil, kerrors.Unauthorized("INVALID_USER_ID", "请先登录")
 	}
-
-	var msg string
-	// isFavorited is true means user has favorited this video before, so this is a cancel favorite request
-	if isFavorited {
-		msg = "取消收藏成功"
-	} else {
-		msg = "收藏成功"
-	}
-	return &interactv1.VideoFavoriteResp{
-		StatusCode: http.StatusOK,
-		Message:    msg,
-	}, nil
+	return s.interactUsecase.Favorite(ctx, curUserId, req)
 }
 
 func (s *InteractService) VideoUpvoteBarrage(ctx context.Context, req *interactv1.VideoUpvoteBarrageReq) (*interactv1.VideoUpvoteBarrageResp, error) {
