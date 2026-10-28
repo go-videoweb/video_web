@@ -107,9 +107,10 @@ func (u *userIdentityRepo) CreatRecordsForRegister(ctx context.Context, newUser 
 		UserID: newUser.UserID,
 	}
 	defaultFollowList := &model.FollowList{
-		ListID:   getid.GetID(),
-		UserID:   newUser.UserID,
-		ListName: "默认关注列表",
+		IsDefault: true,
+		ListID:    getid.GetID(),
+		UserID:    newUser.UserID,
+		ListName:  "默认关注列表",
 	}
 
 	// 复用生成器的事务克隆，保留各模型独立的表信息；已有事务使用保存点。

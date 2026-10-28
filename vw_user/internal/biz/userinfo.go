@@ -52,9 +52,6 @@ type UserInfoRepo interface {
 	// UpdateCntFollows update user fans count
 	UpdateCntFollows(ctx context.Context, userId int64, change int64) error
 
-	// UpdateCntFans update user fans count
-	UpdateCntFans(ctx context.Context, userId int64, change int64) error
-
 	// AddUserCntLike add user like count
 	AddUserCntLike(ctx context.Context, tx *sql.Tx, userId int64) error
 

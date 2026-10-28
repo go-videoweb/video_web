@@ -30,6 +30,7 @@ func newFollowList(db *gorm.DB, opts ...gen.DOOption) followList {
 	_followList.ListID = field.NewInt64(tableName, "list_id")
 	_followList.UserID = field.NewInt64(tableName, "user_id")
 	_followList.ListName = field.NewString(tableName, "list_name")
+	_followList.IsDefault = field.NewBool(tableName, "is_default")
 
 	_followList.fillFieldMap()
 
@@ -39,10 +40,11 @@ func newFollowList(db *gorm.DB, opts ...gen.DOOption) followList {
 type followList struct {
 	followListDo
 
-	ALL      field.Asterisk
-	ListID   field.Int64
-	UserID   field.Int64
-	ListName field.String
+	ALL       field.Asterisk
+	ListID    field.Int64
+	UserID    field.Int64
+	ListName  field.String
+	IsDefault field.Bool
 
 	fieldMap map[string]field.Expr
 }
@@ -62,6 +64,7 @@ func (f *followList) updateTableName(table string) *followList {
 	f.ListID = field.NewInt64(table, "list_id")
 	f.UserID = field.NewInt64(table, "user_id")
 	f.ListName = field.NewString(table, "list_name")
+	f.IsDefault = field.NewBool(table, "is_default")
 
 	f.fillFieldMap()
 
@@ -78,10 +81,11 @@ func (f *followList) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (f *followList) fillFieldMap() {
-	f.fieldMap = make(map[string]field.Expr, 3)
+	f.fieldMap = make(map[string]field.Expr, 4)
 	f.fieldMap["list_id"] = f.ListID
 	f.fieldMap["user_id"] = f.UserID
 	f.fieldMap["list_name"] = f.ListName
+	f.fieldMap["is_default"] = f.IsDefault
 }
 
 func (f followList) clone(db *gorm.DB) followList {

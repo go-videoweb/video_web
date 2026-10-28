@@ -1,16 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"vw_user/cmd/gorm_gen/methods"
 	"vw_user/internal/conf"
-	"vw_user/internal/data"
 
 	"github.com/go-kratos/kratos/v2/config"
 	"github.com/go-kratos/kratos/v2/config/file"
+	"gorm.io/driver/mysql"
 	"gorm.io/gen"
 	"gorm.io/gorm"
 )
 
+// main 从现有 MySQL schema 生成用户 DAL，不执行 DDL。
+//
 //go:generate go run gen_generator.go
 func main() {
 	db := getGormDB()
@@ -66,7 +69,7 @@ func main() {
 		gen.FieldType("exp", "uint32"),
 		gen.FieldType("next_exp", "uint32"),
 		gen.WithMethod(methods.UserLevel{}))
-	followList := g.GenerateModel("follow_list")
+	followList := g.GenerateModel("follow_list", gen.FieldType("is_default", "bool"))
 	userFollows := g.GenerateModel("user_follows")
 	userFans := g.GenerateModel("user_fans")
 	userSearchHistory := g.GenerateModel("user_search_history")
@@ -81,6 +84,8 @@ func main() {
 	g.Execute()
 
 }
+
+// getGormDB 独立初始化生成器连接，不导入业务 data 或旧 DAL，避免 schema 变化后无法生成。
 func getGormDB() *gorm.DB {
 	c := config.New(
 		config.WithSource(
@@ -97,5 +102,11 @@ func getGormDB() *gorm.DB {
 	if err := c.Scan(&bc); err != nil {
 		panic(err)
 	}
-	return data.NewMySQL(bc.Data)
+	cfg := bc.Data.Mysql
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
+	return db
 }

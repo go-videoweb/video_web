@@ -118,29 +118,29 @@ func TestOptimisticLockWithGen(t *testing.T) {
 	require.NoError(t, err)
 	userDo.ReplaceDB(userDo.UnderlyingDB().Model(queryUser))
 
-	//Test case 1: 使用 Update 更新 CntFans 字段
+	//Test case 1: 使用 Update 更新 CntFollows 字段
 	rowsInfect, err := userDo.
 		Debug().
 		Where(user.UserID.Eq(userId)).
-		Update(user.CntFans, user.CntFans.Add(1))
+		Update(user.CntFollows, user.CntFollows.Add(1))
 	require.NoError(t, err)
 	require.Equal(t, int64(1), rowsInfect.RowsAffected)
 
-	// Test case 2: 使用 Updates + struct 更新 CntFans 字段
+	// Test case 2: 使用 Updates + struct 更新 CntFollows 字段
 	_, err = userDo.
 		Debug().
 		Where(user.UserID.Eq(userId)).
 		Updates(&model.User{
-			CntFans: queryUser.CntFans + 1,
+			CntFollows: queryUser.CntFollows + 1,
 		})
 	require.NoError(t, err)
 
-	// Test case 3: 使用 Updates + map[string]interface{} 更新 CntFans 字段
+	// Test case 3: 使用 Updates + map[string]interface{} 更新 CntFollows 字段
 	_, err = userDo.
 		Debug().
 		Where(user.UserID.Eq(userId)).
 		Updates(map[string]interface{}{
-			"cnt_fans": queryUser.CntFans + 1,
+			"cnt_follows": queryUser.CntFollows + 1,
 		},
 		)
 	require.NoError(t, err)
@@ -161,7 +161,7 @@ func TestOptimisticLockWithGorm(t *testing.T) {
 	err := db.Model(user1).
 		Where("user_id = ?", userId).
 		Debug().
-		Update("cnt_fans", user1.CntFans+1).Error
+		Update("cnt_follows", user1.CntFollows+1).Error
 	require.NoError(t, err)
 }
 

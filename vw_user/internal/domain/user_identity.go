@@ -30,7 +30,6 @@ func (u *UserInfo) padding(user *model.User) {
 	u.Signature = user.Signature
 	u.Shells = int32(user.Shells)
 	u.CntLikes = int32(user.CntLikes)
-	u.CntFans = int32(user.CntFans)
 	u.CntFollows = int32(user.CntFollows)
 	u.Gender = int32(user.Gender)
 	u.AvatarPath = user.AvatarPath
@@ -39,16 +38,19 @@ func (u *UserInfo) padding(user *model.User) {
 }
 
 type UserSummary struct {
-	Username   string
-	Email      string
-	Signature  string
-	Gender     int32
-	AvatarPath string
-	Birthday   time.Time
+	FollowListID int64
+	Id           int64
+	Username     string
+	Email        string
+	Signature    string
+	Gender       int32
+	AvatarPath   string
+	Birthday     time.Time
 }
 
 // padding pads the userbiz summary info with userbiz model
 func (u *UserSummary) padding(user *model.User) {
+	u.Id = user.UserID
 	u.Username = user.Username
 	u.Email = user.Email
 	u.Signature = user.Signature
