@@ -962,6 +962,148 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.GetFavoriteVideosResp'
+    /api/v1/follow-lists:
+        get:
+            tags:
+                - Follow
+            operationId: Follow_GetFollowLists
+            parameters:
+                - name: userId
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.user.follow.GetFollowListsResp'
+        post:
+            tags:
+                - Follow
+            operationId: Follow_CreateFollowList
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/gateway.api.v1.user.follow.CreateFollowListReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.user.follow.CreateFollowListResp'
+    /api/v1/follow-lists/batch-delete:
+        post:
+            tags:
+                - Follow
+            operationId: Follow_DeleteFollowLists
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/gateway.api.v1.user.follow.DeleteFollowListsReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.user.follow.FollowListMutationResp'
+    /api/v1/follow-lists/{followListId}:
+        patch:
+            tags:
+                - Follow
+            operationId: Follow_ModifyFollowList
+            parameters:
+                - name: followListId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/gateway.api.v1.user.follow.ModifyFollowListReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.user.follow.FollowListMutationResp'
+    /api/v1/follow-lists/{followListId}/default:
+        put:
+            tags:
+                - Follow
+            operationId: Follow_SetDefaultFollowList
+            parameters:
+                - name: followListId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/gateway.api.v1.user.follow.SetDefaultFollowListReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.user.follow.FollowListMutationResp'
+    /api/v1/follow/relations/{targetUserId}:
+        get:
+            tags:
+                - Follow
+            operationId: Follow_GetFollowRelation
+            parameters:
+                - name: targetUserId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.user.follow.GetFollowRelationResp'
+    /api/v1/follow/relations/{targetUserId}/list:
+        put:
+            tags:
+                - Follow
+            operationId: Follow_MoveFollowee
+            parameters:
+                - name: targetUserId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/gateway.api.v1.user.follow.MoveFolloweeReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.user.follow.FollowListMutationResp'
 components:
     schemas:
         gateway.api.v1.user.captcha.GetCodeCaptchaResp:
@@ -1070,6 +1212,7 @@ components:
                     type: string
                 followerUserId:
                     type: string
+                    description: 旧字段名，实际表示被关注的目标用户，不是操作人。
                 followListId:
                     type: string
         gateway.api.v1.user.follow.FollowUserResp:
@@ -1079,6 +1222,10 @@ components:
                     type: integer
                     format: int32
                 message:
+                    type: string
+                isFollowing:
+                    type: boolean
+                followListId:
                     type: string
         gateway.api.v1.user.follow.GetFolloweeInfoResp:
             type: object
@@ -1092,6 +1239,14 @@ components:
                     type: array
                     items:
                         $ref: '#/components/schemas/gateway.api.v1.user.follow.GetFolloweeInfoResp_UserSummary'
+                total:
+                    type: string
+                pageNum:
+                    type: integer
+                    format: int32
+                pageSize:
+                    type: integer
+                    format: int32
         gateway.api.v1.user.follow.GetFolloweeInfoResp_UserSummary:
             type: object
             properties:
@@ -1109,6 +1264,11 @@ components:
                 birthday:
                     type: string
                     format: date-time
+                userId:
+                    type: string
+                    description: 被关注用户的 ID，用于用户主页跳转和关注关系操作。
+                followListId:
+                    type: string
         gateway.api.v1.user.follow.UnfollowUserReq:
             type: object
             properties:
@@ -1718,6 +1878,75 @@ components:
                     type: string
                     description: 当前有效收藏记录 ID，取消操作必须携带。
             description: UserVideoStatus 与下游个人状态字段对齐，1 表示已操作，-1 表示未操作。
+        gateway.api.v1.user.follow.CreateFollowListReq:
+            type: object
+            properties:
+                userId:
+                    type: string
+                name:
+                    type: string
+            description: user_id 不作为身份来源，网关只使用鉴权 context 中的当前用户。
+        gateway.api.v1.user.follow.CreateFollowListResp:
+            type: object
+            properties:
+                followListId:
+                    type: string
+        gateway.api.v1.user.follow.DeleteFollowListsReq:
+            type: object
+            properties:
+                idList:
+                    type: array
+                    items:
+                        type: string
+        gateway.api.v1.user.follow.FollowListInfo:
+            type: object
+            properties:
+                followListId:
+                    type: string
+                userId:
+                    type: string
+                name:
+                    type: string
+                isDefault:
+                    type: boolean
+        gateway.api.v1.user.follow.FollowListMutationResp:
+            type: object
+            properties:
+                success:
+                    type: boolean
+        gateway.api.v1.user.follow.GetFollowListsResp:
+            type: object
+            properties:
+                lists:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/gateway.api.v1.user.follow.FollowListInfo'
+        gateway.api.v1.user.follow.GetFollowRelationResp:
+            type: object
+            properties:
+                isFollowing:
+                    type: boolean
+                followListId:
+                    type: string
+        gateway.api.v1.user.follow.ModifyFollowListReq:
+            type: object
+            properties:
+                followListId:
+                    type: string
+                name:
+                    type: string
+        gateway.api.v1.user.follow.MoveFolloweeReq:
+            type: object
+            properties:
+                targetUserId:
+                    type: string
+                followListId:
+                    type: string
+        gateway.api.v1.user.follow.SetDefaultFollowListReq:
+            type: object
+            properties:
+                followListId:
+                    type: string
 tags:
     - name: Captcha
     - name: Favorite

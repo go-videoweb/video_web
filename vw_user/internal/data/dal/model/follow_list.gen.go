@@ -8,9 +8,10 @@ const TableNameFollowList = "follow_list"
 
 // FollowList mapped from table <follow_list>
 type FollowList struct {
-	ListID   int64  `gorm:"column:list_id;type:bigint;primaryKey" json:"list_id"`
-	UserID   int64  `gorm:"column:user_id;type:bigint;not null;uniqueIndex:follow_list_user_id_list_name_uindex,priority:1" json:"user_id"`
-	ListName string `gorm:"column:list_name;type:varchar(20);not null;uniqueIndex:follow_list_user_id_list_name_uindex,priority:2" json:"list_name"`
+	ListID    int64  `gorm:"column:list_id;type:bigint;primaryKey" json:"list_id"`
+	UserID    int64  `gorm:"column:user_id;type:bigint;not null;uniqueIndex:follow_list_user_id_list_name_uindex,priority:1" json:"user_id"`
+	ListName  string `gorm:"column:list_name;type:varchar(20);not null;uniqueIndex:follow_list_user_id_list_name_uindex,priority:2" json:"list_name"`
+	IsDefault bool   `gorm:"column:is_default;type:tinyint(1);not null" json:"is_default"`
 }
 
 // TableName FollowList's table name

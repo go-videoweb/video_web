@@ -8,6 +8,27 @@ import "google/protobuf/timestamp.proto";
 option go_package = "vw_gateway/api/v1/user/follow;followv1";
 
 service Follow {
+    rpc CreateFollowList(CreateFollowListReq) returns (CreateFollowListResp) {
+        option (google.api.http) = { post: "/api/v1/follow-lists" body: "*" };
+    }
+    rpc DeleteFollowLists(DeleteFollowListsReq) returns (FollowListMutationResp) {
+        option (google.api.http) = { post: "/api/v1/follow-lists/batch-delete" body: "*" };
+    }
+    rpc GetFollowLists(GetFollowListsReq) returns (GetFollowListsResp) {
+        option (google.api.http) = { get: "/api/v1/follow-lists" };
+    }
+    rpc ModifyFollowList(ModifyFollowListReq) returns (FollowListMutationResp) {
+        option (google.api.http) = { patch: "/api/v1/follow-lists/{follow_list_id}" body: "*" };
+    }
+    rpc SetDefaultFollowList(SetDefaultFollowListReq) returns (FollowListMutationResp) {
+        option (google.api.http) = { put: "/api/v1/follow-lists/{follow_list_id}/default" body: "*" };
+    }
+    rpc GetFollowRelation(GetFollowRelationReq) returns (GetFollowRelationResp) {
+        option (google.api.http) = { get: "/api/v1/follow/relations/{target_user_id}" };
+    }
+    rpc MoveFollowee(MoveFolloweeReq) returns (FollowListMutationResp) {
+        option (google.api.http) = { put: "/api/v1/follow/relations/{target_user_id}/list" body: "*" };
+    }
     rpc FollowUser(FollowUserReq) returns (FollowUserResp) {
         option (google.api.http) = {
             post: "/api/v1/{user_id}/follow",
@@ -31,12 +52,15 @@ service Follow {
 
 message FollowUserReq {
     int64 user_id          = 1;
+    // 旧字段名，实际表示被关注的目标用户，不是操作人。
     int64 follower_user_id = 2;
     int64 follow_list_id   = 3;
 }
 message FollowUserResp {
     int32 status_code = 1;
     string message    = 2;
+    bool is_following = 3;
+    int64 follow_list_id = 4;
 }
 
 message UnfollowUserReq {
@@ -64,6 +88,31 @@ message GetFolloweeInfoResp {
         string signature                   = 4;
         string email                       = 5;
         google.protobuf.Timestamp birthday = 6;
+        // 被关注用户的 ID，用于用户主页跳转和关注关系操作。
+        int64 user_id = 7;
+        int64 follow_list_id = 8;
     }
     repeated UserSummary followee_info = 3;
+    int64 total = 4;
+    int32 page_num = 5;
+    int32 page_size = 6;
 }
+
+message FollowListInfo {
+    int64 follow_list_id = 1;
+    int64 user_id = 2;
+    string name = 3;
+    bool is_default = 4;
+}
+// user_id 不作为身份来源，网关只使用鉴权 context 中的当前用户。
+message CreateFollowListReq { int64 user_id = 1; string name = 2; }
+message CreateFollowListResp { int64 follow_list_id = 1; }
+message DeleteFollowListsReq { repeated int64 id_list = 1; }
+message FollowListMutationResp { bool success = 1; }
+message GetFollowListsReq { int64 user_id = 1; }
+message GetFollowListsResp { repeated FollowListInfo lists = 1; }
+message ModifyFollowListReq { int64 follow_list_id = 1; string name = 2; }
+message SetDefaultFollowListReq { int64 follow_list_id = 1; }
+message GetFollowRelationReq { int64 target_user_id = 1; }
+message GetFollowRelationResp { bool is_following = 1; int64 follow_list_id = 2; }
+message MoveFolloweeReq { int64 target_user_id = 1; int64 follow_list_id = 2; }
