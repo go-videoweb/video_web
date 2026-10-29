@@ -26,7 +26,6 @@ type User struct {
 	Shells        int64                  `gorm:"column:shells;type:int unsigned;not null;default:1000" json:"shells"`
 	IsAdmin       bool                   `gorm:"column:is_admin;type:tinyint(1);not null" json:"is_admin"`
 	CntMsgNotRead int64                  `gorm:"column:cnt_msg_not_read;type:int unsigned;not null" json:"cnt_msg_not_read"`
-	CntFans       int64                  `gorm:"column:cnt_fans;type:int unsigned;not null" json:"cnt_fans"`
 	CntLikes      int64                  `gorm:"column:cnt_likes;type:int unsigned;not null" json:"cnt_likes"`
 	AvatarPath    string                 `gorm:"column:avatar_path;type:varchar(256);not null" json:"avatar_path"`
 	CntComments   int64                  `gorm:"column:cnt_comments;type:int unsigned;not null" json:"cnt_comments"`

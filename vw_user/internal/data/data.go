@@ -107,21 +107,13 @@ func NewRedisClusterClient(c *conf.Data) *redis.ClusterClient {
 	return redisCluster
 }
 
-// WithTx starts and commits(or rollbacks) a transaction Automatically.
-// Closure function fn is defined at Biz layer, and it contains the transaction logic you want to execute.
+// WithTx 使用现有查询连接管理本地事务，回调必须使用收到的 ctx；嵌套调用沿用保存点。
+// 开启、业务和提交错误均返回；失败或 panic 回滚，不吞掉提交失败。
 func (d *Data) WithTx(ctx context.Context, fn func(context.Context) error) error {
-	var err error
-	ctx, commit := startTx(ctx)
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic: %v", r) // 确保 err 被赋值，事务正确回滚
-			commit(err)
-			panic(r) // 继续抛出 panic，防止业务逻辑被吞掉
-		}
-		commit(err)
-	}()
-	err = fn(ctx)
-	return err
+	db := getQuery(ctx).User.WithContext(ctx).UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
+	return db.Transaction(func(tx *gorm.DB) error {
+		return fn(context.WithValue(ctx, transactionKey{}, &query.QueryTx{Query: query.Use(tx)}))
+	})
 }
 
 // WithSqlTx is not implemented.

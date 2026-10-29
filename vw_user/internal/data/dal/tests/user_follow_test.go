@@ -9,14 +9,12 @@ import (
 	"gorm.io/gorm"
 	"testing"
 	"vw_user/internal/conf"
+	"vw_user/internal/data"
 	"vw_user/internal/data/dal/model"
 	"vw_user/internal/data/dal/query"
-	"vw_user/internal/data/userdata"
 )
 
-/*
-this test file tests two tables: user_follows and user_followed
-*/
+// 本文件是连接真实数据库的 user_follows/user_fans 练习测试，离线回归仅编译而不运行。
 var db *gorm.DB
 
 func init() {

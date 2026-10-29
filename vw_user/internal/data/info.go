@@ -27,13 +27,24 @@ func NewUserInfoRepo(data *Data, logger log.Logger) biz.UserInfoRepo {
 	}
 }
 
+// CountFans 从有效粉丝关系统计数量，使用统一查询入口，不依赖已移除的用户表字段。
+func (u *userInfoRepo) CountFans(ctx context.Context, userID int64) (int64, error) {
+	q := getQuery(ctx).UserFan
+	count, err := q.WithContext(ctx).Where(q.UserID.Eq(userID)).Count()
+	if err == nil && count > 2147483647 {
+		return 0, errors.InternalServer("FANS_COUNT_OVERFLOW", "粉丝数量超过当前 RPC int32 范围")
+	}
+	return count, err
+}
+
+// GetUserInfoByUsername 读取用户信息，粉丝数从有效 user_fans 关系统计，不依赖用户表计数字段。
 func (u *userInfoRepo) GetUserInfoByUsername(ctx context.Context, username string) (*domain.UserInfo, error) {
 	user := getQuery(ctx).User
 	userdo := user.WithContext(ctx)
 	userInfo, err := userdo.Where(user.Username.Eq(username)).
 		Select(user.UserID, user.Username, user.IsAdmin, user.Email, user.Password,
 			user.Gender, user.AvatarPath, user.Birthday, user.Signature, user.Shells,
-			user.CntFollows, user.CntFans).First()
+			user.CntFollows).First()
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errdef.ErrUserNotFound
@@ -41,22 +52,35 @@ func (u *userInfoRepo) GetUserInfoByUsername(ctx context.Context, username strin
 		return nil, err
 	}
 
-	return domain.NewUserInfo(userInfo), nil
+	info := domain.NewUserInfo(userInfo)
+	count, err := u.CountFans(ctx, userInfo.UserID)
+	if err != nil {
+		return nil, err
+	}
+	info.CntFans = int32(count)
+	return info, nil
 }
 
+// GetUserInfoByUserId 读取用户信息及当前有效粉丝数，任何统计失败原样返回。
 func (u *userInfoRepo) GetUserInfoByUserId(ctx context.Context, userid int64) (*domain.UserInfo, error) {
 	queryUser := getQuery(ctx).User
 	userDo := queryUser.WithContext(ctx)
 	userInfo, err := userDo.Where(queryUser.UserID.Eq(userid)).
 		Select(queryUser.UserID, queryUser.Username, queryUser.IsAdmin, queryUser.Email, queryUser.CntLikes, queryUser.Password,
-			queryUser.Gender, queryUser.AvatarPath, queryUser.Birthday, queryUser.Signature).First()
+			queryUser.Gender, queryUser.AvatarPath, queryUser.Birthday, queryUser.Signature, queryUser.CntFollows).First()
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errdef.ErrUserNotFound
 		}
 		return nil, err
 	}
-	return domain.NewUserInfo(userInfo), nil
+	info := domain.NewUserInfo(userInfo)
+	count, err := u.CountFans(ctx, userInfo.UserID)
+	if err != nil {
+		return nil, err
+	}
+	info.CntFans = int32(count)
+	return info, nil
 }
 
 func (u *userInfoRepo) GetUserLevelById(ctx context.Context, userId int64) (*model.UserLevel, error) {
@@ -90,31 +114,39 @@ func (u *userInfoRepo) GetUserFansByUserID(ctx context.Context, userId int64) ([
 	if err != nil {
 		return nil, err
 	}
-	return domain.NewUserInfos(users...), nil
+	infos := domain.NewUserInfos(users...)
+	if len(users) == 0 {
+		return infos, nil
+	}
+	counts := make([]fanCountRow, 0)
+	q := getQuery(ctx).UserFan
+	db := q.WithContext(ctx).UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
+	if err := db.Model(&model.UserFan{}).Select("user_id, COUNT(*) AS count").Where("user_id IN ?", fansIds).Group("user_id").Find(&counts).Error; err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]int32, len(counts))
+	for _, row := range counts {
+		if row.Count > 2147483647 {
+			return nil, stderr.New("粉丝数量超过当前 RPC int32 范围")
+		}
+		byID[row.UserID] = int32(row.Count)
+	}
+	for _, info := range infos {
+		info.CntFans = byID[info.UserId]
+	}
+	return infos, nil
 }
 
+// fanCountRow 接收批量粉丝聚合，避免在粉丝用户摘要列表中逐条查询数量。
+type fanCountRow struct{ UserID, Count int64 }
+
+// GetUserFolloweesByUserIDFollowListID 沿用关注分页仓储，保留旧领域接口并透传全部读取错误。
 func (u *userInfoRepo) GetUserFolloweesByUserIDFollowListID(ctx context.Context, userId, followListId int64, pageNum, pageSize int32) ([]*domain.UserSummary, error) {
-	userFollow := getQuery(ctx).UserFollow
-	userFollowDo := userFollow.WithContext(ctx)
-
-	// Get userbiz followees' ids
-	tmpIds, _, err := userFollowDo.Select(userFollow.FollowUserID).
-		Where(userFollow.UserID.Eq(userId), userFollow.FollowlistID.Eq(followListId)).
-		FindByPage(int((pageNum-1)*pageSize), int(pageSize))
-
-	// Get userbiz followees' info by ids
-	userIds := make([]int64, len(tmpIds))
-	for i, v := range tmpIds {
-		userIds[i] = v.FollowUserID
-	}
-
-	// Transform userbiz ids to userbiz summaries
-	users, err := getUsersInfoByIDs(ctx, userIds)
+	page, err := (&followRepo{}).GetFolloweesPage(ctx, userId, followListId, pageNum, pageSize)
 	if err != nil {
 		return nil, err
 	}
-
-	return domain.NewUserSummaries(users...), nil
+	return page.Users, nil
 }
 
 // UpdateEmail 在上下文选定的连接上读取并更新用户邮箱，数据库错误透传。
@@ -218,28 +250,6 @@ func (u *userInfoRepo) UpdateCntFollows(ctx context.Context, userId int64, chang
 	_, err = userDo.
 		Where(user.UserID.Eq(userId)).
 		Updates(&model.User{CntFollows: tmpUser.CntFollows + change})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// UpdateCntFans 在上下文选定的连接上调整粉丝数，拒绝更新为负数。
-func (u *userInfoRepo) UpdateCntFans(ctx context.Context, userId int64, change int64) error {
-	// 1. Check if the change is valid
-	user := getQuery(ctx).User
-	userDo, tmpUser, err := addUserModel(ctx, userId)
-	if err != nil {
-		return err
-	}
-	if tmpUser.CntFans+change < 0 {
-		return stderr.New("cnt_fans can not be less than 0")
-	}
-
-	// 2. Update cnt_fans
-	_, err = userDo.
-		Where(user.UserID.Eq(userId)).
-		Updates(&model.User{CntFans: tmpUser.CntFans + change})
 	if err != nil {
 		return err
 	}

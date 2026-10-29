@@ -25,6 +25,8 @@ type repoTransactionDriver struct {
 	failTable                             string
 	fault                                 error
 	inserts                               []string
+	insertArgs                            [][]driver.NamedValue
+	beginErr, commitErr                   error
 }
 
 type repoTransactionConn struct {
@@ -58,6 +60,9 @@ func (c *repoTransactionConn) Prepare(string) (driver.Stmt, error) {
 
 // Begin 创建内存事务，拒绝同一连接重复开启事务。
 func (c *repoTransactionConn) Begin() (driver.Tx, error) {
+	if c.state.beginErr != nil {
+		return nil, c.state.beginErr
+	}
 	if c.active {
 		return nil, errors.New("连接已有事务")
 	}
@@ -68,7 +73,7 @@ func (c *repoTransactionConn) Begin() (driver.Tx, error) {
 
 // ExecContext 模拟注册插入及保存点，拒绝事务外写入，可按表注入失败。
 // 输出：模拟影响行数或错误；pending 仅在提交时计入已提交语句数，不访问真实数据。
-func (c *repoTransactionConn) ExecContext(_ context.Context, text string, _ []driver.NamedValue) (driver.Result, error) {
+func (c *repoTransactionConn) ExecContext(_ context.Context, text string, args []driver.NamedValue) (driver.Result, error) {
 	if !c.active {
 		return nil, errors.New("仓储写入逃逸到事务外")
 	}
@@ -79,6 +84,7 @@ func (c *repoTransactionConn) ExecContext(_ context.Context, text string, _ []dr
 		c.pending = c.savepoint
 	case strings.HasPrefix(text, "INSERT INTO "):
 		c.state.inserts = append(c.state.inserts, text)
+		c.state.insertArgs = append(c.state.insertArgs, append([]driver.NamedValue{}, args...))
 		if c.state.failTable != "" && strings.HasPrefix(text, "INSERT INTO `"+c.state.failTable+"`") {
 			return nil, c.state.fault
 		}
@@ -92,6 +98,9 @@ func (c *repoTransactionConn) ExecContext(_ context.Context, text string, _ []dr
 // Commit 发布本事务的写入计数，关闭活动事务。
 func (tx *repoTransactionStub) Commit() error {
 	c := tx.conn
+	if c.state.commitErr != nil {
+		return c.state.commitErr
+	}
 	c.state.commits++
 	c.state.committed += c.pending
 	c.active, c.pending = false, 0
@@ -178,6 +187,17 @@ func TestRegisterQueryTransactionOffline(t *testing.T) {
 				if !strings.HasPrefix(state.inserts[i], "INSERT INTO `"+table+"`") {
 					t.Fatalf("注册写入表错误：want=%s SQL=%s", table, state.inserts[i])
 				}
+				if table == model.TableNameFollowList {
+					found := false
+					for _, arg := range state.insertArgs[i] {
+						if arg.Value == true {
+							found = true
+						}
+					}
+					if !strings.Contains(state.inserts[i], "`is_default`") || !found {
+						t.Fatal("注册未创建默认关注列表")
+					}
+				}
 			}
 			if failed {
 				if !errors.Is(err, fault) || state.begins != 1 || state.commits != 0 || state.rollbacks != 1 || state.committed != 0 {
@@ -221,8 +241,10 @@ func TestUserReadsQueryTransactionOffline(t *testing.T) {
 					if mode != "空粉丝" {
 						*db.Statement.Dest.(*[]int64) = []int64{9}
 					}
-				} else if mode != "空粉丝" {
+				} else if mode != "空粉丝" && calls == 2 {
 					*db.Statement.Dest.(*[]*model.User) = []*model.User{{UserID: 9, Username: "fan"}}
+				} else if mode != "空粉丝" {
+					*db.Statement.Dest.(*[]fanCountRow) = []fanCountRow{{UserID: 9, Count: 3}}
 				}
 			})
 			if mode == "经验读取失败" {
@@ -238,6 +260,9 @@ func TestUserReadsQueryTransactionOffline(t *testing.T) {
 				}
 			} else if err != nil || (mode == "粉丝" && len(users) != 1) || (mode == "空粉丝" && len(users) != 0) {
 				t.Fatalf("粉丝查询结果错误：%+v %v", users, err)
+			}
+			if mode == "粉丝" && users[0].CntFans != 3 {
+				t.Fatal("粉丝摘要未使用粉丝表聚合数量")
 			}
 		})
 	}

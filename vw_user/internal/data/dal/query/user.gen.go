@@ -38,7 +38,6 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 	_user.Shells = field.NewInt64(tableName, "shells")
 	_user.IsAdmin = field.NewBool(tableName, "is_admin")
 	_user.CntMsgNotRead = field.NewInt64(tableName, "cnt_msg_not_read")
-	_user.CntFans = field.NewInt64(tableName, "cnt_fans")
 	_user.CntLikes = field.NewInt64(tableName, "cnt_likes")
 	_user.AvatarPath = field.NewString(tableName, "avatar_path")
 	_user.CntComments = field.NewInt64(tableName, "cnt_comments")
@@ -67,7 +66,6 @@ type user struct {
 	Shells        field.Int64
 	IsAdmin       field.Bool
 	CntMsgNotRead field.Int64
-	CntFans       field.Int64
 	CntLikes      field.Int64
 	AvatarPath    field.String
 	CntComments   field.Int64
@@ -102,7 +100,6 @@ func (u *user) updateTableName(table string) *user {
 	u.Shells = field.NewInt64(table, "shells")
 	u.IsAdmin = field.NewBool(table, "is_admin")
 	u.CntMsgNotRead = field.NewInt64(table, "cnt_msg_not_read")
-	u.CntFans = field.NewInt64(table, "cnt_fans")
 	u.CntLikes = field.NewInt64(table, "cnt_likes")
 	u.AvatarPath = field.NewString(table, "avatar_path")
 	u.CntComments = field.NewInt64(table, "cnt_comments")
@@ -126,7 +123,7 @@ func (u *user) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *user) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 19)
+	u.fieldMap = make(map[string]field.Expr, 18)
 	u.fieldMap["created_at"] = u.CreatedAt
 	u.fieldMap["updated_at"] = u.UpdatedAt
 	u.fieldMap["deleted_at"] = u.DeletedAt
@@ -138,7 +135,6 @@ func (u *user) fillFieldMap() {
 	u.fieldMap["shells"] = u.Shells
 	u.fieldMap["is_admin"] = u.IsAdmin
 	u.fieldMap["cnt_msg_not_read"] = u.CntMsgNotRead
-	u.fieldMap["cnt_fans"] = u.CntFans
 	u.fieldMap["cnt_likes"] = u.CntLikes
 	u.fieldMap["avatar_path"] = u.AvatarPath
 	u.fieldMap["cnt_comments"] = u.CntComments

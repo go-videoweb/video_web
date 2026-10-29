@@ -10,16 +10,26 @@ service Follow {
     rpc FollowUser(FollowUserReq) returns (FollowUserResp) {}
     rpc UnfollowUser(UnfollowUserReq) returns (UnfollowUserResp) {}
     rpc GetFolloweesInfo(GetFolloweesInfoReq) returns (GetFolloweesInfoResp) {}
+    rpc CreateFollowList(CreateFollowListReq) returns (CreateFollowListResp) {}
+    rpc DeleteFollowLists(DeleteFollowListsReq) returns (FollowListMutationResp) {}
+    rpc GetFollowLists(GetFollowListsReq) returns (GetFollowListsResp) {}
+    rpc ModifyFollowList(ModifyFollowListReq) returns (FollowListMutationResp) {}
+    rpc SetDefaultFollowList(SetDefaultFollowListReq) returns (FollowListMutationResp) {}
+    rpc GetFollowRelation(GetFollowRelationReq) returns (GetFollowRelationResp) {}
+    rpc MoveFollowee(MoveFolloweeReq) returns (FollowListMutationResp) {}
 }
 
 message FollowUserReq {
     int64 user_id          = 1;
+    // 旧字段名，实际表示被关注的目标用户；user_id 才是可信操作人。
     int64 follower_user_id = 2;
     int64 follow_list_id   = 3;
 }
 message FollowUserResp {
     int32 status_code = 1;
     string message    = 2;
+    bool is_following = 3;
+    int64 follow_list_id = 4;
 }
 
 message UnfollowUserReq {
@@ -47,6 +57,30 @@ message GetFolloweesInfoResp {
         string avatar_path                 = 4;
         int32 gender                       = 5;
         google.protobuf.Timestamp birthday = 6;
+        // 被关注用户的 ID，不是当前查询者或关注列表 ID。
+        int64 user_id = 7;
+        int64 follow_list_id = 8;
     }
     repeated UserSummary followees_info = 3;
+    int64 total = 4;
+    int32 page_num = 5;
+    int32 page_size = 6;
 }
+
+message FollowListInfo {
+    int64 follow_list_id = 1;
+    int64 user_id = 2;
+    string name = 3;
+    bool is_default = 4;
+}
+message CreateFollowListReq { int64 user_id = 1; string name = 2; }
+message CreateFollowListResp { int64 follow_list_id = 1; }
+message DeleteFollowListsReq { int64 user_id = 1; repeated int64 id_list = 2; }
+message FollowListMutationResp { bool success = 1; }
+message GetFollowListsReq { int64 user_id = 1; }
+message GetFollowListsResp { repeated FollowListInfo lists = 1; }
+message ModifyFollowListReq { int64 user_id = 1; int64 follow_list_id = 2; string name = 3; }
+message SetDefaultFollowListReq { int64 user_id = 1; int64 follow_list_id = 2; }
+message GetFollowRelationReq { int64 user_id = 1; int64 target_user_id = 2; }
+message GetFollowRelationResp { bool is_following = 1; int64 follow_list_id = 2; }
+message MoveFolloweeReq { int64 user_id = 1; int64 target_user_id = 2; int64 follow_list_id = 3; }
