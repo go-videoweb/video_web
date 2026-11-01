@@ -3,9 +3,8 @@ package data
 import (
 	"context"
 	"database/sql"
-	stderr "errors"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
-	"strings"
 	interactv1 "vw_video/api/v1/interact"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
@@ -103,12 +102,15 @@ func (i *interactRepo) AddVideoCntBarrage(ctx context.Context /*tx *sql.Tx,*/, v
 	if err != nil {
 		return err
 	}
-	_, err = videoDo.Where(video.VideoID.Eq(videoID)).Updates(&model.Video{
+	result, err := videoDo.Where(video.VideoID.Eq(videoID)).Updates(&model.Video{
 		CntBarrages: videoModel.CntBarrages + 1,
 		Hot:         videoModel.Hot + HotEachBarrage,
 	})
 	if err != nil {
 		return err
+	}
+	if result.RowsAffected != 1 {
+		return kerrors.Conflict("VIDEO_CHANGED", "视频版本已变化，请重试发送")
 	}
 	return nil
 }
@@ -153,24 +155,10 @@ func (i *interactRepo) DecrementVideoBarrageUpvote(ctx context.Context, tx *sql.
 	return nil
 }
 
-func (i *interactRepo) AddBarrage(ctx context.Context /*tx *sql.Tx,*/, info *interactv1.VideoSendBarrageReq) error {
-	//db, err := dbutil.SqlTxToGormDB(tx)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//return db.Model(&model.Barrage{}).Create(&model.Barrage{
-	//	UserID:  info.PublisherId,
-	//	VideoID: info.VideoId,
-	//	Content: info.Content,
-	//	Hour:    info.Hour,
-	//	Minute:  info.Minute,
-	//	Second:  info.Second,
-	//	Color:   info.Color,
-	//}).Error
-	hms := strings.Split(info.Time, ":")
-	if len(hms) != 3 {
-		return stderr.New("invalid time format")
+// AddBarrage 在当前事务内保存整数秒位置，初始点赞数由服务端置零。
+func (i *interactRepo) AddBarrage(ctx context.Context, info *interactv1.VideoSendBarrageReq) error {
+	if err := requireVideo(ctx, info.VideoId); err != nil {
+		return err
 	}
 	barrage := getQuery(ctx).Barrage
 	barrageDo := barrage.WithContext(ctx)
@@ -178,9 +166,7 @@ func (i *interactRepo) AddBarrage(ctx context.Context /*tx *sql.Tx,*/, info *int
 		PublisherID: info.PublisherId,
 		VideoID:     info.VideoId,
 		Content:     info.Content,
-		Hour:        hms[0],
-		Minute:      hms[1],
-		Second:      hms[2],
+		PublishTime: int64(info.PositionSecond),
 		Color:       info.Color,
 	})
 }
@@ -212,10 +198,21 @@ func (i *interactRepo) GetUserVideoStatus(ctx context.Context, userID, videoID i
 	return status, int32(row.ShellsCount), nil
 }
 
-// GetUserBarrageStatus 保留仓储接口但暂不接入个人弹幕状态。
-// 输入：保留原用户/弹幕 ID；输出：0 和未支持错误，不访问数据库。
+// GetUserBarrageStatus 读取有效弹幕的点赞关系，不创建默认记录。
 func (i *interactRepo) GetUserBarrageStatus(ctx context.Context, userID, barrageID int64) (int64, error) {
-	return 0, biz.ErrInteractionNotSupported
+	b := getQuery(ctx).Barrage
+	row, err := b.WithContext(ctx).Where(b.BarrageID.Eq(barrageID)).First()
+	if err != nil {
+		return 0, err
+	}
+	if err = requireVideo(ctx, row.VideoID); err != nil {
+		return 0, err
+	}
+	states, err := i.GetBarrageLikes(ctx, userID, row.VideoID, []int64{barrageID})
+	if states[barrageID] {
+		return 1, err
+	}
+	return 0, err
 }
 
 // GetSqlTx is a helper function to get *sql.Tx from *gorm.DB.

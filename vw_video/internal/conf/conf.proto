@@ -53,8 +53,6 @@ message Data {
     }
     Mysql mysql                = 1;
     RedisCluster redis_cluster = 2;
-    reserved 3;
-    reserved "mongo";
 }
 
 message Registry {

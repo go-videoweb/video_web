@@ -76,12 +76,13 @@ func (s *InteractService) VideoShare(ctx context.Context, req *interactv1.VideoS
 	}, nil
 }
 
+// VideoSendBarrage 接收整数秒位置，只有弹幕及视频计数提交成功才返回成功。
 func (s *InteractService) VideoSendBarrage(ctx context.Context, req *interactv1.VideoSendBarrageReq) (*emptypb.Empty, error) {
 	err := s.interactUsecase.SendBarrage(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (s *InteractService) BarrageUpvote(ctx context.Context, req *interactv1.UpvoteBarrageReq) (*emptypb.Empty, error) {

@@ -74,9 +74,9 @@ func NewVideoInfoUsecase(repo VideoInfoRepo, tx mysqlutil.Transaction, logger lo
 	}
 }
 
-// GetVideoInfoById 获取视频公共详情和弹幕，并按身份处理个人数据。
+// GetVideoInfoById 获取视频公共详情，并按身份处理个人数据；弹幕改用分段读取接口。
 // 输入：ctx 为请求上下文；videoId 为目标视频 ID；userId 为 0 表示游客，正数须由可信调用方验证。
-// 输出：游客返回公共详情和弹幕，不包含个人互动状态；登录用户额外返回个人互动状态。
+// 输出：游客返回公共详情，不包含个人互动状态；登录用户额外返回个人互动状态。
 // userId 为负数时返回 InvalidArgument，且不访问仓储；查询或更新失败时返回 nil 和包装后的业务错误。
 // 游客和登录用户均沿用增加播放量和热度的行为，只有登录用户更新最近观看时间，不保存摘要副本。
 func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userId int64) (*videoinfov1.GetVideoInfoResp, error) {
@@ -113,21 +113,6 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 			CoverPath:   videoDetail.CoverPath,
 			Size:        videoDetail.Size,
 			CreatedTime: timestamppb.New(videoDetail.CreatedAt),
-		}
-
-		barrages, err := uc.repo.GetBarragesByVideoId(ctx, videoId)
-		if err != nil {
-			return err
-		}
-
-		ret.Barrages = make([]*videoinfov1.GetVideoInfoResp_BarrageInfo, 0)
-		for _, barrage := range barrages {
-			ret.Barrages = append(ret.Barrages, &videoinfov1.GetVideoInfoResp_BarrageInfo{
-				BarrageId: barrage.BarrageID,
-				Color:     barrage.Color,
-				Content:   barrage.Content,
-				Time:      strings.Join([]string{barrage.Hour, barrage.Minute, barrage.Second}, ":"),
-			})
 		}
 
 		// 游客不访问个人状态仓储，避免读取或初始化 user_id=0 的互动记录。

@@ -78,18 +78,14 @@ func TestVideoStatusPatch(t *testing.T) {
 	}
 }
 
-// TestDisabledPersonalLikes 验证没有仓储或基础设施时也明确拒绝，不允许先修改计数。
-func TestDisabledPersonalLikes(t *testing.T) {
+// TestLegacyBarrageSagaRejected 验证旧独立分支仍拒绝，不能绕过新本地事务修改计数。
+func TestLegacyBarrageSagaRejected(t *testing.T) {
 	ctx := context.Background()
 	interact := &InteractUsecase{}
-	comment := &VideoCommentUsecase{}
 	for _, call := range []func() error{
 		func() error { return interact.UpvoteBarrage(ctx, 9, 1) },
-		func() error { _, err := interact.GetUserBarrageStatus(ctx, 7, 9); return err },
 		func() error { return interact.SetUserBarrageStatus(ctx, 7, 9, nil) },
 		func() error { return interact.SetUserBarrageStatusRevert(ctx, 7, 9, nil) },
-		func() error { return comment.UpvoteComment(ctx, 9, 7, false) },
-		func() error { _, err := comment.CheckIfUserUpvotedComment(ctx, 9, 7); return err },
 	} {
 		err := call()
 		if err == nil || kerrors.FromError(err).Code != 501 || kerrors.FromError(err).Reason != "INTERACTION_NOT_SUPPORTED" {

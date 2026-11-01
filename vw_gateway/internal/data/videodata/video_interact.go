@@ -106,18 +106,25 @@ func (i *interactRepo) UpvoteVideo(ctx context.Context, userId int64, videoId in
 	return isUpvoted == 1, saga.Submit()
 }
 
-// UpvoteBarrage 在创建 Saga 前拒绝尚未启用的弹幕点赞。
-func (i *interactRepo) UpvoteBarrage(ctx context.Context, userId, barrageId int64) error {
-	return interactionNotSupported()
+// UpvoteBarrage 单次调用视频本地事务，网关不维护点赞关系或计数。
+func (i *interactRepo) UpvoteBarrage(ctx context.Context, userId int64, req *interactv1.VideoUpvoteBarrageReq) (*interactv1.VideoUpvoteBarrageResp, error) {
+	resp, err := i.data.videoInteractClient.SetBarrageLike(ctx, &interactGRPC.SetBarrageLikeReq{UserId: userId, VideoId: req.VideoId, BarrageId: req.BarrageId, Liked: req.Liked})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, kerrors.InternalServer("INVALID_VIDEO_RESPONSE", "视频服务未返回点赞结果")
+	}
+	return &interactv1.VideoUpvoteBarrageResp{StatusCode: 200, Message: "操作成功", IsUpvoted: resp.IsUpvoted, UpvoteCount: resp.UpvoteCount}, nil
 }
 
 func (i *interactRepo) SendBarrage(ctx context.Context, userId int64, req *interactv1.VideoSendBarrageReq) error {
 	_, err := i.data.videoInteractClient.VideoSendBarrage(ctx, &interactGRPC.VideoSendBarrageReq{
-		PublisherId: userId,
-		VideoId:     req.VideoId,
-		Content:     req.Content,
-		Time:        req.Time,
-		Color:       req.Color,
+		PublisherId:    userId,
+		VideoId:        req.VideoId,
+		Content:        req.Content,
+		PositionSecond: req.PositionSecond,
+		Color:          req.Color,
 	})
 	return err
 }
