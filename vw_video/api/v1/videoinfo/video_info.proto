@@ -99,7 +99,8 @@ message GetVideoInfoResp {
         int64 favorite_record_id = 6;
     }
     VideoMetaInfo video_detail        = 1;
-    repeated BarrageInfo barrages     = 2;
+    // 已改为 GetBarrages 分段读取，详情不再填充全量弹幕。
+    repeated BarrageInfo barrages     = 2 [deprecated = true];
     UserVideoStatus user_video_status = 3;
 }
 

@@ -14,9 +14,7 @@ const TableNameBarrage = "barrages"
 
 // Barrage mapped from table <barrages>
 type Barrage struct {
-	Hour        string         `gorm:"column:hour;type:char(2);not null" json:"hour"`
-	Minute      string         `gorm:"column:minute;type:char(2);not null" json:"minute"`
-	Second      string         `gorm:"column:second;type:char(2);not null" json:"second"`
+	PublishTime int64          `gorm:"column:publish_time;type:int;not null;comment:弹幕发布时, 视频已经播放了多少秒" json:"publish_time"` // 弹幕发布时, 视频已经播放了多少秒
 	BarrageID   int64          `gorm:"column:barrage_id;type:bigint;primaryKey;autoIncrement:true" json:"barrage_id"`
 	PublisherID int64          `gorm:"column:publisher_id;type:bigint;not null;index:INDEX_UID,priority:1" json:"publisher_id"`
 	VideoID     int64          `gorm:"column:video_id;type:bigint;not null;index:INDEX_VID,priority:1" json:"video_id"`

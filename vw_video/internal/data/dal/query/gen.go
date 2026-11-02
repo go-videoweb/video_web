@@ -20,6 +20,8 @@ var (
 	Barrage         *barrage
 	Comment         *comment
 	FavoriteVideo   *favoriteVideo
+	UserBarrageLike *userBarrageLike
+	UserCommentLike *userCommentLike
 	UserVideoStatus *userVideoStatus
 	Video           *video
 )
@@ -29,6 +31,8 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	Barrage = &Q.Barrage
 	Comment = &Q.Comment
 	FavoriteVideo = &Q.FavoriteVideo
+	UserBarrageLike = &Q.UserBarrageLike
+	UserCommentLike = &Q.UserCommentLike
 	UserVideoStatus = &Q.UserVideoStatus
 	Video = &Q.Video
 }
@@ -39,6 +43,8 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		Barrage:         newBarrage(db, opts...),
 		Comment:         newComment(db, opts...),
 		FavoriteVideo:   newFavoriteVideo(db, opts...),
+		UserBarrageLike: newUserBarrageLike(db, opts...),
+		UserCommentLike: newUserCommentLike(db, opts...),
 		UserVideoStatus: newUserVideoStatus(db, opts...),
 		Video:           newVideo(db, opts...),
 	}
@@ -50,6 +56,8 @@ type Query struct {
 	Barrage         barrage
 	Comment         comment
 	FavoriteVideo   favoriteVideo
+	UserBarrageLike userBarrageLike
+	UserCommentLike userCommentLike
 	UserVideoStatus userVideoStatus
 	Video           video
 }
@@ -62,6 +70,8 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		Barrage:         q.Barrage.clone(db),
 		Comment:         q.Comment.clone(db),
 		FavoriteVideo:   q.FavoriteVideo.clone(db),
+		UserBarrageLike: q.UserBarrageLike.clone(db),
+		UserCommentLike: q.UserCommentLike.clone(db),
 		UserVideoStatus: q.UserVideoStatus.clone(db),
 		Video:           q.Video.clone(db),
 	}
@@ -81,6 +91,8 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		Barrage:         q.Barrage.replaceDB(db),
 		Comment:         q.Comment.replaceDB(db),
 		FavoriteVideo:   q.FavoriteVideo.replaceDB(db),
+		UserBarrageLike: q.UserBarrageLike.replaceDB(db),
+		UserCommentLike: q.UserCommentLike.replaceDB(db),
 		UserVideoStatus: q.UserVideoStatus.replaceDB(db),
 		Video:           q.Video.replaceDB(db),
 	}
@@ -90,6 +102,8 @@ type queryCtx struct {
 	Barrage         IBarrageDo
 	Comment         ICommentDo
 	FavoriteVideo   IFavoriteVideoDo
+	UserBarrageLike IUserBarrageLikeDo
+	UserCommentLike IUserCommentLikeDo
 	UserVideoStatus IUserVideoStatusDo
 	Video           IVideoDo
 }
@@ -99,6 +113,8 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		Barrage:         q.Barrage.WithContext(ctx),
 		Comment:         q.Comment.WithContext(ctx),
 		FavoriteVideo:   q.FavoriteVideo.WithContext(ctx),
+		UserBarrageLike: q.UserBarrageLike.WithContext(ctx),
+		UserCommentLike: q.UserCommentLike.WithContext(ctx),
 		UserVideoStatus: q.UserVideoStatus.WithContext(ctx),
 		Video:           q.Video.WithContext(ctx),
 	}

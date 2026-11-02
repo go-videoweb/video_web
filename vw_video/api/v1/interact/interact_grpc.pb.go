@@ -27,6 +27,8 @@ const (
 	VideoInteract_VideoThrowShellsRevert_FullMethodName     = "/video.v1.interact.VideoInteract/VideoThrowShellsRevert"
 	VideoInteract_VideoShare_FullMethodName                 = "/video.v1.interact.VideoInteract/VideoShare"
 	VideoInteract_VideoSendBarrage_FullMethodName           = "/video.v1.interact.VideoInteract/VideoSendBarrage"
+	VideoInteract_GetBarrages_FullMethodName                = "/video.v1.interact.VideoInteract/GetBarrages"
+	VideoInteract_SetBarrageLike_FullMethodName             = "/video.v1.interact.VideoInteract/SetBarrageLike"
 	VideoInteract_BarrageUpvote_FullMethodName              = "/video.v1.interact.VideoInteract/BarrageUpvote"
 	VideoInteract_BarrageUpvoteRevert_FullMethodName        = "/video.v1.interact.VideoInteract/BarrageUpvoteRevert"
 	VideoInteract_GetUserVideoStatus_FullMethodName         = "/video.v1.interact.VideoInteract/GetUserVideoStatus"
@@ -52,6 +54,8 @@ type VideoInteractClient interface {
 	VideoThrowShellsRevert(ctx context.Context, in *VideoThrowShellsReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	VideoShare(ctx context.Context, in *VideoShareReq, opts ...grpc.CallOption) (*VideoShareResp, error)
 	VideoSendBarrage(ctx context.Context, in *VideoSendBarrageReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetBarrages(ctx context.Context, in *GetBarragesReq, opts ...grpc.CallOption) (*GetBarragesResp, error)
+	SetBarrageLike(ctx context.Context, in *SetBarrageLikeReq, opts ...grpc.CallOption) (*SetBarrageLikeResp, error)
 	BarrageUpvote(ctx context.Context, in *UpvoteBarrageReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	BarrageUpvoteRevert(ctx context.Context, in *UpvoteBarrageReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetUserVideoStatus(ctx context.Context, in *GetUserVideoStatusReq, opts ...grpc.CallOption) (*GetUserVideoStatusResp, error)
@@ -134,6 +138,26 @@ func (c *videoInteractClient) VideoSendBarrage(ctx context.Context, in *VideoSen
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, VideoInteract_VideoSendBarrage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoInteractClient) GetBarrages(ctx context.Context, in *GetBarragesReq, opts ...grpc.CallOption) (*GetBarragesResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBarragesResp)
+	err := c.cc.Invoke(ctx, VideoInteract_GetBarrages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoInteractClient) SetBarrageLike(ctx context.Context, in *SetBarrageLikeReq, opts ...grpc.CallOption) (*SetBarrageLikeResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetBarrageLikeResp)
+	err := c.cc.Invoke(ctx, VideoInteract_SetBarrageLike_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -235,6 +259,8 @@ type VideoInteractServer interface {
 	VideoThrowShellsRevert(context.Context, *VideoThrowShellsReq) (*emptypb.Empty, error)
 	VideoShare(context.Context, *VideoShareReq) (*VideoShareResp, error)
 	VideoSendBarrage(context.Context, *VideoSendBarrageReq) (*emptypb.Empty, error)
+	GetBarrages(context.Context, *GetBarragesReq) (*GetBarragesResp, error)
+	SetBarrageLike(context.Context, *SetBarrageLikeReq) (*SetBarrageLikeResp, error)
 	BarrageUpvote(context.Context, *UpvoteBarrageReq) (*emptypb.Empty, error)
 	BarrageUpvoteRevert(context.Context, *UpvoteBarrageReq) (*emptypb.Empty, error)
 	GetUserVideoStatus(context.Context, *GetUserVideoStatusReq) (*GetUserVideoStatusResp, error)
@@ -273,6 +299,12 @@ func (UnimplementedVideoInteractServer) VideoShare(context.Context, *VideoShareR
 }
 func (UnimplementedVideoInteractServer) VideoSendBarrage(context.Context, *VideoSendBarrageReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VideoSendBarrage not implemented")
+}
+func (UnimplementedVideoInteractServer) GetBarrages(context.Context, *GetBarragesReq) (*GetBarragesResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBarrages not implemented")
+}
+func (UnimplementedVideoInteractServer) SetBarrageLike(context.Context, *SetBarrageLikeReq) (*SetBarrageLikeResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetBarrageLike not implemented")
 }
 func (UnimplementedVideoInteractServer) BarrageUpvote(context.Context, *UpvoteBarrageReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BarrageUpvote not implemented")
@@ -441,6 +473,42 @@ func _VideoInteract_VideoSendBarrage_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VideoInteractServer).VideoSendBarrage(ctx, req.(*VideoSendBarrageReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoInteract_GetBarrages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBarragesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoInteractServer).GetBarrages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoInteract_GetBarrages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoInteractServer).GetBarrages(ctx, req.(*GetBarragesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoInteract_SetBarrageLike_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetBarrageLikeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoInteractServer).SetBarrageLike(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoInteract_SetBarrageLike_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoInteractServer).SetBarrageLike(ctx, req.(*SetBarrageLikeReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -623,6 +691,14 @@ var VideoInteract_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VideoSendBarrage",
 			Handler:    _VideoInteract_VideoSendBarrage_Handler,
+		},
+		{
+			MethodName: "GetBarrages",
+			Handler:    _VideoInteract_GetBarrages_Handler,
+		},
+		{
+			MethodName: "SetBarrageLike",
+			Handler:    _VideoInteract_SetBarrageLike_Handler,
 		},
 		{
 			MethodName: "BarrageUpvote",

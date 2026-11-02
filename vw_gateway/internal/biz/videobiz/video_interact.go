@@ -9,7 +9,8 @@ import (
 type InteractRepo interface {
 	FavoriteVideo(ctx context.Context, userId int64, req *interactv1.VideoFavoriteReq) (*interactv1.VideoFavoriteResp, error)
 	UpvoteVideo(ctx context.Context, userId int64, videoId int64) (bool, error)
-	UpvoteBarrage(ctx context.Context, userId int64, barrageId int64) error
+	UpvoteBarrage(ctx context.Context, userID int64, req *interactv1.VideoUpvoteBarrageReq) (*interactv1.VideoUpvoteBarrageResp, error)
+	GetBarrages(ctx context.Context, userID int64, req *interactv1.GetBarragesReq) (*interactv1.GetBarragesResp, error)
 	SendBarrage(ctx context.Context, userId int64, req *interactv1.VideoSendBarrageReq) error
 	ShareVideo(ctx context.Context, userId int64, videoId int64) (string, error)
 	ThrowShells(ctx context.Context, userId int64, videoId int64, count int32) error
@@ -36,8 +37,14 @@ func (u *InteractUsecase) Upvote(ctx context.Context, userId int64, videoId int6
 	return u.repo.UpvoteVideo(ctx, userId, videoId)
 }
 
-func (u *InteractUsecase) UpvoteBarrage(ctx context.Context, userId int64, barrageId int64) error {
-	return u.repo.UpvoteBarrage(ctx, userId, barrageId)
+// UpvoteBarrage 直接转发目标状态，不预读旧状态或创建 Saga。
+func (u *InteractUsecase) UpvoteBarrage(ctx context.Context, userId int64, req *interactv1.VideoUpvoteBarrageReq) (*interactv1.VideoUpvoteBarrageResp, error) {
+	return u.repo.UpvoteBarrage(ctx, userId, req)
+}
+
+// GetBarrages 透传播放区间及分页游标，不复用视频详情接口。
+func (u *InteractUsecase) GetBarrages(ctx context.Context, userID int64, req *interactv1.GetBarragesReq) (*interactv1.GetBarragesResp, error) {
+	return u.repo.GetBarrages(ctx, userID, req)
 }
 
 func (u *InteractUsecase) SendBarrage(ctx context.Context, userId int64, req *interactv1.VideoSendBarrageReq) error {

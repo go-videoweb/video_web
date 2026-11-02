@@ -11,7 +11,7 @@ service VideoComment {
     rpc PublishComment(PublishCommentReq) returns (PublishCommentResp) {}
     rpc GetCommentList(GetCommentListReq) returns (GetCommentListResp) {}
     rpc GetCommentReplies(GetCommentRepliesReq) returns (GetCommentRepliesResp) {}
-    rpc UpvoteComment(UpvoteCommentReq) returns (google.protobuf.Empty) {}
+    rpc UpvoteComment(UpvoteCommentReq) returns (UpvoteCommentResp) {}
     rpc UpvoteCommentRevert(UpvoteCommentReq) returns (google.protobuf.Empty) {}
     rpc CheckIfUserUpvotedComment(CheckIfUserUpvotedCommentReq) returns (CheckIfUserUpvotedCommentResp) {}
     rpc GetPublisherId(GetPublisherIdReq) returns (GetPublisherIdResp) {}
@@ -26,6 +26,17 @@ message CommentInfo {
     uint64 upvote_count                  = 6;
     string ip_address                    = 7;
     uint32 cnt_replies                   = 8;
+    sint64 parent_id = 9;
+    bool is_upvoted = 10;
+    CommentReference reference = 11;
+}
+
+// CommentReference 仅包含直接回复对象，不递归包含引用；不可见时不返回正文。
+message CommentReference {
+    sint64 comment_id = 1;
+    sint64 publisher_id = 2;
+    string content = 3;
+    bool unavailable = 4;
 }
 
 message PublishCommentReq {
@@ -39,39 +50,67 @@ message PublishCommentResp {
     sint64 comment_id = 1;
 }
 
+// CommentCursor 保存上一批最后一条评论的位置，不能跨视频、楼层或排序复用。
+message CommentCursor {
+    // 所属视频 ID，必须与本次请求一致。
+    sint64 video_id = 1;
+    // 主评论列表为 0，回复列表为所属主评论 ID。
+    sint64 root_id = 2;
+    // 排序字段：created_at 或 cnt_upvote。
+    string sort_by = 3;
+    // 排序方向：asc 或 desc；热度排序只允许 desc。
+    string order = 4;
+    // 上一批最后一条已返回评论的 ID，用于同值排序。
+    sint64 comment_id = 5;
+    // 该评论的创建时间；按时间排序时必须提供。
+    google.protobuf.Timestamp created_at = 6;
+    // 该评论在读取时的点赞数；不是固定的热度快照。
+    uint64 upvote_count = 7;
+}
+
 message GetCommentListReq {
     sint64 video_id = 1;
-    int32 page_num  = 2;
-    int32 page_size = 3;
     string sort_by  = 4;
     string order    = 5;
+    // 首批不传；后续传上一批返回的 next_cursor 对象。
+    CommentCursor cursor = 6;
+    sint64 user_id = 7;
 }
 message GetCommentListResp {
     repeated CommentInfo comments = 1;
     int32 total_count             = 2;
+    // 仅有下一批时返回，否则为空。
+    CommentCursor next_cursor = 3;
+    bool has_more = 4;
 }
 
 message GetCommentRepliesReq {
     sint64 comment_id = 1;
-    int32 page_num    = 2;
-    int32 page_size   = 3;
     string sort_by    = 4;
     string order      = 5;
+    // 首批不传；后续传上一批返回的 next_cursor 对象。
+    CommentCursor cursor = 6;
+    sint64 user_id = 7;
+    sint64 video_id = 8;
 }
 message GetCommentRepliesResp {
     repeated CommentInfo replies = 1;
+    // 仅有下一批时返回，否则为空。
+    CommentCursor next_cursor = 2;
+    bool has_more = 3;
 }
 
 message UpvoteCommentReq {
     sint64 comment_id = 1;
     sint64 user_id    = 2;
 
-    // If is_upvote is true, the user has upvoted the comment before, so we need to cancel the upvote.
-    // Otherwise, the user has not upvoted the comment before, so we need to add the upvote.
-    bool is_upvoted = 3;
+    sint64 video_id = 4;
+    // 必须明确提供目标状态，不能根据客户端旧状态切换。
+    optional bool liked = 5;
 }
 message UpvoteCommentResp {
     uint64 upvote_count = 1;
+    bool is_upvoted = 2;
 }
 
 message CheckIfUserUpvotedCommentReq {

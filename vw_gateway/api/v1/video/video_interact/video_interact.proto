@@ -6,6 +6,11 @@ import "google/api/annotations.proto";
 option go_package = "vw_gateway/api/v1/video/interact;interact";
 
 service VideoInteract {
+    rpc GetBarrages(GetBarragesReq) returns (GetBarragesResp) {
+        option (google.api.http) = {
+            get: "/api/v1/video/{video_id}/barrages"
+        };
+    }
     rpc VideoUpvote(VideoUpvoteReq) returns (VideoUpvoteResp) {
         option (google.api.http) = {
             put: "/api/v1/video/interaction/{video_id}/upvote"
@@ -94,8 +99,7 @@ message VideoSendBarrageReq {
     int64 video_id     = 1;
     string content     = 2;
     string color       = 3;
-    string time        = 4;  // hh:mm:ss
-    int64 upvote_count = 5;
+    int32 position_second = 6;
 }
 message VideoSendBarrageResp {
     int32 status_code = 1;
@@ -105,8 +109,49 @@ message VideoSendBarrageResp {
 message VideoUpvoteBarrageReq {
     int64 video_id   = 1;
     int64 barrage_id = 2;
+    optional bool liked = 3;
 }
 message VideoUpvoteBarrageResp {
     int32 status_code = 1;
     string message    = 2;
+    bool is_upvoted = 3;
+    int64 upvote_count = 4;
+}
+
+// BarrageCursor 保存上一批最后一条弹幕的位置，绑定原视频及播放区间。
+message BarrageCursor {
+    // 所属视频 ID，必须与本次请求一致。
+    int64 video_id = 1;
+    // 原查询区间起点，单位为非负整数秒，包含该秒。
+    int32 start_second = 2;
+    // 原查询区间终点，单位为整数秒，不包含该秒。
+    int32 end_second = 3;
+    // 上一批最后一条已返回弹幕的播放位置，单位为整数秒。
+    int32 position_second = 4;
+    // 该弹幕的 ID，用于继续读取同秒的其他弹幕。
+    int64 barrage_id = 5;
+}
+
+message GetBarragesReq {
+    int64 video_id = 1;
+    int32 start_second = 2;
+    int32 end_second = 3;
+    // 首批不传；后续传上一批返回的 next_cursor 对象。
+    BarrageCursor cursor = 4;
+}
+message BarrageInfo {
+    int64 barrage_id = 1;
+    int64 publisher_id = 2;
+    int64 video_id = 3;
+    string content = 4;
+    string color = 5;
+    int32 position_second = 6;
+    int64 upvote_count = 7;
+    bool is_upvoted = 8;
+}
+message GetBarragesResp {
+    repeated BarrageInfo barrages = 1;
+    // 仅有下一批时返回，否则为空。
+    BarrageCursor next_cursor = 2;
+    bool has_more = 3;
 }

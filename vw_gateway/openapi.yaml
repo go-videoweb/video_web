@@ -486,22 +486,48 @@ paths:
                   required: true
                   schema:
                     type: string
-                - name: pageNum
-                  in: query
-                  schema:
-                    type: integer
-                    format: int32
-                - name: pageSize
-                  in: query
-                  schema:
-                    type: integer
-                    format: int32
                 - name: sortBy
                   in: query
                   schema:
                     type: string
                 - name: order
                   in: query
+                  schema:
+                    type: string
+                - name: cursor.videoId
+                  in: query
+                  description: 所属视频 ID，必须与本次请求一致。
+                  schema:
+                    type: string
+                - name: cursor.rootId
+                  in: query
+                  description: 主评论列表为 0，回复列表为所属主评论 ID。
+                  schema:
+                    type: string
+                - name: cursor.sortBy
+                  in: query
+                  description: 排序字段：created_at 或 cnt_upvote。
+                  schema:
+                    type: string
+                - name: cursor.order
+                  in: query
+                  description: 排序方向：asc 或 desc；热度排序只允许 desc。
+                  schema:
+                    type: string
+                - name: cursor.commentId
+                  in: query
+                  description: 上一批最后一条已返回评论的 ID，用于同值排序。
+                  schema:
+                    type: string
+                - name: cursor.createdAt
+                  in: query
+                  description: 该评论的创建时间；按时间排序时必须提供。
+                  schema:
+                    type: string
+                    format: date-time
+                - name: cursor.upvoteCount
+                  in: query
+                  description: 该评论在读取时的点赞数；不是固定的热度快照。
                   schema:
                     type: string
             responses:
@@ -579,22 +605,48 @@ paths:
                   required: true
                   schema:
                     type: string
-                - name: pageNum
-                  in: query
-                  schema:
-                    type: integer
-                    format: int32
-                - name: pageSize
-                  in: query
-                  schema:
-                    type: integer
-                    format: int32
                 - name: sortBy
                   in: query
                   schema:
                     type: string
                 - name: order
                   in: query
+                  schema:
+                    type: string
+                - name: cursor.videoId
+                  in: query
+                  description: 所属视频 ID，必须与本次请求一致。
+                  schema:
+                    type: string
+                - name: cursor.rootId
+                  in: query
+                  description: 主评论列表为 0，回复列表为所属主评论 ID。
+                  schema:
+                    type: string
+                - name: cursor.sortBy
+                  in: query
+                  description: 排序字段：created_at 或 cnt_upvote。
+                  schema:
+                    type: string
+                - name: cursor.order
+                  in: query
+                  description: 排序方向：asc 或 desc；热度排序只允许 desc。
+                  schema:
+                    type: string
+                - name: cursor.commentId
+                  in: query
+                  description: 上一批最后一条已返回评论的 ID，用于同值排序。
+                  schema:
+                    type: string
+                - name: cursor.createdAt
+                  in: query
+                  description: 该评论的创建时间；按时间排序时必须提供。
+                  schema:
+                    type: string
+                    format: date-time
+                - name: cursor.upvoteCount
+                  in: query
+                  description: 该评论在读取时的点赞数；不是固定的热度快照。
                   schema:
                     type: string
             responses:
@@ -1104,6 +1156,62 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/gateway.api.v1.user.follow.FollowListMutationResp'
+    /api/v1/video/{videoId}/barrages:
+        get:
+            tags:
+                - VideoInteract
+            operationId: VideoInteract_GetBarrages
+            parameters:
+                - name: videoId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: startSecond
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: endSecond
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: cursor.videoId
+                  in: query
+                  description: 所属视频 ID，必须与本次请求一致。
+                  schema:
+                    type: string
+                - name: cursor.startSecond
+                  in: query
+                  description: 原查询区间起点，单位为非负整数秒，包含该秒。
+                  schema:
+                    type: integer
+                    format: int32
+                - name: cursor.endSecond
+                  in: query
+                  description: 原查询区间终点，单位为整数秒，不包含该秒。
+                  schema:
+                    type: integer
+                    format: int32
+                - name: cursor.positionSecond
+                  in: query
+                  description: 上一批最后一条已返回弹幕的播放位置，单位为整数秒。
+                  schema:
+                    type: integer
+                    format: int32
+                - name: cursor.barrageId
+                  in: query
+                  description: 该弹幕的 ID，用于继续读取同秒的其他弹幕。
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.video.interact.GetBarragesResp'
 components:
     schemas:
         gateway.api.v1.user.captcha.GetCodeCaptchaResp:
@@ -1483,6 +1591,32 @@ components:
                     $ref: '#/components/schemas/gateway.api.v1.user.userinfo.UserInfo'
                 common:
                     $ref: '#/components/schemas/gateway.api.v1.user.userinfo.CommonResp'
+        gateway.api.v1.video.comment.CommentCursor:
+            type: object
+            properties:
+                videoId:
+                    type: string
+                    description: 所属视频 ID，必须与本次请求一致。
+                rootId:
+                    type: string
+                    description: 主评论列表为 0，回复列表为所属主评论 ID。
+                sortBy:
+                    type: string
+                    description: 排序字段：created_at 或 cnt_upvote。
+                order:
+                    type: string
+                    description: 排序方向：asc 或 desc；热度排序只允许 desc。
+                commentId:
+                    type: string
+                    description: 上一批最后一条已返回评论的 ID，用于同值排序。
+                createdAt:
+                    type: string
+                    description: 该评论的创建时间；按时间排序时必须提供。
+                    format: date-time
+                upvoteCount:
+                    type: string
+                    description: 该评论在读取时的点赞数；不是固定的热度快照。
+            description: CommentCursor 保存上一批最后一条评论的位置，不能跨视频、楼层或排序复用。
         gateway.api.v1.video.comment.CommentInfo:
             type: object
             properties:
@@ -1504,6 +1638,12 @@ components:
                 cntReplies:
                     type: integer
                     format: uint32
+                parentId:
+                    type: string
+                isUpvoted:
+                    type: boolean
+                reference:
+                    $ref: '#/components/schemas/gateway.api.v1.video.comment.CommentReference'
         gateway.api.v1.video.comment.CommentVideoReq:
             type: object
             properties:
@@ -1528,6 +1668,12 @@ components:
                 totalCount:
                     type: integer
                     format: int32
+                nextCursor:
+                    allOf:
+                        - $ref: '#/components/schemas/gateway.api.v1.video.comment.CommentCursor'
+                    description: 仅有下一批时返回，否则为空。
+                hasMore:
+                    type: boolean
         gateway.api.v1.video.comment.GetCommentRepliesResp:
             type: object
             properties:
@@ -1535,6 +1681,12 @@ components:
                     type: array
                     items:
                         $ref: '#/components/schemas/gateway.api.v1.video.comment.CommentInfo'
+                nextCursor:
+                    allOf:
+                        - $ref: '#/components/schemas/gateway.api.v1.video.comment.CommentCursor'
+                    description: 仅有下一批时返回，否则为空。
+                hasMore:
+                    type: boolean
         gateway.api.v1.video.comment.UpvoteCommentReq:
             type: object
             properties:
@@ -1542,11 +1694,8 @@ components:
                     type: string
                 videoId:
                     type: string
-                isUpvote:
+                liked:
                     type: boolean
-                    description: |-
-                        If is_upvote is true, the user has upvoted the comment before, so we need to cancel the upvote.
-                         Otherwise, the user has not upvoted the comment before, so we need to add the upvote.
         gateway.api.v1.video.comment.UpvoteCommentResp:
             type: object
             properties:
@@ -1554,6 +1703,10 @@ components:
                     type: integer
                     format: int32
                 message:
+                    type: string
+                isUpvoted:
+                    type: boolean
+                upvoteCount:
                     type: string
         gateway.api.v1.video.interact.VideoFavoriteReq:
             type: object
@@ -1592,10 +1745,9 @@ components:
                     type: string
                 color:
                     type: string
-                time:
-                    type: string
-                upvoteCount:
-                    type: string
+                positionSecond:
+                    type: integer
+                    format: int32
         gateway.api.v1.video.interact.VideoSendBarrageResp:
             type: object
             properties:
@@ -1637,6 +1789,8 @@ components:
                     type: string
                 barrageId:
                     type: string
+                liked:
+                    type: boolean
         gateway.api.v1.video.interact.VideoUpvoteBarrageResp:
             type: object
             properties:
@@ -1644,6 +1798,10 @@ components:
                     type: integer
                     format: int32
                 message:
+                    type: string
+                isUpvoted:
+                    type: boolean
+                upvoteCount:
                     type: string
         gateway.api.v1.video.interact.VideoUpvoteReq:
             type: object
@@ -1947,6 +2105,73 @@ components:
             properties:
                 followListId:
                     type: string
+        gateway.api.v1.video.comment.CommentReference:
+            type: object
+            properties:
+                commentId:
+                    type: string
+                publisherId:
+                    type: string
+                content:
+                    type: string
+                unavailable:
+                    type: boolean
+            description: CommentReference 返回直接回复对象的完整正文，展示截断由前端负责。
+        gateway.api.v1.video.interact.BarrageCursor:
+            type: object
+            properties:
+                videoId:
+                    type: string
+                    description: 所属视频 ID，必须与本次请求一致。
+                startSecond:
+                    type: integer
+                    description: 原查询区间起点，单位为非负整数秒，包含该秒。
+                    format: int32
+                endSecond:
+                    type: integer
+                    description: 原查询区间终点，单位为整数秒，不包含该秒。
+                    format: int32
+                positionSecond:
+                    type: integer
+                    description: 上一批最后一条已返回弹幕的播放位置，单位为整数秒。
+                    format: int32
+                barrageId:
+                    type: string
+                    description: 该弹幕的 ID，用于继续读取同秒的其他弹幕。
+            description: BarrageCursor 保存上一批最后一条弹幕的位置，绑定原视频及播放区间。
+        gateway.api.v1.video.interact.BarrageInfo:
+            type: object
+            properties:
+                barrageId:
+                    type: string
+                publisherId:
+                    type: string
+                videoId:
+                    type: string
+                content:
+                    type: string
+                color:
+                    type: string
+                positionSecond:
+                    type: integer
+                    format: int32
+                upvoteCount:
+                    type: string
+                isUpvoted:
+                    type: boolean
+        gateway.api.v1.video.interact.GetBarragesResp:
+            type: object
+            properties:
+                barrages:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/gateway.api.v1.video.interact.BarrageInfo'
+                nextCursor:
+                    allOf:
+                        - $ref: '#/components/schemas/gateway.api.v1.video.interact.BarrageCursor'
+                    description: 仅有下一批时返回，否则为空。
+                hasMore:
+                    type: boolean
 tags:
     - name: Captcha
     - name: Favorite

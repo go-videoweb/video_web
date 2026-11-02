@@ -2,74 +2,71 @@ package video
 
 import (
 	"context"
-	stderr "errors"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
-	"util/helper"
-	vcommentv1 "vw_gateway/api/v1/video/video_comment"
+	api "vw_gateway/api/v1/video/video_comment"
 	"vw_gateway/internal/biz/videobiz"
-	"vw_gateway/internal/pkg/ecode/errdef"
 )
 
 type CommentService struct {
-	vcommentv1.UnimplementedVideoCommentServer
+	api.UnimplementedVideoCommentServer
 	vcUsecase *videobiz.VideoCommentUsecase
 	log       *log.Helper
 }
 
-func NewVideoCommentService(vcUsecase *videobiz.VideoCommentUsecase, logger log.Logger) *CommentService {
-	return &CommentService{
-		vcUsecase: vcUsecase,
-		log:       log.NewHelper(logger),
-	}
+// NewVideoCommentService 装配评论 HTTP/RPC 适配入口。
+func NewVideoCommentService(usecase *videobiz.VideoCommentUsecase, logger log.Logger) *CommentService {
+	return &CommentService{vcUsecase: usecase, log: log.NewHelper(logger)}
 }
 
-func (s *CommentService) CommentVideo(ctx context.Context, req *vcommentv1.CommentVideoReq) (*vcommentv1.CommentVideoResp, error) {
-	publisherId, ok := ctx.Value(userIdKey).(int64)
-	if !ok {
-		return nil, helper.HandleError(errdef.INTERNAL_ERROR, stderr.New("用户id获取失败"))
+// interactionUserID 仅接受鉴权上下文中的正用户 ID，不读取请求中的身份字段。
+func interactionUserID(ctx context.Context) (int64, error) {
+	id, ok := ctx.Value(userIdKey).(int64)
+	if !ok || id <= 0 {
+		return 0, kerrors.Unauthorized("INVALID_USER_ID", "请先登录")
 	}
+	return id, nil
+}
 
-	commentId, err := s.vcUsecase.CommentVideo(ctx, publisherId, req.VideoId, req.ParentId, req.Content)
+// CommentVideo 使用鉴权身份发布主评论或回复。
+func (s *CommentService) CommentVideo(ctx context.Context, req *api.CommentVideoReq) (*api.CommentVideoResp, error) {
+	id, err := interactionUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &vcommentv1.CommentVideoResp{CommentId: commentId}, nil
-}
-
-func (s *CommentService) GetCommentList(ctx context.Context, req *vcommentv1.GetCommentListReq) (*vcommentv1.GetCommentListResp, error) {
-	resp, err := s.vcUsecase.GetCommentList(ctx, req.VideoId, req.PageNum, req.PageSize, req.SortBy, req.Order)
+	commentID, err := s.vcUsecase.CommentVideo(ctx, id, req.VideoId, req.ParentId, req.Content)
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+	return &api.CommentVideoResp{CommentId: commentID}, nil
 }
 
-func (s *CommentService) GetCommentReplies(ctx context.Context, req *vcommentv1.GetCommentRepliesReq) (*vcommentv1.GetCommentRepliesResp, error) {
-	resp, err := s.vcUsecase.GetCommentReplies(ctx, req.CommentId, req.PageNum, req.PageSize, req.SortBy, req.Order)
+// GetCommentList 传递当前用户用于批量读取个人点赞状态。
+func (s *CommentService) GetCommentList(ctx context.Context, req *api.GetCommentListReq) (*api.GetCommentListResp, error) {
+	id, err := interactionUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &vcommentv1.GetCommentRepliesResp{Replies: resp.Replies}, nil
+	return s.vcUsecase.GetCommentList(ctx, id, req)
 }
 
-func (s *CommentService) UpvoteComment(ctx context.Context, req *vcommentv1.UpvoteCommentReq) (*vcommentv1.UpvoteCommentResp, error) {
-	userId, ok := ctx.Value(userIdKey).(int64)
-	if !ok {
-		return nil, helper.HandleError(errdef.INTERNAL_ERROR, stderr.New("用户id获取失败"))
-	}
-	isUpvoted, err := s.vcUsecase.UpvoteComment(ctx, req.CommentId, userId)
+// GetCommentReplies 传递视频与楼层范围，不丢弃游标信息。
+func (s *CommentService) GetCommentReplies(ctx context.Context, req *api.GetCommentRepliesReq) (*api.GetCommentRepliesResp, error) {
+	id, err := interactionUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
+	return s.vcUsecase.GetCommentReplies(ctx, id, req)
+}
 
-	var msg string
-	if isUpvoted {
-		msg = "评论取消点赞成功"
-	} else {
-		msg = "评论点赞成功"
+// UpvoteComment 传递明确目标状态，缺少操作标志时拒绝调用下游。
+func (s *CommentService) UpvoteComment(ctx context.Context, req *api.UpvoteCommentReq) (*api.UpvoteCommentResp, error) {
+	id, err := interactionUserID(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return &vcommentv1.UpvoteCommentResp{
-		StatusCode: 200,
-		Message:    msg,
-	}, nil
+	if req.Liked == nil {
+		return nil, kerrors.BadRequest("INVALID_COMMENT_LIKE", "必须提供 liked")
+	}
+	return s.vcUsecase.UpvoteComment(ctx, id, req)
 }

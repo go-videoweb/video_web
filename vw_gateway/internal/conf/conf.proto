@@ -74,9 +74,6 @@ message Trace {
 }
 
 message Service {
-    reserved 3;
-    reserved "comment";
-
     message User {
         string endpoint = 1;
     }

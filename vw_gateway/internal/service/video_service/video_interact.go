@@ -31,21 +31,32 @@ func (s *InteractService) VideoFavorite(ctx context.Context, req *interactv1.Vid
 	return s.interactUsecase.Favorite(ctx, curUserId, req)
 }
 
+// VideoUpvoteBarrage 使用鉴权身份及明确目标状态调用下游。
 func (s *InteractService) VideoUpvoteBarrage(ctx context.Context, req *interactv1.VideoUpvoteBarrageReq) (*interactv1.VideoUpvoteBarrageResp, error) {
-	curUserId := ctx.Value(userIdKey).(int64)
-	err := s.interactUsecase.UpvoteBarrage(ctx, curUserId, req.BarrageId)
+	userID, err := interactionUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &interactv1.VideoUpvoteBarrageResp{
-		StatusCode: http.StatusOK,
-		Message:    "点赞弹幕成功",
-	}, nil
+	if req.Liked == nil {
+		return nil, kerrors.BadRequest("INVALID_BARRAGE_LIKE", "必须提供 liked")
+	}
+	return s.interactUsecase.UpvoteBarrage(ctx, userID, req)
+}
 
+// GetBarrages 读取登录用户的分段弹幕，不改变现有游客访问策略。
+func (s *InteractService) GetBarrages(ctx context.Context, req *interactv1.GetBarragesReq) (*interactv1.GetBarragesResp, error) {
+	userID, err := interactionUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.interactUsecase.GetBarrages(ctx, userID, req)
 }
 
 func (s *InteractService) VideoSendBarrage(ctx context.Context, req *interactv1.VideoSendBarrageReq) (*interactv1.VideoSendBarrageResp, error) {
-	curUserId := ctx.Value(userIdKey).(int64)
+	curUserId, identityErr := interactionUserID(ctx)
+	if identityErr != nil {
+		return nil, identityErr
+	}
 	err := s.interactUsecase.SendBarrage(ctx, curUserId, req)
 	if err != nil {
 		return nil, err

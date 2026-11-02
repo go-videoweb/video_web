@@ -36,7 +36,7 @@ type VideoCommentClient interface {
 	PublishComment(ctx context.Context, in *PublishCommentReq, opts ...grpc.CallOption) (*PublishCommentResp, error)
 	GetCommentList(ctx context.Context, in *GetCommentListReq, opts ...grpc.CallOption) (*GetCommentListResp, error)
 	GetCommentReplies(ctx context.Context, in *GetCommentRepliesReq, opts ...grpc.CallOption) (*GetCommentRepliesResp, error)
-	UpvoteComment(ctx context.Context, in *UpvoteCommentReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpvoteComment(ctx context.Context, in *UpvoteCommentReq, opts ...grpc.CallOption) (*UpvoteCommentResp, error)
 	UpvoteCommentRevert(ctx context.Context, in *UpvoteCommentReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CheckIfUserUpvotedComment(ctx context.Context, in *CheckIfUserUpvotedCommentReq, opts ...grpc.CallOption) (*CheckIfUserUpvotedCommentResp, error)
 	GetPublisherId(ctx context.Context, in *GetPublisherIdReq, opts ...grpc.CallOption) (*GetPublisherIdResp, error)
@@ -80,9 +80,9 @@ func (c *videoCommentClient) GetCommentReplies(ctx context.Context, in *GetComme
 	return out, nil
 }
 
-func (c *videoCommentClient) UpvoteComment(ctx context.Context, in *UpvoteCommentReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *videoCommentClient) UpvoteComment(ctx context.Context, in *UpvoteCommentReq, opts ...grpc.CallOption) (*UpvoteCommentResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
+	out := new(UpvoteCommentResp)
 	err := c.cc.Invoke(ctx, VideoComment_UpvoteComment_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -127,7 +127,7 @@ type VideoCommentServer interface {
 	PublishComment(context.Context, *PublishCommentReq) (*PublishCommentResp, error)
 	GetCommentList(context.Context, *GetCommentListReq) (*GetCommentListResp, error)
 	GetCommentReplies(context.Context, *GetCommentRepliesReq) (*GetCommentRepliesResp, error)
-	UpvoteComment(context.Context, *UpvoteCommentReq) (*emptypb.Empty, error)
+	UpvoteComment(context.Context, *UpvoteCommentReq) (*UpvoteCommentResp, error)
 	UpvoteCommentRevert(context.Context, *UpvoteCommentReq) (*emptypb.Empty, error)
 	CheckIfUserUpvotedComment(context.Context, *CheckIfUserUpvotedCommentReq) (*CheckIfUserUpvotedCommentResp, error)
 	GetPublisherId(context.Context, *GetPublisherIdReq) (*GetPublisherIdResp, error)
@@ -150,7 +150,7 @@ func (UnimplementedVideoCommentServer) GetCommentList(context.Context, *GetComme
 func (UnimplementedVideoCommentServer) GetCommentReplies(context.Context, *GetCommentRepliesReq) (*GetCommentRepliesResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCommentReplies not implemented")
 }
-func (UnimplementedVideoCommentServer) UpvoteComment(context.Context, *UpvoteCommentReq) (*emptypb.Empty, error) {
+func (UnimplementedVideoCommentServer) UpvoteComment(context.Context, *UpvoteCommentReq) (*UpvoteCommentResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpvoteComment not implemented")
 }
 func (UnimplementedVideoCommentServer) UpvoteCommentRevert(context.Context, *UpvoteCommentReq) (*emptypb.Empty, error) {

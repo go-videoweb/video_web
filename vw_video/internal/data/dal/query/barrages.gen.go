@@ -27,9 +27,7 @@ func newBarrage(db *gorm.DB, opts ...gen.DOOption) barrage {
 
 	tableName := _barrage.barrageDo.TableName()
 	_barrage.ALL = field.NewAsterisk(tableName)
-	_barrage.Hour = field.NewString(tableName, "hour")
-	_barrage.Minute = field.NewString(tableName, "minute")
-	_barrage.Second = field.NewString(tableName, "second")
+	_barrage.PublishTime = field.NewInt64(tableName, "publish_time")
 	_barrage.BarrageID = field.NewInt64(tableName, "barrage_id")
 	_barrage.PublisherID = field.NewInt64(tableName, "publisher_id")
 	_barrage.VideoID = field.NewInt64(tableName, "video_id")
@@ -49,9 +47,7 @@ type barrage struct {
 	barrageDo
 
 	ALL         field.Asterisk
-	Hour        field.String
-	Minute      field.String
-	Second      field.String
+	PublishTime field.Int64 // 弹幕发布时, 视频已经播放了多少秒
 	BarrageID   field.Int64
 	PublisherID field.Int64
 	VideoID     field.Int64
@@ -77,9 +73,7 @@ func (b barrage) As(alias string) *barrage {
 
 func (b *barrage) updateTableName(table string) *barrage {
 	b.ALL = field.NewAsterisk(table)
-	b.Hour = field.NewString(table, "hour")
-	b.Minute = field.NewString(table, "minute")
-	b.Second = field.NewString(table, "second")
+	b.PublishTime = field.NewInt64(table, "publish_time")
 	b.BarrageID = field.NewInt64(table, "barrage_id")
 	b.PublisherID = field.NewInt64(table, "publisher_id")
 	b.VideoID = field.NewInt64(table, "video_id")
@@ -105,10 +99,8 @@ func (b *barrage) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (b *barrage) fillFieldMap() {
-	b.fieldMap = make(map[string]field.Expr, 12)
-	b.fieldMap["hour"] = b.Hour
-	b.fieldMap["minute"] = b.Minute
-	b.fieldMap["second"] = b.Second
+	b.fieldMap = make(map[string]field.Expr, 10)
+	b.fieldMap["publish_time"] = b.PublishTime
 	b.fieldMap["barrage_id"] = b.BarrageID
 	b.fieldMap["publisher_id"] = b.PublisherID
 	b.fieldMap["video_id"] = b.VideoID

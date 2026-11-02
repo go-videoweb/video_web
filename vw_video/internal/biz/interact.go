@@ -43,13 +43,16 @@ type InteractRepo interface {
 	ShareVideo(ctx context.Context, videoID int64) string
 	AddVideoCntBarrage(ctx context.Context, videoID int64) error
 	AddBarrage(ctx context.Context, into *interactv1.VideoSendBarrageReq) error
+	GetBarragePage(ctx context.Context, query *BarrageQuery) ([]*model.Barrage, error)
+	GetBarrageLikes(ctx context.Context, userID, videoID int64, ids []int64) (map[int64]bool, error)
+	SetBarrageLike(ctx context.Context, userID, videoID, barrageID int64, liked bool) (*interactv1.SetBarrageLikeResp, error)
 	AddVideoBarrageUpvote(ctx context.Context, tx *sql.Tx, barrageID int64) error
 	DecrementVideoBarrageUpvote(ctx context.Context, tx *sql.Tx, barrageID int64) error
 
 	/* 个人互动状态 */
 	// GetUserVideoStatus 返回既有 RPC 位掩码及已投贝壳数量，收藏位来源于有效关系。
 	GetUserVideoStatus(ctx context.Context, userID, videoID int64) (status int64, shellsCount int32, err error)
-	// GetUserBarrageStatus 在个人弹幕状态设计确定前返回未支持错误。
+	// GetUserBarrageStatus 从有效关系返回个人点赞位，不创建记录。
 	GetUserBarrageStatus(ctx context.Context, userID int64, barrageID int64) (int64, error)
 	// ApplyUserVideoStatus 在传入的 SQL 屏障事务内校验旧值并更新目标字段，不自行提交。
 	ApplyUserVideoStatus(ctx context.Context, tx *sql.Tx, userID, videoID int64, patch *VideoStatusPatch) error
@@ -119,38 +122,18 @@ func (u *InteractUsecase) ShareVideo(ctx context.Context, videoID int64) (string
 	return "/api/v1/video/" + strconv.FormatInt(videoID, 10) + "/info", nil
 }
 
+// SendBarrage 校验整数秒位置，在本地事务内保存弹幕及视频弹幕计数。
 func (u *InteractUsecase) SendBarrage(ctx context.Context, info *interactv1.VideoSendBarrageReq) error {
-	//tx := u.repo.GetSqlTx()
-	//barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
-	//if err != nil {
-	//	return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	//}
-	//err = barrier.Call(tx, func(tx *sql.Tx) error {
-	//	// 1. insert barrage into barrages table
-	//	err := u.repo.AddBarrage(ctx, tx, info)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	// 2. add video's cnt_barrage
-	//	err = u.repo.AddVideoCntBarrage(ctx, tx, info.VideoId)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	return nil
-	//})
-	//if err != nil {
-	//	return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	//}
-	//return nil
+	if err := validateBarrageSend(info); err != nil {
+		return err
+	}
 	err := u.tx.WithTx(ctx, func(ctx context.Context) error {
-		// 1. insert barrage into barrages table
+		// 弹幕和视频计数必须使用同一个回调上下文提交。
 		err := u.repo.AddBarrage(ctx, info)
 		if err != nil {
 			return err
 		}
 
-		// 2. add video's cnt_barrage
 		err = u.repo.AddVideoCntBarrage(ctx, info.VideoId)
 		if err != nil {
 			return err
@@ -163,8 +146,7 @@ func (u *InteractUsecase) SendBarrage(ctx context.Context, info *interactv1.Vide
 	return nil
 }
 
-// UpvoteBarrage 在个人弹幕状态设计确定前拒绝点赞及取消操作。
-// 输入：保留现有 RPC 参数；输出：固定返回未支持错误，不开启事务或修改计数。
+// UpvoteBarrage 拒绝旧 Saga 计数分支；新点赞统一使用 SetBarrageLike 本地事务。
 func (u *InteractUsecase) UpvoteBarrage(ctx context.Context, barrageID int64, upvote int32) error {
 	return ErrInteractionNotSupported
 }
@@ -179,10 +161,12 @@ func (u *InteractUsecase) GetUserVideoStatus(ctx context.Context, userID, videoI
 	return status, shellsCount, nil
 }
 
-// GetUserBarrageStatus 在个人弹幕状态设计确定前拒绝读取。
-// 输入：保留原用户/弹幕 ID；输出：0 和未支持错误，不访问仓储。
+// GetUserBarrageStatus 从有效点赞关系读取个人状态，不初始化记录。
 func (u *InteractUsecase) GetUserBarrageStatus(ctx context.Context, userID, barrageID int64) (int64, error) {
-	return 0, ErrInteractionNotSupported
+	if userID <= 0 || barrageID <= 0 {
+		return 0, ErrInvalidInteractionIdentity
+	}
+	return u.repo.GetUserBarrageStatus(ctx, userID, barrageID)
 }
 
 // SetUserVideoStatus 在 SQL 子事务屏障内更新本次涉及的字段。
@@ -219,14 +203,12 @@ func (u *InteractUsecase) applyUserVideoStatus(ctx context.Context, userID, vide
 	return nil
 }
 
-// SetUserBarrageStatus 在弹幕个人状态设计确定前拒绝执行。
-// 输入：保留原 RPC 身份和操作参数；输出：未支持错误，不写状态或修改计数。
+// SetUserBarrageStatus 拒绝旧独立状态分支，防止绕过关系与计数的本地事务。
 func (u *InteractUsecase) SetUserBarrageStatus(ctx context.Context, userID, barrageID int64, req *interactv1.SetUserBarrageStatusReq) error {
 	return ErrInteractionNotSupported
 }
 
-// SetUserBarrageStatusRevert 在弹幕个人状态设计确定前拒绝执行。
-// 输入：保留原补偿请求；输出：未支持错误，不创建新的状态表或事务。
+// SetUserBarrageStatusRevert 拒绝旧独立补偿分支，不反向切换新点赞关系。
 func (u *InteractUsecase) SetUserBarrageStatusRevert(ctx context.Context, userID, barrageID int64, req *interactv1.SetUserBarrageStatusReq) error {
 	return ErrInteractionNotSupported
 }

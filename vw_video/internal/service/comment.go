@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/protobuf/types/known/emptypb"
 	commentv1 "vw_video/api/v1/comment"
@@ -29,32 +30,24 @@ func (s *VideoCommentService) PublishComment(ctx context.Context, req *commentv1
 	return &commentv1.PublishCommentResp{CommentId: commentId}, nil
 }
 
+// GetCommentList 返回游标主评论页，不附带回复。
 func (s *VideoCommentService) GetCommentList(ctx context.Context, req *commentv1.GetCommentListReq) (*commentv1.GetCommentListResp, error) {
-	commentList, err := s.vcUsecase.GetCommentList(ctx, req.VideoId, req.SortBy, req.Order, req.PageNum, req.PageSize)
-	if err != nil {
-		return nil, err
-	}
-	return &commentv1.GetCommentListResp{Comments: commentList, TotalCount: int32(len(commentList))}, nil
+	return s.vcUsecase.GetCommentList(ctx, req)
 }
 
+// GetCommentReplies 返回指定主评论的平铺回复页与直接引用。
 func (s *VideoCommentService) GetCommentReplies(ctx context.Context, req *commentv1.GetCommentRepliesReq) (*commentv1.GetCommentRepliesResp, error) {
-	replies, err := s.vcUsecase.GetCommentReplies(ctx, req.CommentId, req.SortBy, req.Order, req.PageNum, req.PageSize)
-	if err != nil {
-		return nil, err
-	}
-	return &commentv1.GetCommentRepliesResp{Replies: replies}, nil
+	return s.vcUsecase.GetCommentReplies(ctx, req)
 }
 
-func (s *VideoCommentService) UpvoteComment(ctx context.Context, req *commentv1.UpvoteCommentReq) (*emptypb.Empty, error) {
-	err := s.vcUsecase.UpvoteComment(ctx, req.CommentId, req.UserId, req.IsUpvoted)
-	if err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
+// UpvoteComment 使用本地事务设置明确的点赞状态，不调用用户服务。
+func (s *VideoCommentService) UpvoteComment(ctx context.Context, req *commentv1.UpvoteCommentReq) (*commentv1.UpvoteCommentResp, error) {
+	return s.vcUsecase.UpvoteComment(ctx, req)
 }
+
+// UpvoteCommentRevert 拒绝旧补偿请求，避免修改本地事务已经提交的点赞。
 func (s *VideoCommentService) UpvoteCommentRevert(ctx context.Context, req *commentv1.UpvoteCommentReq) (*emptypb.Empty, error) {
-	req.IsUpvoted = !req.IsUpvoted
-	return s.UpvoteComment(ctx, req)
+	return nil, kerrors.New(501, "COMMENT_SAGA_REMOVED", "评论点赞已改为本地事务，不支持旧补偿调用")
 }
 
 func (s *VideoCommentService) CheckIfUserUpvotedComment(ctx context.Context, req *commentv1.CheckIfUserUpvotedCommentReq) (*commentv1.CheckIfUserUpvotedCommentResp, error) {

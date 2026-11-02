@@ -77,6 +77,11 @@ all:
 	make config;
 	make generate;
 
+.PHONY: gorm_gen
+# gen_executor
+gorm_gen:
+	go run ./cmd/gorm_gen
+
 # show help
 help:
 	@echo ''

@@ -100,7 +100,6 @@ func NewMySQL(c *conf.Data) *gorm.DB {
 		panic(err)
 	}
 	query.SetDefault(db)
-	initOrderMap()
 	return db
 }
 

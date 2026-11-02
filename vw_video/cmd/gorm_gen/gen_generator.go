@@ -73,8 +73,10 @@ func main() {
 		gen.FieldType("version", "optimisticlock.Version"),
 		gen.FieldType("cnt_upvote", "uint64"),
 	)
+	userBarrageLike := g.GenerateModel("user_barrage_like")
+	userCommentLike := g.GenerateModel("user_comment_like")
 
-	g.ApplyBasic(video, barrages, favoriteVideo, comment, userVideoStatus)
+	g.ApplyBasic(video, barrages, favoriteVideo, comment, userVideoStatus, userBarrageLike, userCommentLike)
 
 	g.Execute()
 
