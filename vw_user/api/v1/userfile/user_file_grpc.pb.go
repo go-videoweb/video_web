@@ -20,7 +20,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FileService_UploadAvatar_FullMethodName = "/user.v1.file.FileService/UploadAvatar"
+	FileService_GetAvatar_FullMethodName    = "/user.v1.file.FileService/GetAvatar"
 	FileService_UpdateAvatar_FullMethodName = "/user.v1.file.FileService/UpdateAvatar"
 )
 
@@ -28,7 +28,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FileServiceClient interface {
-	UploadAvatar(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UploadAvatarReq, UploadAvatarResp], error)
+	// 内部读取接口；只按用户 ID 查找当前头像，不接受客户端路径。
+	GetAvatar(ctx context.Context, in *GetAvatarReq, opts ...grpc.CallOption) (*AvatarResp, error)
 	UpdateAvatar(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UpdateAvatarReq, emptypb.Empty], error)
 }
 
@@ -40,22 +41,19 @@ func NewFileServiceClient(cc grpc.ClientConnInterface) FileServiceClient {
 	return &fileServiceClient{cc}
 }
 
-func (c *fileServiceClient) UploadAvatar(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UploadAvatarReq, UploadAvatarResp], error) {
+func (c *fileServiceClient) GetAvatar(ctx context.Context, in *GetAvatarReq, opts ...grpc.CallOption) (*AvatarResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &FileService_ServiceDesc.Streams[0], FileService_UploadAvatar_FullMethodName, cOpts...)
+	out := new(AvatarResp)
+	err := c.cc.Invoke(ctx, FileService_GetAvatar_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[UploadAvatarReq, UploadAvatarResp]{ClientStream: stream}
-	return x, nil
+	return out, nil
 }
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type FileService_UploadAvatarClient = grpc.ClientStreamingClient[UploadAvatarReq, UploadAvatarResp]
 
 func (c *fileServiceClient) UpdateAvatar(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UpdateAvatarReq, emptypb.Empty], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &FileService_ServiceDesc.Streams[1], FileService_UpdateAvatar_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &FileService_ServiceDesc.Streams[0], FileService_UpdateAvatar_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +68,8 @@ type FileService_UpdateAvatarClient = grpc.ClientStreamingClient[UpdateAvatarReq
 // All implementations must embed UnimplementedFileServiceServer
 // for forward compatibility.
 type FileServiceServer interface {
-	UploadAvatar(grpc.ClientStreamingServer[UploadAvatarReq, UploadAvatarResp]) error
+	// 内部读取接口；只按用户 ID 查找当前头像，不接受客户端路径。
+	GetAvatar(context.Context, *GetAvatarReq) (*AvatarResp, error)
 	UpdateAvatar(grpc.ClientStreamingServer[UpdateAvatarReq, emptypb.Empty]) error
 	mustEmbedUnimplementedFileServiceServer()
 }
@@ -82,8 +81,8 @@ type FileServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedFileServiceServer struct{}
 
-func (UnimplementedFileServiceServer) UploadAvatar(grpc.ClientStreamingServer[UploadAvatarReq, UploadAvatarResp]) error {
-	return status.Errorf(codes.Unimplemented, "method UploadAvatar not implemented")
+func (UnimplementedFileServiceServer) GetAvatar(context.Context, *GetAvatarReq) (*AvatarResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAvatar not implemented")
 }
 func (UnimplementedFileServiceServer) UpdateAvatar(grpc.ClientStreamingServer[UpdateAvatarReq, emptypb.Empty]) error {
 	return status.Errorf(codes.Unimplemented, "method UpdateAvatar not implemented")
@@ -109,12 +108,23 @@ func RegisterFileServiceServer(s grpc.ServiceRegistrar, srv FileServiceServer) {
 	s.RegisterService(&FileService_ServiceDesc, srv)
 }
 
-func _FileService_UploadAvatar_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(FileServiceServer).UploadAvatar(&grpc.GenericServerStream[UploadAvatarReq, UploadAvatarResp]{ServerStream: stream})
+func _FileService_GetAvatar_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAvatarReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileServiceServer).GetAvatar(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FileService_GetAvatar_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileServiceServer).GetAvatar(ctx, req.(*GetAvatarReq))
+	}
+	return interceptor(ctx, in, info, handler)
 }
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type FileService_UploadAvatarServer = grpc.ClientStreamingServer[UploadAvatarReq, UploadAvatarResp]
 
 func _FileService_UpdateAvatar_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(FileServiceServer).UpdateAvatar(&grpc.GenericServerStream[UpdateAvatarReq, emptypb.Empty]{ServerStream: stream})
@@ -129,13 +139,13 @@ type FileService_UpdateAvatarServer = grpc.ClientStreamingServer[UpdateAvatarReq
 var FileService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "user.v1.file.FileService",
 	HandlerType: (*FileServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams: []grpc.StreamDesc{
+	Methods: []grpc.MethodDesc{
 		{
-			StreamName:    "UploadAvatar",
-			Handler:       _FileService_UploadAvatar_Handler,
-			ClientStreams: true,
+			MethodName: "GetAvatar",
+			Handler:    _FileService_GetAvatar_Handler,
 		},
+	},
+	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "UpdateAvatar",
 			Handler:       _FileService_UpdateAvatar_Handler,

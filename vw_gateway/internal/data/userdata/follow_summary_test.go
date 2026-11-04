@@ -71,6 +71,9 @@ func TestFollowSummaryUserID(t *testing.T) {
 			if len(resp.FolloweeInfo) != 2 || resp.FolloweeInfo[0].UserId != userID || resp.FolloweeInfo[1].UserId != userID+1 || resp.FolloweeInfo[0].Username != "followee" || resp.FolloweeInfo[0].FollowListId != 13 || resp.Total != 2 || resp.PageNum != 2 || resp.PageSize != 20 {
 				t.Fatalf("网关丢失用户身份或摘要顺序：%v", resp)
 			}
+			if resp.FolloweeInfo[0].AvatarPath != "/api/v1/users/9007199254740993/avatar" {
+				t.Fatal("关注摘要仍未返回可访问头像地址")
+			}
 			encoded, err := protojson.Marshal(resp)
 			if err != nil {
 				t.Fatal(err)

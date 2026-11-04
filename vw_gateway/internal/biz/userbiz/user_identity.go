@@ -2,6 +2,7 @@ package userbiz
 
 import (
 	"context"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"strconv"
 	"time"
@@ -57,14 +58,24 @@ func NewUserIdentityUsecase(repo UserIdentityRepo, jwt *auth.JWTAuth, logger log
 	}
 }
 
-func (uc *UserIdentityUsecase) Register(ctx context.Context, registerInfo *RegisterInfo) (accessToken, RefreshToken string, err error) {
+// Register 在创建用户后签发并缓存登录态，使注册返回的双 token 可立即用于头像更新。
+// 缓存失败不回滚已创建的账号，也不返回不可用 token；客户端应转到登录，不能盲目重复注册。
+func (uc *UserIdentityUsecase) Register(ctx context.Context, registerInfo *RegisterInfo) (userID int64, accessToken, refreshToken string, err error) {
 	userID, isAdmin, err := uc.identityRepo.Register(ctx, registerInfo)
 	if err != nil {
-		return "", "", err
+		return 0, "", "", err
 	}
 
-	accessToken, RefreshToken, err = uc.jwt.CreateToken(userID, registerInfo.Username, isAdmin)
-	return accessToken, RefreshToken, err
+	accessToken, refreshToken, err = uc.jwt.CreateToken(userID, registerInfo.Username, isAdmin)
+	if err == nil {
+		err = uc.identityRepo.CacheAccessToken(ctx, strconv.FormatInt(userID, 10), accessToken, uc.jwt.RefreshExpireTime)
+	}
+	if err != nil {
+		uc.logger.Errorf("注册后建立登录态失败: %v", err)
+		return 0, "", "", kerrors.InternalServer("REGISTRATION_SESSION_FAILED", "账号已创建，但登录态建立失败，请登录后继续").
+			WithMetadata(map[string]string{"user_created": "true"})
+	}
+	return userID, accessToken, refreshToken, nil
 }
 
 func (uc *UserIdentityUsecase) Login(ctx context.Context, username, password string) (userID int64, accessToken, refreshToken string, err error) {

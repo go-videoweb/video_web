@@ -2,10 +2,12 @@ package codecs
 
 import (
 	"bytes"
+	stderr "errors"
 	"fmt"
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/transport/http"
 	"io"
+	nethttp "net/http"
 	"reflect"
 	"strconv"
 	"strings"
@@ -15,9 +17,18 @@ const maxMemory = 32 << 20 // 32MB
 type formDataValue map[string][]string
 
 func RequestDecoder(r *http.Request, v interface{}) error {
+	if r.Method == nethttp.MethodPut && r.URL.Path == "/api/v1/user/profile/avatar" {
+		// 在 multipart 解析前限制总请求体，避免头像上传先把超大文件写入临时目录。
+		// 文件最多 5 MiB，额外 64 KiB 留给 multipart 边界和表单元信息。
+		r.Body = nethttp.MaxBytesReader(nil, r.Body, (5<<20)+(64<<10))
+	}
 	if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
 		err := r.ParseMultipartForm(maxMemory)
 		if err != nil {
+			var tooLarge *nethttp.MaxBytesError
+			if stderr.As(err, &tooLarge) {
+				return errors.New(nethttp.StatusRequestEntityTooLarge, "AVATAR_TOO_LARGE", "头像请求体过大")
+			}
 			return errors.BadRequest("ParseMultipartForm ERROR", err.Error())
 		}
 

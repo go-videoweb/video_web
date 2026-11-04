@@ -7,24 +7,26 @@ import "google/protobuf/empty.proto";
 option go_package = "vw_user/api/v1/userfile;filev1";
 
 service FileService {
-    rpc UploadAvatar(stream UploadAvatarReq) returns (UploadAvatarResp) {}
+    // 内部读取接口；只按用户 ID 查找当前头像，不接受客户端路径。
+    rpc GetAvatar(GetAvatarReq) returns (AvatarResp) {}
     rpc UpdateAvatar(stream UpdateAvatarReq) returns (google.protobuf.Empty) {}
 }
 
-message UploadAvatarReq {
-    oneof data {
-        string file_name   = 1;
-        bytes file_content = 2;
-    }
+message GetAvatarReq {
+    // 头像所属用户 ID。
+    int64 user_id = 1;
 }
-message UploadAvatarResp {
-    string file_path = 1;
+message AvatarResp {
+    // 图片完整内容，限制 5 MiB；网关头像读取调用单独配置接收消息上限。
+    bytes content = 1;
+    // 根据文件内容识别的 MIME 类型，不信任扩展名。
+    string content_type = 2;
 }
 
 message UpdateAvatarReq {
     message FileMetadata {
-        int64 user_id         = 1;
-        string file_extension = 2;
+        // 网关从鉴权 context 取得的用户 ID，仅可信服务可调用此 RPC。
+        int64 user_id = 1;
     }
     oneof data {
         FileMetadata meta_data = 1;

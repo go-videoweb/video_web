@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-kratos/kratos/v2/log"
 	"vw_gateway/internal/biz/userbiz"
+	"vw_gateway/internal/domain"
 	infov1 "vw_user/api/v1/userinfo"
 )
 
@@ -82,7 +83,7 @@ func (repo *userinfoRepo) Userinfo(ctx context.Context, userId int64) (UserInfo 
 		CntFans:    resp.UserInfo.CntFans,
 		CntFollows: resp.UserInfo.CntFollows,
 		CntVideos:  resp.UserInfo.CntVideos,
-		AvatarPath: resp.UserInfo.AvatarPath,
+		AvatarPath: domain.AvatarURL(userId),
 		Gender:     resp.UserInfo.Gender,
 		Birthday:   resp.UserInfo.Birthday.AsTime().Format("2006-01-02"),
 	}
