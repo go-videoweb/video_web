@@ -68,6 +68,8 @@ message RegisterResp {
     message Data {
         string access_token  = 3;
         string refresh_token = 4;
+        // 注册成功创建的用户 ID，与 access token 中身份一致。
+        int64 user_id = 5;
     }
     Data data = 3;
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	followv1 "vw_gateway/api/v1/user/follow"
 	"vw_gateway/internal/biz/userbiz"
+	"vw_gateway/internal/domain"
 	userfollow "vw_user/api/v1/follow"
 )
 
@@ -36,7 +37,16 @@ func (r *followRepo) GetFolloweeInfo(ctx context.Context, userID, listID int64, 
 	}
 	rows := make([]*followv1.GetFolloweeInfoResp_UserSummary, len(resp.FolloweesInfo))
 	for i, row := range resp.FolloweesInfo {
-		rows[i] = &followv1.GetFolloweeInfoResp_UserSummary{UserId: row.UserId, FollowListId: row.FollowListId, Username: row.Username, Email: row.Email, Signature: row.Signature, Gender: row.Gender, AvatarPath: row.AvatarPath, Birthday: row.Birthday}
+		rows[i] = &followv1.GetFolloweeInfoResp_UserSummary{
+			UserId:       row.UserId,
+			FollowListId: row.FollowListId,
+			Username:     row.Username,
+			Email:        row.Email,
+			Signature:    row.Signature,
+			Gender:       row.Gender,
+			AvatarPath:   domain.AvatarURL(row.UserId),
+			Birthday:     row.Birthday,
+		}
 	}
 	return &followv1.GetFolloweeInfoResp{StatusCode: 200, Message: resp.Message, FolloweeInfo: rows, Total: resp.Total, PageNum: resp.PageNum, PageSize: resp.PageSize}, nil
 }

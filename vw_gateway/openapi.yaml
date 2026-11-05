@@ -113,13 +113,22 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/gateway.api.v1.user.id.LoginResp'
     /api/v1/user/profile/avatar:
-        post:
+        put:
             tags:
                 - FileService
-            operationId: FileService_UploadAvatar
+            operationId: FileService_UpdateAvatar
             requestBody:
                 content:
-                    application/json: {}
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            required:
+                                - avatar
+                            properties:
+                                avatar:
+                                    type: string
+                                    format: binary
+                                    description: JPEG 或 PNG 头像，最大 5 MiB，最长边不超过 4096。
                 required: true
             responses:
                 "200":
@@ -127,7 +136,33 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/gateway.api.v1.user.file.UploadAvatarResp'
+                                $ref: '#/components/schemas/gateway.api.v1.user.file.UpdateAvatarResp'
+    /api/v1/users/{userId}/avatar:
+        get:
+            tags:
+                - FileService
+            description: 公开读取头像二进制；用户不存在返回 404，头像文件缺失时回退共享默认头像。
+            operationId: FileService_GetAvatar
+            parameters:
+                - name: userId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: 头像图片，响应包含 ETag、Cache-Control 和 nosniff。
+                    content:
+                        image/jpeg:
+                            schema:
+                                type: string
+                                format: binary
+                        image/png:
+                            schema:
+                                type: string
+                                format: binary
+                "304":
+                    description: If-None-Match 与当前头像内容一致，无响应正文。
     /api/v1/user/register:
         post:
             tags:
@@ -753,30 +788,6 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/gateway.api.v1.user.follow.GetFolloweeInfoResp'
-    /api/v1/{userId}/profile/avatar:
-        put:
-            tags:
-                - FileService
-            operationId: FileService_UpdateAvatar
-            parameters:
-                - name: userId
-                  in: path
-                  required: true
-                  schema:
-                    type: string
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            $ref: '#/components/schemas/gateway.api.v1.user.file.UpdateAvatarReq'
-                required: true
-            responses:
-                "200":
-                    description: OK
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/gateway.api.v1.user.file.UpdateAvatarResp'
     /api/v1/{userId}/video/metaInfo:
         post:
             tags:
@@ -1295,11 +1306,6 @@ components:
                     format: int32
                 msg:
                     type: string
-        gateway.api.v1.user.file.UpdateAvatarReq:
-            type: object
-            properties:
-                userId:
-                    type: string
         gateway.api.v1.user.file.UpdateAvatarResp:
             type: object
             properties:
@@ -1308,11 +1314,9 @@ components:
                     format: int32
                 message:
                     type: string
-        gateway.api.v1.user.file.UploadAvatarResp:
-            type: object
-            properties:
-                filePath:
+                avatarUrl:
                     type: string
+                    description: 浏览器可访问的 API 相对地址，不是磁盘路径。
         gateway.api.v1.user.follow.FollowUserReq:
             type: object
             properties:
@@ -1362,6 +1366,7 @@ components:
                     type: string
                 avatarPath:
                     type: string
+                    description: 头像 API 相对 URL，保留原字段名，不再返回服务器路径。
                 gender:
                     type: integer
                     format: int32
@@ -1474,6 +1479,9 @@ components:
                     type: string
                 refreshToken:
                     type: string
+                userId:
+                    type: string
+                    description: 注册成功创建的用户 ID，与 access token 中身份一致。
         gateway.api.v1.user.userinfo.CommonResp:
             type: object
             properties:
@@ -1579,6 +1587,7 @@ components:
                     format: int32
                 avatarPath:
                     type: string
+                    description: 头像 API 相对 URL，保留原字段名，不再返回服务器路径。
                 gender:
                     type: integer
                     format: int32

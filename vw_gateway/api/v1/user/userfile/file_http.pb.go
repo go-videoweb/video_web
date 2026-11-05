@@ -10,7 +10,6 @@ import (
 	context "context"
 	http "github.com/go-kratos/kratos/v2/transport/http"
 	binding "github.com/go-kratos/kratos/v2/transport/http/binding"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -20,38 +19,39 @@ var _ = binding.EncodeURL
 
 const _ = http.SupportPackageIsVersion1
 
+const OperationFileServiceGetAvatar = "/gateway.api.v1.user.file.FileService/GetAvatar"
 const OperationFileServiceUpdateAvatar = "/gateway.api.v1.user.file.FileService/UpdateAvatar"
-const OperationFileServiceUploadAvatar = "/gateway.api.v1.user.file.FileService/UploadAvatar"
 
 type FileServiceHTTPServer interface {
+	// GetAvatar 头像公开读取，响应编码器直接输出图片二进制，不返回服务器文件路径。
+	GetAvatar(context.Context, *GetAvatarReq) (*AvatarResp, error)
 	UpdateAvatar(context.Context, *UpdateAvatarReq) (*UpdateAvatarResp, error)
-	UploadAvatar(context.Context, *emptypb.Empty) (*UploadAvatarResp, error)
 }
 
 func RegisterFileServiceHTTPServer(s *http.Server, srv FileServiceHTTPServer) {
 	r := s.Route("/")
-	r.POST("/api/v1/user/profile/avatar", _FileService_UploadAvatar0_HTTP_Handler(srv))
-	r.PUT("/api/v1/{user_id}/profile/avatar", _FileService_UpdateAvatar0_HTTP_Handler(srv))
+	r.GET("/api/v1/users/{user_id}/avatar", _FileService_GetAvatar0_HTTP_Handler(srv))
+	r.PUT("/api/v1/user/profile/avatar", _FileService_UpdateAvatar0_HTTP_Handler(srv))
 }
 
-func _FileService_UploadAvatar0_HTTP_Handler(srv FileServiceHTTPServer) func(ctx http.Context) error {
+func _FileService_GetAvatar0_HTTP_Handler(srv FileServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
-		var in emptypb.Empty
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
+		var in GetAvatarReq
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationFileServiceUploadAvatar)
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationFileServiceGetAvatar)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return srv.UploadAvatar(ctx, req.(*emptypb.Empty))
+			return srv.GetAvatar(ctx, req.(*GetAvatarReq))
 		})
 		out, err := h(ctx, &in)
 		if err != nil {
 			return err
 		}
-		reply := out.(*UploadAvatarResp)
+		reply := out.(*AvatarResp)
 		return ctx.Result(200, reply)
 	}
 }
@@ -63,9 +63,6 @@ func _FileService_UpdateAvatar0_HTTP_Handler(srv FileServiceHTTPServer) func(ctx
 			return err
 		}
 		if err := ctx.BindQuery(&in); err != nil {
-			return err
-		}
-		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
 		http.SetOperation(ctx, OperationFileServiceUpdateAvatar)
@@ -82,8 +79,8 @@ func _FileService_UpdateAvatar0_HTTP_Handler(srv FileServiceHTTPServer) func(ctx
 }
 
 type FileServiceHTTPClient interface {
+	GetAvatar(ctx context.Context, req *GetAvatarReq, opts ...http.CallOption) (rsp *AvatarResp, err error)
 	UpdateAvatar(ctx context.Context, req *UpdateAvatarReq, opts ...http.CallOption) (rsp *UpdateAvatarResp, err error)
-	UploadAvatar(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *UploadAvatarResp, err error)
 }
 
 type FileServiceHTTPClientImpl struct {
@@ -94,26 +91,26 @@ func NewFileServiceHTTPClient(client *http.Client) FileServiceHTTPClient {
 	return &FileServiceHTTPClientImpl{client}
 }
 
-func (c *FileServiceHTTPClientImpl) UpdateAvatar(ctx context.Context, in *UpdateAvatarReq, opts ...http.CallOption) (*UpdateAvatarResp, error) {
-	var out UpdateAvatarResp
-	pattern := "/api/v1/{user_id}/profile/avatar"
-	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationFileServiceUpdateAvatar))
+func (c *FileServiceHTTPClientImpl) GetAvatar(ctx context.Context, in *GetAvatarReq, opts ...http.CallOption) (*AvatarResp, error) {
+	var out AvatarResp
+	pattern := "/api/v1/users/{user_id}/avatar"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationFileServiceGetAvatar))
 	opts = append(opts, http.PathTemplate(pattern))
-	err := c.cc.Invoke(ctx, "PUT", path, in, &out, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return &out, nil
 }
 
-func (c *FileServiceHTTPClientImpl) UploadAvatar(ctx context.Context, in *emptypb.Empty, opts ...http.CallOption) (*UploadAvatarResp, error) {
-	var out UploadAvatarResp
+func (c *FileServiceHTTPClientImpl) UpdateAvatar(ctx context.Context, in *UpdateAvatarReq, opts ...http.CallOption) (*UpdateAvatarResp, error) {
+	var out UpdateAvatarResp
 	pattern := "/api/v1/user/profile/avatar"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationFileServiceUploadAvatar))
+	opts = append(opts, http.Operation(OperationFileServiceUpdateAvatar))
 	opts = append(opts, http.PathTemplate(pattern))
-	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	err := c.cc.Invoke(ctx, "PUT", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}
