@@ -117,7 +117,7 @@ func (u *userIdentityRepo) CreatRecordsForRegister(ctx context.Context, newUser 
 	return getQuery(ctx).Transaction(func(tx *query.Query) error {
 		txQuery := tx.WithContext(ctx)
 		if err := txQuery.User.Create(newUser); err != nil {
-			return err
+			return accountWriteError(err)
 		}
 		if err := txQuery.FollowList.Create(defaultFollowList); err != nil {
 			return err

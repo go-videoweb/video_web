@@ -40,6 +40,7 @@ func NewWhitelistMatcher() selector.MatchFunc {
 	whiteList["/gateway.api.v1.user.captcha.Captcha/GetImageCaptcha"] = struct{}{}
 	whiteList["/gateway.api.v1.user.captcha.Captcha/GetCodeCaptcha"] = struct{}{}
 	whiteList[filev1.OperationFileServiceGetAvatar] = struct{}{}
+	whiteList[infov1.OperationUserinfoForgetPassword] = struct{}{}
 	whiteList[videoinfov1.OperationVideoInfoGetMpd] = struct{}{}
 	whiteList[videoinfov1.OperationVideoInfoGetSegments] = struct{}{}
 	whiteList[videoinfov1.OperationVideoInfoGetVideoCover] = struct{}{}

@@ -6,6 +6,7 @@ import (
 	stderr "errors"
 	"github.com/dtm-labs/dtm/client/dtmcli"
 	"github.com/dtm-labs/dtm/client/dtmgrpc"
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
@@ -17,6 +18,14 @@ import (
 )
 
 type UserInfoRepo interface {
+	// CheckEmailConflict 同时检查有效和软删除账号，exceptUserID 为换绑时排除的本人 ID。
+	CheckEmailConflict(ctx context.Context, email string, exceptUserID int64) error
+	// GetUserByEmail 仅接受唯一有效邮箱归属，历史多匹配不得静默选择。
+	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
+	// ResetPasswordByEmail 同时匹配用户 ID、已验证邮箱及有效记录，检查影响行数。
+	ResetPasswordByEmail(ctx context.Context, userID int64, email, encryptedPassword string) error
+	// InvalidateUserSession 删除当前用户登录态，不签发新 token。
+	InvalidateUserSession(ctx context.Context, userID int64) error
 	GetSqlTx() *sql.Tx
 
 	// GetUserInfoByUserId get user summary info by user id
@@ -90,35 +99,39 @@ func (uic *UserInfoUsecase) GetUserinfo(ctx context.Context, userId int64) (*dom
 
 }
 
+// ModifyEmail 验证新邮箱的唯一性和专用验证码后换绑；并发冲突由唯一索引兜底。
 func (uic *UserInfoUsecase) ModifyEmail(ctx context.Context, userID int64, email string, inputCode string) (newEmail string, err error) {
-	// * DELETE the verify code from Redis cache after updating the email,
-	// * NO MATTER this update is successful or not.
-	defer func(captcha CaptchaRepo, ctx context.Context, email string) {
-		err := captcha.DeleteCodeFromCache(ctx, email)
-		if err != nil {
-
-		}
-	}(uic.captcha, ctx, email)
-
-	// Get the verify code from Redis cache and compare it with the input code
-	verifyCode, err := uic.captcha.GetCodeFromCache(ctx, email)
-	if err != nil {
-		return "", helper.HandleError(errdef.ErrModifyEmailFailed, err)
+	if userID <= 0 {
+		return "", kerrors.BadRequest("INVALID_USER_ID", "用户ID不正确")
 	}
-	if verifyCode != inputCode {
-		return "", helper.HandleError(errdef.ErrModifyEmailFailed, stderr.New("用户输入的验证码错误"))
+	email, err = helper.NormalizeEmail(email)
+	if err != nil {
+		return "", err
+	}
+	if err := uic.infoRepo.CheckEmailConflict(ctx, email, userID); err != nil {
+		return "", err
+	}
+	if err := uic.captcha.ConsumeCode(ctx, email, helper.EmailCodeChange, inputCode); err != nil {
+		return "", err
 	}
 
 	// Update the email in the database
 	err = uic.infoRepo.UpdateEmail(ctx, userID, email)
 	if err != nil {
-		return "", helper.HandleError(errdef.ErrModifyEmailFailed, err)
+		return "", err
 	}
 
 	return email, nil
 }
 
+// ModifyPassword 保留旧密码验证流程，保存合规的新密码后使已有登录态失效。
 func (uic *UserInfoUsecase) ModifyPassword(ctx context.Context, userId int64, oldPassword, newPassword string) error {
+	if userId <= 0 {
+		return kerrors.BadRequest("INVALID_USER_ID", "用户ID不正确")
+	}
+	if err := helper.ValidatePassword(newPassword); err != nil {
+		return err
+	}
 	info, err := uic.infoRepo.GetUserInfoByUserId(ctx, userId)
 	if err != nil {
 		return helper.HandleError(errdef.ErrModifyPasswordFailed, err)
@@ -129,13 +142,16 @@ func (uic *UserInfoUsecase) ModifyPassword(ctx context.Context, userId int64, ol
 		return helper.HandleError(errdef.ErrUserPasswordError)
 	}
 
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errdef.ErrEncryptPasswordFailed
+	}
 
 	err = uic.infoRepo.UpdatePassword(ctx, userId, string(hashedPassword))
 	if err != nil {
 		return helper.HandleError(errdef.ErrModifyPasswordFailed, err)
 	}
-	return nil
+	return uic.invalidatePasswordSession(ctx, userId)
 }
 
 func (uic *UserInfoUsecase) ModifyUserSignature(ctx context.Context, userId int64, signature string) (newSignature string, err error) {
@@ -151,27 +167,39 @@ func (uic *UserInfoUsecase) ModifyUserSignature(ctx context.Context, userId int6
 	return signature, nil
 }
 
-func (uic *UserInfoUsecase) ForgetPassword(ctx context.Context, userId int64, email string, inputCode string, newPassword string) error {
-	// * DELETE the verify code from Redis cache after this function call.
-	defer uic.captcha.DeleteCodeFromCache(ctx, email)
-
-	// Get the verify code from Redis cache and compare it with the input code
-	verify, err := uic.captcha.GetCodeFromCache(ctx, email)
+// ForgetPassword 只按已验证邮箱定位账号，不接受客户端 user_id，也不自动登录。
+// 验证码消费、密码保存与会话清理跨 Redis/MySQL；保存失败须重新申请验证码，不恢复旧验证码。
+func (uic *UserInfoUsecase) ForgetPassword(ctx context.Context, email string, inputCode string, newPassword string) error {
+	email, err := helper.NormalizeEmail(email)
 	if err != nil {
-		return helper.HandleError(errdef.ErrForgetPasswordFailed, err)
+		return err
 	}
-	if verify != inputCode {
-		return helper.HandleError(errdef.ErrForgetPasswordFailed, errdef.ErrVerifyCodeNotMatch)
+	if err := helper.ValidatePassword(newPassword); err != nil {
+		return err
 	}
-
-	encryptedPassword, _ := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
-
-	// Update the password in the database
-	err = uic.infoRepo.UpdatePassword(ctx, userId, string(encryptedPassword))
+	if err := uic.captcha.ConsumeCode(ctx, email, helper.EmailCodeReset, inputCode); err != nil {
+		return err
+	}
+	user, err := uic.infoRepo.GetUserByEmail(ctx, email)
 	if err != nil {
-		return helper.HandleError(errdef.ErrForgetPasswordFailed, err)
+		return err
 	}
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errdef.ErrEncryptPasswordFailed
+	}
+	if err := uic.infoRepo.ResetPasswordByEmail(ctx, user.UserID, email, string(encryptedPassword)); err != nil {
+		return err
+	}
+	return uic.invalidatePasswordSession(ctx, user.UserID)
+}
 
+// invalidatePasswordSession 明确报告密码已改变但会话清理失败，不能误报密码未修改或整体成功。
+func (uic *UserInfoUsecase) invalidatePasswordSession(ctx context.Context, userID int64) error {
+	if err := uic.infoRepo.InvalidateUserSession(ctx, userID); err != nil {
+		return kerrors.InternalServer("PASSWORD_SESSION_INVALIDATION_FAILED", "密码已更新，但登录态清理失败，请使用新密码重新登录并联系管理员处理旧会话").
+			WithMetadata(map[string]string{"password_changed": "true", "session_revoked": "false"})
+	}
 	return nil
 }
 

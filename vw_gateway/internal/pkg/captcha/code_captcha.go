@@ -2,11 +2,12 @@ package captcha
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"fmt"
 	"github.com/go-gomail/gomail"
 	"github.com/go-kratos/kratos/v2/log"
-	"math/rand"
+	"math/big"
 	"time"
 	"vw_gateway/internal/conf"
 )
@@ -58,11 +59,12 @@ func (ecfg *Email) SendCode(ctx context.Context, to, code string) error {
 }
 
 // CreateVerificationCode 生成6位验证码
-func (ecfg *Email) CreateVerificationCode() string {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
-	t1 := rand.Int() % 1000000
-	ret := fmt.Sprintf("%06d", t1)
-	return ret
+func (ecfg *Email) CreateVerificationCode() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
 func (ecfg *Email) NewWithOption(options ...EmailOpt) *Email {

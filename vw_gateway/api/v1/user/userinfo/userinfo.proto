@@ -35,7 +35,7 @@ service Userinfo {
 
 rpc ForgetPassword(ForgetPasswordReq) returns (ForgetPasswordResp) {
     option (google.api.http) = {
-        post: "/api/v1/userinfo/{user_id}/forgetPassword",
+        post: "/api/v1/userinfo/forgetPassword",
         body: "*";
 };
 }
@@ -103,7 +103,7 @@ message ModifySignatureResp {
 }
 
 message ForgetPasswordReq {
-    int64 user_id       = 1;
+    // 邮箱唯一定位账号，不接受客户端指定 user_id。
     string email        = 2;
     string new_password = 3;
     string input_code   = 4;
