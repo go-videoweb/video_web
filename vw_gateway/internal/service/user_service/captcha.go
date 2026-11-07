@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/go-kratos/kratos/v2/transport"
 	"vw_gateway/api/v1/user/captcha"
 	"vw_gateway/internal/biz/userbiz"
 	"vw_gateway/internal/pkg/captcha"
@@ -21,15 +22,18 @@ func NewCaptchaService(logger log.Logger, captcha *userbiz.CaptchaUsecase) *Capt
 	}
 }
 
+// GetCodeCaptcha 发送指定用途的邮件验证码，只返回发送结果，禁止回传实际验证码或缓存响应。
 func (cs *CaptchaService) GetCodeCaptcha(ctx context.Context, req *captv1.GetCodeCaptchaReq) (*captv1.GetCodeCaptchaResp, error) {
-	code, err := cs.captcha.SendCodeCaptcha(ctx, req.Email)
+	if tr, ok := transport.FromServerContext(ctx); ok {
+		tr.ReplyHeader().Set("Cache-Control", "no-store")
+	}
+	err := cs.captcha.SendCodeCaptcha(ctx, req.Email, req.Purpose)
 	if err != nil {
 		return nil, err
 	}
 	return &captv1.GetCodeCaptchaResp{
 		StatusCode: 200,
 		Msg:        "get code captcha success",
-		Code:       code,
 	}, nil
 }
 

@@ -16,6 +16,11 @@ paths:
                   in: query
                   schema:
                     type: string
+                - name: purpose
+                  in: query
+                  description: 必填用途：register、change_email 或 reset_password。
+                  schema:
+                    type: string
             responses:
                 "200":
                     description: OK
@@ -223,17 +228,11 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/gateway.api.v1.user.userinfo.UserinfoResp'
-    /api/v1/userinfo/{userId}/forgetPassword:
+    /api/v1/userinfo/forgetPassword:
         post:
             tags:
                 - Userinfo
             operationId: Userinfo_ForgetPassword
-            parameters:
-                - name: userId
-                  in: path
-                  required: true
-                  schema:
-                    type: string
             requestBody:
                 content:
                     application/json:
@@ -1233,8 +1232,6 @@ components:
                     format: int32
                 msg:
                     type: string
-                code:
-                    type: string
         gateway.api.v1.user.captcha.GetImageCaptchaResp:
             type: object
             properties:
@@ -1493,8 +1490,6 @@ components:
         gateway.api.v1.user.userinfo.ForgetPasswordReq:
             type: object
             properties:
-                userId:
-                    type: string
                 email:
                     type: string
                 newPassword:

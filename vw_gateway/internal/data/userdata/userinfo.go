@@ -20,9 +20,9 @@ func NewUserInfoRepo(data *Data, logger log.Logger) userbiz.UserinfoRepo {
 	}
 }
 
-func (repo *userinfoRepo) ForgetPassword(ctx context.Context, userId int64, email, inputCode, newPassword string) error {
+// ForgetPassword 只转发三个重置字段，保留用户服务的失败和部分成功 metadata。
+func (repo *userinfoRepo) ForgetPassword(ctx context.Context, email, inputCode, newPassword string) error {
 	_, err := repo.data.userInfoClient.ForgetPassword(ctx, &infov1.ForgetPasswordReq{
-		UserId:      userId,
 		Email:       email,
 		InputCode:   inputCode,
 		NewPassword: newPassword,

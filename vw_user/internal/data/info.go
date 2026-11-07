@@ -157,12 +157,14 @@ func (u *userInfoRepo) UpdateEmail(ctx context.Context, userId int64, newEmail s
 		return err
 	}
 
-	_, err = userDo.
+	result, err := userDo.
 		Where(user.UserID.Eq(userId)).
-		Debug().
 		Updates(&model.User{Email: newEmail})
 	if err != nil {
-		return err
+		return accountWriteError(err)
+	}
+	if result.RowsAffected != 1 {
+		return errors.Conflict("EMAIL_UPDATE_CONFLICT", "账号状态已变更，请重试")
 	}
 	return nil
 }
@@ -176,12 +178,14 @@ func (u *userInfoRepo) UpdatePassword(ctx context.Context, userId int64, encrypt
 	//}
 	userDo := user.WithContext(ctx)
 
-	_, err := userDo.
+	result, err := userDo.
 		Where(user.UserID.Eq(userId)).
-		Debug().
 		Updates(&model.User{Password: encryptedPassword})
 	if err != nil {
 		return err
+	}
+	if result.RowsAffected != 1 {
+		return errors.Conflict("PASSWORD_UPDATE_CONFLICT", "账号状态已变更，请重试")
 	}
 	return nil
 }

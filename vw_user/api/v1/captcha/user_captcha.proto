@@ -13,6 +13,8 @@ service Captcha {
 
 message DeleteCodeFromCacheReq {
     string email = 1;
+    // 仅清理指定用途的验证码，不清除发送及验证频率限制。
+    string purpose = 2;
 }
 message DeleteCodeFromCacheResp {
     int32 code = 1;
@@ -23,6 +25,10 @@ message SetCodeToCacheReq {
     string email                        = 1;
     string captcha_code                 = 2;
     google.protobuf.Duration expiration = 3;
+    // 与验证时用途一致；未指定用途的旧调用会被拒绝。
+    string purpose = 4;
+    // 网关读取的连接来源 IP，不信任 HTTP 客户端传入的字段或转发头。
+    string client_ip = 5;
 }
 message SetCodeToCacheResp {
     int32 code = 1;

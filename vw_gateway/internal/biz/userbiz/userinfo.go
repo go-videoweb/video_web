@@ -6,7 +6,7 @@ import (
 )
 
 type UserinfoRepo interface {
-	ForgetPassword(ctx context.Context, userId int64, email, inputCode, newPassword string) error
+	ForgetPassword(ctx context.Context, email, inputCode, newPassword string) error
 	ModifyEmail(ctx context.Context, userId int64, email string, inputCode string) (newEmail string, err error)
 	ModifyPassword(ctx context.Context, userId int64, oldPasswd, newPasswd string) error
 	ModifyUserSignature(ctx context.Context, userId int64, signature string) (NewSignature string, err error)
@@ -39,8 +39,9 @@ type UserInfo struct {
 	Birthday   string
 }
 
-func (info *UserinfoUsecase) ForgetPassword(ctx context.Context, userId int64, email, inputCode, newPassword string) error {
-	return info.repo.ForgetPassword(ctx, userId, email, inputCode, newPassword)
+// ForgetPassword 直接将邮箱和验证材料交给用户服务，不在网关查询或拼接目标账号。
+func (info *UserinfoUsecase) ForgetPassword(ctx context.Context, email, inputCode, newPassword string) error {
+	return info.repo.ForgetPassword(ctx, email, inputCode, newPassword)
 }
 
 func (info *UserinfoUsecase) ModifyEmail(ctx context.Context, userId int64, email string, inputCode string) (newEmail string, err error) {

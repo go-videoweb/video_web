@@ -72,7 +72,7 @@ message ModifySignatureResp {
 }
 
 message ForgetPasswordReq {
-    int64 user_id       = 1;
+    // 仅由已验证邮箱定位账号，不接受外部指定目标 ID。
     string email        = 2;
     string input_code   = 3;
     string new_password = 4;

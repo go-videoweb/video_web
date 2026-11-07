@@ -2,20 +2,16 @@ package biz
 
 import (
 	"context"
-	"errors"
 	"time"
 	"unicode/utf8"
 	"util/getid"
 	"util/helper"
 	idv1 "vw_user/api/v1/identity"
 	"vw_user/internal/data/dal/model"
-	"vw_user/internal/data/dal/query"
 	"vw_user/internal/pkg/ecode/errdef"
 
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type UserIdentityRepo interface {
@@ -97,25 +93,23 @@ func (uc *UserIdentityUsecase) Logout(ctx context.Context, userId string) error 
 // and return the user model, if there is no error.
 func (uc *UserIdentityUsecase) handleRegisterInfo(ctx context.Context, registerInfo *RegisterInfo) (*model.User, error) {
 	// check register info
-	userdo := query.User
-	count, err := userdo.Where(userdo.Username.Eq(registerInfo.Username)).Count()
+	email, err := helper.NormalizeEmail(registerInfo.Email)
 	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, helper.HandleError(errdef.INTERNAL_ERROR, err)
-		}
+		return nil, err
 	}
-
-	verifyCode, err := uc.captcha.GetCodeFromCache(ctx, registerInfo.Email)
+	available, err := uc.infoRepo.CheckUsernameConflict(ctx, registerInfo.Username)
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			return nil, helper.HandleError(errdef.ErrVerifyCodeExpired)
-		} else {
-			return nil, helper.HandleError(errdef.INTERNAL_ERROR, err)
-		}
+		return nil, err
+	}
+	if err := uc.infoRepo.CheckEmailConflict(ctx, email, 0); err != nil {
+		return nil, err
+	}
+	if err := helper.ValidatePassword(registerInfo.Password); err != nil {
+		return nil, err
 	}
 
 	switch {
-	case count > 0: //已有同名用户
+	case !available: //已有同名用户
 		return nil, errdef.ErrUserAlreadyExist
 	case len(registerInfo.Password) < 6: //密码长度小于6位
 		return nil, errdef.ErrPasswordTooShort
@@ -123,8 +117,9 @@ func (uc *UserIdentityUsecase) handleRegisterInfo(ctx context.Context, registerI
 		return nil, errdef.ErrPasswordNotMatch
 	case utf8.RuneCountInString(registerInfo.Signature) > 25:
 		return nil, errdef.ErrSignatureTooLong
-	case registerInfo.InputCode != verifyCode:
-		return nil, errdef.ErrVerifyCodeNotMatch
+	}
+	if err := uc.captcha.ConsumeCode(ctx, email, helper.EmailCodeRegister, registerInfo.InputCode); err != nil {
+		return nil, err
 	}
 
 	// encrypt password
@@ -139,7 +134,7 @@ func (uc *UserIdentityUsecase) handleRegisterInfo(ctx context.Context, registerI
 		Username:  registerInfo.Username,
 		Password:  string(hashedPassword),
 		Gender:    int(registerInfo.Gender),
-		Email:     registerInfo.Email,
+		Email:     email,
 		Signature: registerInfo.Signature,
 		Birthday:  registerInfo.Birthday,
 	}

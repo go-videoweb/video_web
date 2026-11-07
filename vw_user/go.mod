@@ -5,9 +5,11 @@ go 1.23.0
 toolchain go1.23.3
 
 require (
+	github.com/alicebob/miniredis/v2 v2.34.0
 	github.com/dtm-labs/dtm v1.19.0
 	github.com/go-kratos/kratos/contrib/registry/consul/v2 v2.0.0-20241105072421-f8b97f675b32
 	github.com/go-kratos/kratos/v2 v2.8.3
+	github.com/go-sql-driver/mysql v1.9.1
 	github.com/google/wire v0.6.0
 	github.com/hashicorp/consul/api v1.32.0
 	github.com/redis/go-redis/v9 v9.7.1
@@ -42,7 +44,6 @@ require (
 	github.com/go-playground/assert/v2 v2.2.0 // indirect
 	github.com/go-playground/form/v4 v4.2.1 // indirect
 	github.com/go-resty/resty/v2 v2.7.0 // indirect
-	github.com/go-sql-driver/mysql v1.9.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect

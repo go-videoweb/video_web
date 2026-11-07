@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	infov1 "vw_gateway/api/v1/user/userinfo"
 	"vw_gateway/internal/biz/userbiz"
@@ -20,7 +21,7 @@ func NewUserinfoService(info *userbiz.UserinfoUsecase, logger log.Logger) *InfoS
 	}
 }
 func (uis *InfoService) ForgetPassword(ctx context.Context, req *infov1.ForgetPasswordReq) (*infov1.ForgetPasswordResp, error) {
-	err := uis.info.ForgetPassword(ctx, req.UserId, req.Email, req.InputCode, req.NewPassword)
+	err := uis.info.ForgetPassword(ctx, req.Email, req.InputCode, req.NewPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +34,12 @@ func (uis *InfoService) ForgetPassword(ctx context.Context, req *infov1.ForgetPa
 }
 
 func (uis *InfoService) ModifyEmail(ctx context.Context, req *infov1.ModifyEmailReq) (*infov1.ModifyEmailResp, error) {
-	newEmail, err := uis.info.ModifyEmail(ctx, req.UserId, req.Email, req.InputCode)
+	// 换绑影响后续找回密码的归属，目标必须来自鉴权身份，不能相信路由中的 user_id。
+	userID, ok := ctx.Value("user_id").(int64)
+	if !ok || userID <= 0 {
+		return nil, errors.Unauthorized("USER_ID_MISSING", "请先登录")
+	}
+	newEmail, err := uis.info.ModifyEmail(ctx, userID, req.Email, req.InputCode)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +53,11 @@ func (uis *InfoService) ModifyEmail(ctx context.Context, req *infov1.ModifyEmail
 }
 
 func (uis *InfoService) ModifyPassword(ctx context.Context, req *infov1.ModifyPasswordReq) (*infov1.ModifyPasswordResp, error) {
-	err := uis.info.ModifyPassword(ctx, req.UserId, req.OldPassword, req.NewPassword)
+	userID, ok := ctx.Value("user_id").(int64)
+	if !ok || userID <= 0 {
+		return nil, errors.Unauthorized("USER_ID_MISSING", "请先登录")
+	}
+	err := uis.info.ModifyPassword(ctx, userID, req.OldPassword, req.NewPassword)
 	if err != nil {
 		return nil, err
 	}
