@@ -38,6 +38,19 @@ const (
 	VIDEOINTERACT_SetUserVideoStatusRevertFailed
 )
 
+const (
+	// 视频上传校验错误使用独立区间，保留既有业务码。
+	VIDEOINFO_InvalidUploadIDs = 5101 + iota
+	VIDEOINFO_InvalidUploadStream
+	VIDEOINFO_InvalidFileName
+	VIDEOINFO_InvalidCoverFormat
+	VIDEOINFO_EmptyUploadFile
+	VIDEOINFO_UploadForbidden
+	VIDEOINFO_CoverUploadStage
+	VIDEOINFO_FileUploadStage
+	VIDEOINFO_CoverRequired
+)
+
 const RetryStr = "请稍后再试"
 
 var ()

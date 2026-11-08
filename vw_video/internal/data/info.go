@@ -41,6 +41,7 @@ func (v *videoInfoRepo) AddVideoCntView(ctx context.Context, videoId int64) erro
 	return nil
 }
 
+// SetCoverPath 更新视频封面路径，软删除或版本冲突导致未写入时返回错误。
 func (v *videoInfoRepo) SetCoverPath(ctx context.Context, videoId int64, coverPath string) error {
 	video := getQuery(ctx).Video
 	videoDo, _, err := addVideoModel(ctx, videoId)
@@ -48,11 +49,16 @@ func (v *videoInfoRepo) SetCoverPath(ctx context.Context, videoId int64, coverPa
 		return err
 	}
 
-	_, err = videoDo.Where(video.VideoID.Eq(videoId)).Updates(&model.Video{
+	result, err := videoDo.Where(video.VideoID.Eq(videoId)).Updates(&model.Video{
 		CoverPath: coverPath,
 	})
-
-	return err
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected != 1 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (v *videoInfoRepo) UpdateVideoDurationSizeInfo(ctx context.Context, videoId int64, duration string, size int64) error {
@@ -90,6 +96,21 @@ func (v *videoInfoRepo) CreateBasicVideoInfo(ctx context.Context, videoInfo *mod
 // CreateVideoUploadStatus 使用 ctx 选定的连接插入上传状态，不决定状态值或管理事务。
 func (v *videoInfoRepo) CreateVideoUploadStatus(ctx context.Context, uploadStatus *model.VideoUploadStatus) error {
 	return getQuery(ctx).VideoUploadStatus.WithContext(ctx).Create(uploadStatus)
+}
+
+// GetVideoUploadStatus 在 ctx 选定的连接上查询单个视频的上传状态。
+func (v *videoInfoRepo) GetVideoUploadStatus(ctx context.Context, videoId int64) (*model.VideoUploadStatus, error) {
+	upload := getQuery(ctx).VideoUploadStatus
+	return upload.WithContext(ctx).Where(upload.VideoID.Eq(videoId)).First()
+}
+
+// UpdateVideoUploadStatus 按视频 ID 和旧状态更新记录，调用方负责决定如何处理未命中。
+func (v *videoInfoRepo) UpdateVideoUploadStatus(ctx context.Context, videoId int64, from, to string, updatedTime time.Time) (bool, error) {
+	upload := getQuery(ctx).VideoUploadStatus
+	result, err := upload.WithContext(ctx).
+		Where(upload.VideoID.Eq(videoId), upload.Status.Eq(from)).
+		UpdateSimple(upload.Status.Value(to), upload.UpdatedTime.Value(updatedTime))
+	return result.RowsAffected == 1, err
 }
 
 func (v *videoInfoRepo) GetVideoInfoById(ctx context.Context, videoId int64) (*model.Video, error) {

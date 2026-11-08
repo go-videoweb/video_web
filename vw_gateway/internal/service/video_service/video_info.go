@@ -106,8 +106,13 @@ func (info *InfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.U
 		}}, nil
 }
 
+// UploadVideoCover 将鉴权身份和视频 ID 传给视频服务，由视频服务校验归属。
 func (info *InfoService) UploadVideoCover(ctx context.Context, req *videoinfov1.UploadVideoCoverReq) (*videoinfov1.UploadVideoCoverResp, error) {
-	err := info.videoInfo.UploadVideoCover(ctx, req.UserId, req.VideoId)
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	err := info.videoInfo.UploadVideoCover(ctx, userId, req.VideoId)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +123,13 @@ func (info *InfoService) UploadVideoCover(ctx context.Context, req *videoinfov1.
 		}}, nil
 }
 
+// UploadVideoFile 将鉴权身份和视频 ID 传给视频服务，由视频服务校验上传条件。
 func (info *InfoService) UploadVideoFile(ctx context.Context, req *videoinfov1.UploadVideoFileReq) (*videoinfov1.UploadVideoFileResp, error) {
-	err := info.videoInfo.UploadVideoFile(ctx, req.UserId, req.VideoId)
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	err := info.videoInfo.UploadVideoFile(ctx, userId, req.VideoId)
 	if err != nil {
 		return nil, err
 	}

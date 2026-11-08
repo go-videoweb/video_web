@@ -79,3 +79,29 @@ func TestUploadVideoInfoWithUploadStatus(t *testing.T) {
 		})
 	}
 }
+
+// TestUpdateVideoUploadStatus 验证状态更新限定视频 ID 和旧状态，未命中时由业务层决定如何处理。
+func TestUpdateVideoUploadStatus(t *testing.T) {
+	for _, affected := range []int64{0, 1} {
+		step := &socialSQLStep{
+			contains: []string{"UPDATE `video_upload_status`", "SET `status`=?,`updated_time`=?", "WHERE `video_upload_status`.`video_id` = ? AND `video_upload_status`.`status` = ?"},
+			affected: affected,
+		}
+		d, state := newSocialSQL(t, step)
+		now := time.Now().Truncate(time.Millisecond)
+		err := d.WithTx(context.Background(), func(ctx context.Context) error {
+			ok, err := (&videoInfoRepo{}).UpdateVideoUploadStatus(ctx, 42, "waiting_cover", "waiting_video", now)
+			if ok != (affected == 1) {
+				t.Errorf("影响 %d 行时返回 %t", affected, ok)
+			}
+			return err
+		})
+		if err != nil || state.begins != 1 || state.commits != 1 {
+			t.Fatalf("状态更新未沿用业务事务：%v", err)
+		}
+		if len(step.args) != 4 || step.args[0].Value != "waiting_video" || step.args[1].Value != now ||
+			step.args[2].Value != int64(42) || step.args[3].Value != "waiting_cover" {
+			t.Fatalf("状态更新参数错误：%v", step.args)
+		}
+	}
+}
