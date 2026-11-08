@@ -261,7 +261,10 @@ func (uc *VideoInfoUsecase) UploadVideoFile(stream grpc.ClientStreamingServer[vi
 	_ = os.MkdirAll(filepath.Dir(videoFilePath)+"/"+dashPath, os.ModePerm)
 
 	// 3.2 Make DASH segments files.
-	err = ffmpeg.MakeDASH(videoFilePath, filepath.Dir(videoFilePath)+"/"+dashPath, dashName)
+	// 暂保留现有处理期限：上传 RPC 的传输超时不直接中止已接收文件的处理。
+	// B06 拆出后台任务后，由任务提供独立且有期限的 context。
+	processingCtx := context.WithoutCancel(stream.Context())
+	err = ffmpeg.MakeDASH(processingCtx, videoFilePath, filepath.Dir(videoFilePath)+"/"+dashPath, dashName)
 	if err != nil {
 		retErr = helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
 		return retErr
@@ -274,7 +277,7 @@ func (uc *VideoInfoUsecase) UploadVideoFile(stream grpc.ClientStreamingServer[vi
 	defer cancel()
 
 	err = uc.tx.WithTx(ctx, func(ctx context.Context) error {
-		duration, err := ffmpeg.GetVideoDuration(videoFilePath)
+		duration, err := ffmpeg.GetVideoDuration(processingCtx, videoFilePath)
 		if err != nil {
 			return err
 		}
