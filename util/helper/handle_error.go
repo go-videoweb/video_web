@@ -5,8 +5,24 @@ import (
 	kerr "github.com/go-kratos/kratos/v2/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strconv"
 	"strings"
 )
+
+// RPCBusinessCodeKey 标识随 gRPC ErrorInfo 传递的原始业务码。
+const RPCBusinessCodeKey = "business_code"
+
+// WithRPCBusinessCode 将自定义 Kratos 数字码放入错误详情，供跨 gRPC 调用后恢复。
+// 输入：err 为服务返回的错误。复制业务错误后再写入元数据，以免修改共享错误定义。
+func WithRPCBusinessCode(err error) error {
+	var businessErr *kerr.Error
+	if !errors.As(err, &businessErr) || businessErr.Code <= 599 {
+		return err
+	}
+	rpcErr := kerr.Clone(businessErr)
+	rpcErr.Metadata[RPCBusinessCodeKey] = strconv.Itoa(int(businessErr.Code))
+	return rpcErr
+}
 
 func HandleError(kerror *kerr.Error, additionalErrs ...error) *kerr.Error {
 	var retErr = kerr.Clone(kerror)

@@ -4,12 +4,17 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strconv"
 	"testing"
 
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
+	"google.golang.org/grpc/status"
+	"util/helper"
 	videov1 "vw_video/api/v1/videoinfo"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
+	"vw_video/internal/pkg/ecode/errdef"
 	"vw_video/internal/service"
 )
 
@@ -60,6 +65,11 @@ func TestUploadVideoInfoReturnsSavedID(t *testing.T) {
 			if tc.err != nil {
 				if err == nil || resp != nil || repo.savedStatus != nil {
 					t.Fatal("failed save must not return a success response or video ID")
+				}
+				rpcError := kerrors.FromError(status.Convert(err).Err())
+				want := errdef.ErrUploadVideoInfoFailed
+				if rpcError.Metadata[helper.RPCBusinessCodeKey] != strconv.Itoa(int(want.Code)) {
+					t.Fatalf("gRPC 转换后丢失业务码：%v", rpcError)
 				}
 				return
 			}

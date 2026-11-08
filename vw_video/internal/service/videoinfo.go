@@ -2,14 +2,16 @@ package service
 
 import (
 	"context"
+	"util/helper"
+	videoinfov1 "vw_video/api/v1/videoinfo"
+	"vw_video/internal/biz"
+
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	videoinfov1 "vw_video/api/v1/videoinfo"
-	"vw_video/internal/biz"
 )
 
 type VideoInfoService struct {
@@ -84,17 +86,25 @@ func (s *VideoInfoService) GetVideoList(ctx context.Context, req *videoinfov1.Ge
 func (s *VideoInfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.UploadVideoInfoReq) (*videoinfov1.UploadVideoInfoResp, error) {
 	videoID, err := s.info.UploadVideoInfo(ctx, req.VideoInfo)
 	if err != nil {
-		return nil, err
+		return nil, helper.WithRPCBusinessCode(err)
 	}
 	return &videoinfov1.UploadVideoInfoResp{VideoId: videoID}, nil
 }
 
 func (s *VideoInfoService) UploadVideoFile(stream grpc.ClientStreamingServer[videoinfov1.UploadVideoFileReq, emptypb.Empty]) error {
-	return s.info.UploadVideoFile(stream)
+	err := s.info.UploadVideoFile(stream)
+	if err != nil {
+		return helper.WithRPCBusinessCode(err)
+	}
+	return nil
 }
 
 func (s *VideoInfoService) UploadVideoCover(stream grpc.ClientStreamingServer[videoinfov1.UploadVideoCoverReq, emptypb.Empty]) error {
-	return s.info.UploadVideoCover(stream)
+	err := s.info.UploadVideoCover(stream)
+	if err != nil {
+		return helper.WithRPCBusinessCode(err)
+	}
+	return nil
 }
 
 func (s *VideoInfoService) GetVideoFile(req *videoinfov1.GetVideoFileReq, stream grpc.ServerStreamingServer[videoinfov1.GetVideoFileResp]) error {

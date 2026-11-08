@@ -1,10 +1,13 @@
 package videodata
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
@@ -12,7 +15,10 @@ import (
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"util/helper"
 	videov1 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/biz/videobiz"
 	"vw_gateway/internal/domain"
@@ -27,6 +33,59 @@ type metadataClient struct {
 	err      error
 	request  *videov2.UploadVideoInfoReq
 	calls    int
+}
+
+type coverErrorClient struct {
+	videov2.VideoInfoClient
+	stream *rejectedCoverStream
+}
+
+// UploadVideoCover 返回会提前拒绝请求的封面流。
+func (c *coverErrorClient) UploadVideoCover(context.Context, ...grpc.CallOption) (grpc.ClientStreamingClient[videov2.UploadVideoCoverReq, emptypb.Empty], error) {
+	return c.stream, nil
+}
+
+type rejectedCoverStream struct {
+	grpc.ClientStreamingClient[videov2.UploadVideoCoverReq, emptypb.Empty]
+	err error
+}
+
+// Send 模拟服务端提前关闭后，发送端只得到 EOF。
+func (*rejectedCoverStream) Send(*videov2.UploadVideoCoverReq) error { return io.EOF }
+
+// CloseAndRecv 返回服务端的实际业务错误。
+func (s *rejectedCoverStream) CloseAndRecv() (*emptypb.Empty, error) { return nil, s.err }
+
+// TestUploadCoverErrorHTTPBody 验证提前拒绝的 RPC 仍能以 HTTP 200 返回原业务码。
+func TestUploadCoverErrorHTTPBody(t *testing.T) {
+	want := kerrors.New(5107, "VIDEO_COVER_UPLOAD_STAGE_INVALID", "视频当前阶段不能上传封面")
+	rpcErr := status.Convert(helper.WithRPCBusinessCode(want)).Err()
+	client := &coverErrorClient{stream: &rejectedCoverStream{err: rpcErr}}
+	repo := NewVideoInfoRepo(&Data{videoInfoClient: client}, log.NewStdLogger(io.Discard))
+	var form bytes.Buffer
+	writer := multipart.NewWriter(&form)
+	if _, err := writer.CreateFormFile("cover", "cover.png"); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/video/cover", &form)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	part, header, err := request.FormFile("cover")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = part.Close()
+	t.Cleanup(func() { _ = request.MultipartForm.RemoveAll() })
+	err = repo.UploadVideoCover(request.Context(), 7, 42, header)
+	response := httptest.NewRecorder()
+	codecs.ErrorEncoder(response, request, err)
+	var body kerrors.Status
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || response.Code != http.StatusOK ||
+		body.Code != want.Code || body.Reason != want.Reason || body.Message != want.Message || len(body.Metadata) != 0 {
+		t.Fatalf("HTTP %d，业务错误响应不符：%s", response.Code, response.Body.String())
+	}
 }
 
 func (c *metadataClient) UploadVideoInfo(_ context.Context, req *videov2.UploadVideoInfoReq, _ ...grpc.CallOption) (*videov2.UploadVideoInfoResp, error) {

@@ -45,11 +45,10 @@ func TestPasswordResetAnonymousHTTP(t *testing.T) {
 		request.Header.Set("Content-Type", "application/json")
 		writer := httptest.NewRecorder()
 		server.ServeHTTP(writer, request)
-		want := 200
 		if code == "wrong" {
-			want = 400
+			assertHTTPErrorCode(t, writer, http.StatusBadRequest)
 		}
-		if writer.Code != want || repo.email != "user@example.com" || repo.code != code || repo.password != "new-password" {
+		if writer.Code != http.StatusOK || repo.email != "user@example.com" || repo.code != code || repo.password != "new-password" {
 			t.Fatalf("匿名转发失败: %d %s", writer.Code, writer.Body.String())
 		}
 	}

@@ -119,20 +119,20 @@ func TestCommentBarrageHTTP(t *testing.T) {
 	srv := NewHTTPServer(&conf.Server{Http: &conf.Server_HTTP{}}, &conf.JWT{Secret: secret, AccessTokenExpiration: 1}, nil, nil, nil, nil, cache, nil, nil, nil, bs, cs, logger)
 	for _, tc := range []struct {
 		name, method, path, body string
-		code, calls              int
+		errorCode, calls         int
 		expect                   string
 	}{
-		{"主评论", http.MethodGet, "/api/v1/video/9/comment?cursor.video_id=9&cursor.root_id=0&cursor.sort_by=cnt_upvote&cursor.order=desc&cursor.comment_id=9007199254740993&cursor.upvote_count=3&sort_by=cnt_upvote&user_id=999", "", 200, 1, "9007199254740993"},
-		{"主评论驼峰参数", http.MethodGet, "/api/v1/video/9/comment?cursor.videoId=9&cursor.rootId=0&cursor.sortBy=cnt_upvote&cursor.order=desc&cursor.commentId=9007199254740993&cursor.upvoteCount=3&sortBy=cnt_upvote", "", 200, 1, "9007199254740993"},
-		{"平铺回复", http.MethodGet, "/api/v1/video/9/comments/11/replies?user_id=999&cursor.video_id=9&cursor.root_id=11&cursor.sort_by=created_at&cursor.order=asc&cursor.comment_id=12&cursor.created_at=2026-11-01T12:00:00.123Z", "", 200, 1, "完整引用"},
-		{"取消评论点赞", http.MethodPut, "/api/v1/video/9/comment/11/upvote", `{"liked":false,"userId":"999"}`, 200, 1, "upvoteCount"},
+		{"主评论", http.MethodGet, "/api/v1/video/9/comment?cursor.video_id=9&cursor.root_id=0&cursor.sort_by=cnt_upvote&cursor.order=desc&cursor.comment_id=9007199254740993&cursor.upvote_count=3&sort_by=cnt_upvote&user_id=999", "", 0, 1, "9007199254740993"},
+		{"主评论驼峰参数", http.MethodGet, "/api/v1/video/9/comment?cursor.videoId=9&cursor.rootId=0&cursor.sortBy=cnt_upvote&cursor.order=desc&cursor.commentId=9007199254740993&cursor.upvoteCount=3&sortBy=cnt_upvote", "", 0, 1, "9007199254740993"},
+		{"平铺回复", http.MethodGet, "/api/v1/video/9/comments/11/replies?user_id=999&cursor.video_id=9&cursor.root_id=11&cursor.sort_by=created_at&cursor.order=asc&cursor.comment_id=12&cursor.created_at=2026-11-01T12:00:00.123Z", "", 0, 1, "完整引用"},
+		{"取消评论点赞", http.MethodPut, "/api/v1/video/9/comment/11/upvote", `{"liked":false,"userId":"999"}`, 0, 1, "upvoteCount"},
 		{"缺少评论操作", http.MethodPut, "/api/v1/video/9/comment/11/upvote", `{}`, 400, 0, ""},
-		{"弹幕分段", http.MethodGet, "/api/v1/video/9/barrages?start_second=0&end_second=60&user_id=999", "", 200, 1, "9007199254740993"},
-		{"弹幕结构化游标", http.MethodGet, "/api/v1/video/9/barrages?start_second=0&end_second=60&cursor.video_id=9&cursor.start_second=0&cursor.end_second=60&cursor.position_second=0&cursor.barrage_id=9007199254740993", "", 200, 1, "9007199254740993"},
+		{"弹幕分段", http.MethodGet, "/api/v1/video/9/barrages?start_second=0&end_second=60&user_id=999", "", 0, 1, "9007199254740993"},
+		{"弹幕结构化游标", http.MethodGet, "/api/v1/video/9/barrages?start_second=0&end_second=60&cursor.video_id=9&cursor.start_second=0&cursor.end_second=60&cursor.position_second=0&cursor.barrage_id=9007199254740993", "", 0, 1, "9007199254740993"},
 		{"无效游标ID", http.MethodGet, "/api/v1/video/9/comment?cursor.comment_id=invalid", "", 400, 0, ""},
 		{"无效游标时间", http.MethodGet, "/api/v1/video/9/comments/11/replies?cursor.created_at=invalid", "", 400, 0, ""},
-		{"零秒弹幕", http.MethodPost, "/api/v1/video/interaction/9/barrage/send", `{"positionSecond":0,"content":"弹幕","color":"#ffffff","publisherId":"999"}`, 200, 1, "发送弹幕成功"},
-		{"取消弹幕点赞", http.MethodPut, "/api/v1/video/interaction/9/barrage/upvote", `{"barrageId":"11","liked":false}`, 200, 1, "upvoteCount"},
+		{"零秒弹幕", http.MethodPost, "/api/v1/video/interaction/9/barrage/send", `{"positionSecond":0,"content":"弹幕","color":"#ffffff","publisherId":"999"}`, 0, 1, "发送弹幕成功"},
+		{"取消弹幕点赞", http.MethodPut, "/api/v1/video/interaction/9/barrage/upvote", `{"barrageId":"11","liked":false}`, 0, 1, "upvoteCount"},
 		{"缺少弹幕操作", http.MethodPut, "/api/v1/video/interaction/9/barrage/upvote", `{"barrageId":"11"}`, 400, 0, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -143,13 +143,15 @@ func TestCommentBarrageHTTP(t *testing.T) {
 			req.Header.Set("Refresh-Token", "Bearer "+refresh)
 			w := httptest.NewRecorder()
 			srv.ServeHTTP(w, req)
-			if w.Code != tc.code || cc.calls+bc.calls-before != tc.calls {
+			if w.Code != http.StatusOK || cc.calls+bc.calls-before != tc.calls {
 				t.Fatalf("HTTP 结果错误：%d %s", w.Code, w.Body.String())
 			}
 			if tc.expect != "" && !strings.Contains(w.Body.String(), tc.expect) {
 				t.Fatalf("响应缺少 %q：%s", tc.expect, w.Body.String())
 			}
-			if tc.code == 200 {
+			if tc.errorCode != 0 {
+				assertHTTPErrorCode(t, w, tc.errorCode)
+			} else {
 				var body map[string]any
 				if err = json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 					t.Fatal(err)

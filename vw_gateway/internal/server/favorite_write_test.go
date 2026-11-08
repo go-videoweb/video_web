@@ -69,14 +69,14 @@ func TestFavoriteWriteHTTP(t *testing.T) {
 	for _, tc := range []struct {
 		name, body string
 		signed     bool
-		code       int
+		errorCode  int
 		calls      int
 	}{
-		{name: "未登录", body: `{"favoriteId":"13","favorite":1}`, code: 200},
-		{name: "收藏", signed: true, body: `{"favoriteId":"13","favorite":1}`, code: 200, calls: 1},
-		{name: "取消", signed: true, body: `{"favoriteId":"13","favorite":-1,"favoriteRecordId":"9007199254740993"}`, code: 200, calls: 1},
-		{name: "旧记录", signed: true, body: `{"favoriteId":"13","favorite":-1,"favoriteRecordId":"22"}`, code: 409, calls: 1},
-		{name: "省略操作不回退", signed: true, body: `{"favoriteId":"13"}`, code: 400, calls: 1},
+		{name: "未登录", body: `{"favoriteId":"13","favorite":1}`},
+		{name: "收藏", signed: true, body: `{"favoriteId":"13","favorite":1}`, calls: 1},
+		{name: "取消", signed: true, body: `{"favoriteId":"13","favorite":-1,"favoriteRecordId":"9007199254740993"}`, calls: 1},
+		{name: "旧记录", signed: true, body: `{"favoriteId":"13","favorite":-1,"favoriteRecordId":"22"}`, errorCode: 409, calls: 1},
+		{name: "省略操作不回退", signed: true, body: `{"favoriteId":"13"}`, errorCode: 400, calls: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			before := client.calls
@@ -95,10 +95,11 @@ func TestFavoriteWriteHTTP(t *testing.T) {
 				assertMissingToken(t, w)
 				return
 			}
-			if w.Code != tc.code {
+			if w.Code != http.StatusOK {
 				t.Fatalf("unexpected HTTP: %d %s", w.Code, w.Body.String())
 			}
-			if tc.code != 200 {
+			if tc.errorCode != 0 {
+				assertHTTPErrorCode(t, w, tc.errorCode)
 				return
 			}
 			var body struct {

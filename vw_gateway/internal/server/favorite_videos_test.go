@@ -43,7 +43,7 @@ func (*favoriteVideosHTTPRepo) GetVideoInfo(context.Context, int64, int64) (*dom
 	return &domain.VideoDetail{VideoId: 42, Records: &domain.Records{}, UserVideoStatus: &domain.UserVideoStatus{IsFavorited: 1, FavoriteId: 9007199254740993, FavoriteRecordId: 9007199254740994}}, nil
 }
 
-// TestFavoriteVideosHTTP 验证真实路由强制登录、忽略伪造身份、保留 404，详情状态和大 ID JSON 正确返回。
+// TestFavoriteVideosHTTP 验证真实路由强制登录、忽略伪造身份，错误码和大 ID 通过响应体返回。
 func TestFavoriteVideosHTTP(t *testing.T) {
 	const secret = "favorite-videos-http-test-secret"
 	access, refresh, err := (&auth.JWTAuth{Secret: secret, AccessExpireTime: time.Hour, RefreshExpireTime: 24 * time.Hour}).CreateToken(7, "owner", false)
@@ -62,18 +62,18 @@ func TestFavoriteVideosHTTP(t *testing.T) {
 		t.Fatal("分页接口错误允许匿名")
 	}
 	for _, tc := range []struct {
-		path     string
-		signed   bool
-		wantCode int
-		page     int32
-		size     int32
+		path      string
+		signed    bool
+		errorCode int
+		page      int32
+		size      int32
 	}{
-		{path: "/api/v1/favorites/9/videos", wantCode: 200},
-		{path: "/api/v1/favorites/9/videos?user_id=999&page_num=2&page_size=3", signed: true, wantCode: 200, page: 2, size: 3},
-		{path: "/api/v1/favorites/9/videos?pageNum=4&pageSize=5", signed: true, wantCode: 200, page: 4, size: 5},
-		{path: "/api/v1/favorites/10/videos", signed: true, wantCode: 404},
-		{path: "/api/v1/video/42/info", signed: true, wantCode: 200},
-		{path: "/api/v1/video/42/info", wantCode: 200},
+		{path: "/api/v1/favorites/9/videos"},
+		{path: "/api/v1/favorites/9/videos?user_id=999&page_num=2&page_size=3", signed: true, page: 2, size: 3},
+		{path: "/api/v1/favorites/9/videos?pageNum=4&pageSize=5", signed: true, page: 4, size: 5},
+		{path: "/api/v1/favorites/10/videos", signed: true, errorCode: 404},
+		{path: "/api/v1/video/42/info", signed: true},
+		{path: "/api/v1/video/42/info"},
 	} {
 		req := httptest.NewRequest(http.MethodGet, tc.path, nil)
 		if tc.signed {
@@ -89,7 +89,7 @@ func TestFavoriteVideosHTTP(t *testing.T) {
 			}
 			continue
 		}
-		if w.Code != tc.wantCode {
+		if w.Code != http.StatusOK {
 			t.Fatalf("HTTP 状态错误：%d %s", w.Code, w.Body.String())
 		}
 		var body struct {
@@ -126,7 +126,8 @@ func TestFavoriteVideosHTTP(t *testing.T) {
 		if repo.page != tc.page || repo.size != tc.size {
 			t.Fatalf("分页参数未正确透传：page=%d size=%d", repo.page, repo.size)
 		}
-		if tc.wantCode == 404 {
+		if tc.errorCode != 0 {
+			assertHTTPErrorCode(t, w, tc.errorCode)
 			if body.Videos != nil || body.Total != "" {
 				t.Fatal("无权响应泄露内容")
 			}

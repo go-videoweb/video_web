@@ -124,6 +124,10 @@ func (v *videoInfoRepo) UploadVideoCover(ctx context.Context, publisherId, video
 		},
 	})
 	if err != nil {
+		// 服务端可能在收到元信息后立即拒绝，Send 的 EOF 需要通过接收回执获取实际 RPC 错误。
+		if err == io.EOF {
+			_, err = stream.CloseAndRecv()
+		}
 		return err
 	}
 
@@ -144,6 +148,9 @@ func (v *videoInfoRepo) UploadVideoCover(ctx context.Context, publisherId, video
 			},
 		})
 		if err != nil {
+			if err == io.EOF {
+				_, err = stream.CloseAndRecv()
+			}
 			return err
 		}
 	}
