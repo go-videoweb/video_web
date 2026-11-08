@@ -33,7 +33,9 @@ import (
 	"vw_video/internal/pkg/ecode/errdef"
 )
 
-// VideoInfoRepo 定义公共视频信息、个人状态和最近观看时间的仓储能力。
+const videoUploadWaitingCover = "waiting_cover"
+
+// VideoInfoRepo 定义公共视频信息、上传状态、个人状态和最近观看时间的仓储能力。
 type VideoInfoRepo interface {
 	/* Used for dtm */
 	GetSqlTx() *sql.Tx
@@ -43,7 +45,10 @@ type VideoInfoRepo interface {
 	GetVideoFilePathById(ctx context.Context, videoId int64) (string, error)
 	AddVideoCntView(ctx context.Context, videoId int64) error
 	SetCoverPath(ctx context.Context, videoId int64, coverPath string) error
+	// CreateBasicVideoInfo 插入一条视频元信息，沿用 ctx 中的事务。
 	CreateBasicVideoInfo(ctx context.Context, video *model.Video) error
+	// CreateVideoUploadStatus 插入一条上传状态，沿用 ctx 中的事务。
+	CreateVideoUploadStatus(ctx context.Context, uploadStatus *model.VideoUploadStatus) error
 	UpdateVideoDurationSizeInfo(ctx context.Context, videoId int64, duration string, size int64) error
 	GetPublisherIdByVideoId(CTX context.Context, videoId int64) (publisherId int64, err error)
 	UpdateVideoFilePath(ctx context.Context, videoId int64, videoFilePath string) error
@@ -169,6 +174,7 @@ func (uc *VideoInfoUsecase) GetVideoListByClass(ctx context.Context, class []str
 	return videoList, nil
 }
 
+// UploadVideoInfo 创建视频元信息和待上传封面的初始状态，事务成功提交后才返回视频 ID。
 func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *videoinfov1.VideoMetaInfo) (int64, error) {
 	videoInfo := &model.Video{
 		VideoID:       getid.GetID(),
@@ -180,7 +186,19 @@ func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *videoinfo
 		PublisherName: info.PublisherName,
 		Duration:      info.Duration,
 	}
-	err := uc.repo.CreateBasicVideoInfo(ctx, videoInfo)
+	err := uc.tx.WithTx(ctx, func(txCtx context.Context) error {
+		if err := uc.repo.CreateBasicVideoInfo(txCtx, videoInfo); err != nil {
+			return err
+		}
+		// updated_time 不是 GORM 的默认更新时间列，显式写入初始值。
+		now := time.Now()
+		return uc.repo.CreateVideoUploadStatus(txCtx, &model.VideoUploadStatus{
+			VideoID:     videoInfo.VideoID,
+			CreatedAt:   now,
+			UpdatedTime: now,
+			Status:      videoUploadWaitingCover,
+		})
+	})
 	if err != nil {
 		return 0, helper.HandleError(errdef.ErrUploadVideoInfoFailed, err)
 	}

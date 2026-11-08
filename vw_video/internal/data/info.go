@@ -82,10 +82,14 @@ func (v *videoInfoRepo) UpdateVideoFilePath(ctx context.Context, videoId int64, 
 	return err
 }
 
+// CreateBasicVideoInfo 使用 ctx 选定的连接插入视频元信息，不管理事务。
 func (v *videoInfoRepo) CreateBasicVideoInfo(ctx context.Context, videoInfo *model.Video) error {
-	video := getQuery(ctx).Video
-	videoDo := video.WithContext(ctx)
-	return videoDo.Create(videoInfo)
+	return getQuery(ctx).Video.WithContext(ctx).Create(videoInfo)
+}
+
+// CreateVideoUploadStatus 使用 ctx 选定的连接插入上传状态，不决定状态值或管理事务。
+func (v *videoInfoRepo) CreateVideoUploadStatus(ctx context.Context, uploadStatus *model.VideoUploadStatus) error {
+	return getQuery(ctx).VideoUploadStatus.WithContext(ctx).Create(uploadStatus)
 }
 
 func (v *videoInfoRepo) GetVideoInfoById(ctx context.Context, videoId int64) (*model.Video, error) {
