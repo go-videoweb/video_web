@@ -15,8 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-	utilCtx "util/context"
 	"util/helper"
 	"vw_gateway"
 	videoinfov2 "vw_gateway/api/v1/video/videoinfo"
@@ -161,9 +159,8 @@ func (v *videoInfoRepo) UploadVideoCover(ctx context.Context, publisherId, video
 	return nil
 }
 
-func (v *videoInfoRepo) UploadVideoFile(publisherId int64, videoId int64, fh *multipart.FileHeader) error {
-	ctx, cancel := utilCtx.WithTimeout(nil, 100*time.Second)
-	defer cancel()
+// UploadVideoFile 转发原片并等待落盘回执，使用调用方的取消和超时。
+func (v *videoInfoRepo) UploadVideoFile(ctx context.Context, publisherId int64, videoId int64, fh *multipart.FileHeader) error {
 	stream, err := v.data.videoInfoClient.UploadVideoFile(ctx)
 	if err != nil {
 		return err
@@ -187,10 +184,13 @@ func (v *videoInfoRepo) UploadVideoFile(publisherId int64, videoId int64, fh *mu
 		},
 	})
 	if err != nil {
+		if err == io.EOF {
+			_, err = stream.CloseAndRecv()
+		}
 		return err
 	}
 
-	// 3. Send the cover file data
+	// 3. Send the original video data
 	buf := make([]byte, 1*mb)
 	for {
 		n, err := f.Read(buf)
@@ -207,6 +207,9 @@ func (v *videoInfoRepo) UploadVideoFile(publisherId int64, videoId int64, fh *mu
 			},
 		})
 		if err != nil {
+			if err == io.EOF {
+				_, err = stream.CloseAndRecv()
+			}
 			return err
 		}
 	}

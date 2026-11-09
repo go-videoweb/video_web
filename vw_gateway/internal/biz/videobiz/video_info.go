@@ -28,18 +28,16 @@ type VideoInfoRepo interface {
 	GetVideoCover(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
 	UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) (int64, error)
 	UploadVideoCover(ctx context.Context, publisherId, videoId int64, fh *multipart.FileHeader) error
-	UploadVideoFile(publisherId int64, videoId int64, fh *multipart.FileHeader) error
+	UploadVideoFile(ctx context.Context, publisherId int64, videoId int64, fh *multipart.FileHeader) error
 }
 
 type VideoInfoUsecase struct {
 	repo VideoInfoRepo
-	log  *log.Helper
 }
 
-func NewVideoInfoUsecase(repo VideoInfoRepo, logger log.Logger) *VideoInfoUsecase {
+func NewVideoInfoUsecase(repo VideoInfoRepo, _ log.Logger) *VideoInfoUsecase {
 	return &VideoInfoUsecase{
 		repo: repo,
-		log:  log.NewHelper(logger),
 	}
 }
 
@@ -105,6 +103,7 @@ func (uc *VideoInfoUsecase) UploadVideoCover(ctx context.Context, userId, videoI
 	return uc.repo.UploadVideoCover(ctx, userId, videoId, fh)
 }
 
+// UploadVideoFile 等待视频服务确认原片落盘，并透传上传失败。
 func (uc *VideoInfoUsecase) UploadVideoFile(ctx context.Context, userId, videoId int64) error {
 	// Parse form data and get video file
 	httpReq, ok := khttp.RequestFromServerContext(ctx)
@@ -123,15 +122,7 @@ func (uc *VideoInfoUsecase) UploadVideoFile(ctx context.Context, userId, videoId
 		return helper.HandleError(uerr.ErrUploadAvatarFailed, err)
 	}
 
-	// Upload big file asynchronously, to avoid the request timeout
-	// TODO: use message queue to handle big file upload.
-	go func() {
-		err := uc.repo.UploadVideoFile(userId, videoId, fh)
-		if err != nil {
-			uc.log.Error(err)
-		}
-	}()
-	return nil
+	return uc.repo.UploadVideoFile(ctx, userId, videoId, fh)
 }
 
 func (uc *VideoInfoUsecase) DownloadVideo(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error) {

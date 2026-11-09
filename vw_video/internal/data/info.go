@@ -61,31 +61,26 @@ func (v *videoInfoRepo) SetCoverPath(ctx context.Context, videoId int64, coverPa
 	return nil
 }
 
-func (v *videoInfoRepo) UpdateVideoDurationSizeInfo(ctx context.Context, videoId int64, duration string, size int64) error {
+// UpdateVideoMediaInfo 在上下文选定的连接上保存原片信息，并检查版本条件是否命中。
+func (v *videoInfoRepo) UpdateVideoMediaInfo(ctx context.Context, videoId int64, videoFilePath, duration string, size int64) error {
 	video := getQuery(ctx).Video
 	videoDo, _, err := addVideoModel(ctx, videoId)
 	if err != nil {
 		return err
 	}
 
-	_, err = videoDo.Where(video.VideoID.Eq(videoId)).Updates(&model.Video{
-		Duration: duration,
-		Size:     size,
-	})
-	return err
-}
-
-func (v *videoInfoRepo) UpdateVideoFilePath(ctx context.Context, videoId int64, videoFilePath string) error {
-	video := getQuery(ctx).Video
-	videoDo, _, err := addVideoModel(ctx, videoId)
-	if err != nil {
-		return err
-	}
-
-	_, err = videoDo.Where(video.VideoID.Eq(videoId)).Updates(&model.Video{
+	result, err := videoDo.Where(video.VideoID.Eq(videoId)).Updates(&model.Video{
 		VideoPath: videoFilePath,
+		Duration:  duration,
+		Size:      size,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected != 1 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // CreateBasicVideoInfo 使用 ctx 选定的连接插入视频元信息，不管理事务。
@@ -104,12 +99,13 @@ func (v *videoInfoRepo) GetVideoUploadStatus(ctx context.Context, videoId int64)
 	return upload.WithContext(ctx).Where(upload.VideoID.Eq(videoId)).First()
 }
 
-// UpdateVideoUploadStatus 按视频 ID 和旧状态更新记录，调用方负责决定如何处理未命中。
-func (v *videoInfoRepo) UpdateVideoUploadStatus(ctx context.Context, videoId int64, from, to string, updatedTime time.Time) (bool, error) {
+// UpdateVideoUploadStatus 按视频 ID 和旧状态更新阶段、错误描述和更新时间。
+// errorMessage 为空时清除旧错误，调用方负责处理未命中。
+func (v *videoInfoRepo) UpdateVideoUploadStatus(ctx context.Context, videoId int64, from, to, errorMessage string, updatedTime time.Time) (bool, error) {
 	upload := getQuery(ctx).VideoUploadStatus
 	result, err := upload.WithContext(ctx).
 		Where(upload.VideoID.Eq(videoId), upload.Status.Eq(from)).
-		UpdateSimple(upload.Status.Value(to), upload.UpdatedTime.Value(updatedTime))
+		UpdateSimple(upload.Status.Value(to), upload.UpdatedTime.Value(updatedTime), upload.UploadErrorMsg.Value(errorMessage))
 	return result.RowsAffected == 1, err
 }
 
