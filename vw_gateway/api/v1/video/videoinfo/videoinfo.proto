@@ -30,10 +30,7 @@ service VideoInfo {
             get: "/api/v1/{user_id}/video/{video_id}/file"
         };
     }
-    // Request Order: 1. UploadVideoInfo 2. UploadVideoFile 3. UploadVideoCover
-    // 1(UploadVideoInfo) Will Create a new directory for the video,
-    // 2(UploadVideoFile) and 3(UploadVideoCover) will upload the video file and cover file to the directory.
-    // The order of 2 and 3 is not important.
+    // 投稿顺序为上传视频元信息、封面、原片。
     rpc UploadVideoInfo(UploadVideoInfoReq) returns (UploadVideoInfoResp) {
         option (google.api.http) = {
             post: "/api/v1/{user_id}/video/metaInfo"
@@ -41,6 +38,7 @@ service VideoInfo {
         };
     }
 
+    // 原片落盘后返回，视频服务随后在后台生成 DASH。
     rpc UploadVideoFile(UploadVideoFileReq) returns (UploadVideoFileResp) {
         option (google.api.http) = {
             post: "/api/v1/{user_id}/video/{video_id}/file"
@@ -71,6 +69,13 @@ service VideoInfo {
     rpc GetFavoriteVideos(GetFavoriteVideosReq) returns (GetFavoriteVideosResp) {
         option (google.api.http) = {
             get: "/api/v1/favorites/{favorites_id}/videos"
+        };
+    }
+
+    // 发布者查询视频的上传和处理进度。
+    rpc GetVideoUploadStatus(GetVideoUploadStatusReq) returns (GetVideoUploadStatusResp) {
+        option (google.api.http) = {
+            get: "/api/v1/video/{video_id}/upload-status"
         };
     }
 }
@@ -220,4 +225,17 @@ message UploadVideoCoverReq {
 }
 message UploadVideoCoverResp {
     CommonResp resp = 1;
+}
+
+message GetVideoUploadStatusReq {
+    int64 video_id = 1;
+}
+
+message GetVideoUploadStatusResp {
+    // waiting_cover、waiting_video、uploading、processing、completed 或 failed。
+    string status = 1;
+    // 最近一次状态更新时间。已完成记录清理后，此字段为空。
+    google.protobuf.Timestamp updated_time = 2;
+    // 上传或处理失败时的提示。
+    string upload_error_msg = 3;
 }

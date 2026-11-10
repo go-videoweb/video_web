@@ -15,8 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-	utilCtx "util/context"
 	"util/helper"
 	"vw_gateway"
 	videoinfov2 "vw_gateway/api/v1/video/videoinfo"
@@ -44,6 +42,11 @@ func (v *videoInfoRepo) GetVideoInfo(ctx context.Context, videoId, userId int64)
 		return nil, err
 	}
 	return domain.NewVideoDetail(resp), nil
+}
+
+// GetVideoUploadStatus 向视频 RPC 传递视频 ID 和可信访问者身份。
+func (v *videoInfoRepo) GetVideoUploadStatus(ctx context.Context, videoId, userId int64) (*videoinfov1.GetVideoUploadStatusResp, error) {
+	return v.data.videoInfoClient.GetVideoUploadStatus(ctx, &videoinfov1.GetVideoUploadStatusReq{VideoId: videoId, UserId: userId})
 }
 
 // GetFavoriteVideos 仅传递网关鉴权确认的身份，不以客户端参数作为访问者。
@@ -124,6 +127,10 @@ func (v *videoInfoRepo) UploadVideoCover(ctx context.Context, publisherId, video
 		},
 	})
 	if err != nil {
+		// 服务端可能在收到元信息后立即拒绝，Send 的 EOF 需要通过接收回执获取实际 RPC 错误。
+		if err == io.EOF {
+			_, err = stream.CloseAndRecv()
+		}
 		return err
 	}
 
@@ -144,6 +151,9 @@ func (v *videoInfoRepo) UploadVideoCover(ctx context.Context, publisherId, video
 			},
 		})
 		if err != nil {
+			if err == io.EOF {
+				_, err = stream.CloseAndRecv()
+			}
 			return err
 		}
 	}
@@ -154,9 +164,8 @@ func (v *videoInfoRepo) UploadVideoCover(ctx context.Context, publisherId, video
 	return nil
 }
 
-func (v *videoInfoRepo) UploadVideoFile(publisherId int64, videoId int64, fh *multipart.FileHeader) error {
-	ctx, cancel := utilCtx.WithTimeout(nil, 100*time.Second)
-	defer cancel()
+// UploadVideoFile 转发原片并等待落盘回执，使用调用方的取消和超时。
+func (v *videoInfoRepo) UploadVideoFile(ctx context.Context, publisherId int64, videoId int64, fh *multipart.FileHeader) error {
 	stream, err := v.data.videoInfoClient.UploadVideoFile(ctx)
 	if err != nil {
 		return err
@@ -180,10 +189,13 @@ func (v *videoInfoRepo) UploadVideoFile(publisherId int64, videoId int64, fh *mu
 		},
 	})
 	if err != nil {
+		if err == io.EOF {
+			_, err = stream.CloseAndRecv()
+		}
 		return err
 	}
 
-	// 3. Send the cover file data
+	// 3. Send the original video data
 	buf := make([]byte, 1*mb)
 	for {
 		n, err := f.Read(buf)
@@ -200,6 +212,9 @@ func (v *videoInfoRepo) UploadVideoFile(publisherId int64, videoId int64, fh *mu
 			},
 		})
 		if err != nil {
+			if err == io.EOF {
+				_, err = stream.CloseAndRecv()
+			}
 			return err
 		}
 	}

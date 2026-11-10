@@ -67,6 +67,7 @@ func main() {
 		gen.FieldType("gender", "int"))
 	//gen.WithMethod(methods.Video{}))
 	favoriteVideo := g.GenerateModel("favorite_video")
+	videoUploadStatus := g.GenerateModel("video_upload_status")
 	barrages := g.GenerateModel("barrages")
 	userVideoStatus := g.GenerateModel("user_video_status", gen.FieldType("last_watch_time", "*time.Time"))
 	comment := g.GenerateModel("comment",
@@ -76,7 +77,10 @@ func main() {
 	userBarrageLike := g.GenerateModel("user_barrage_like")
 	userCommentLike := g.GenerateModel("user_comment_like")
 
-	g.ApplyBasic(video, barrages, favoriteVideo, comment, userVideoStatus, userBarrageLike, userCommentLike)
+	g.ApplyBasic(
+		video, barrages, comment, // 视频元数据
+		videoUploadStatus, userVideoStatus, userBarrageLike, favoriteVideo, userCommentLike, // 视频状态数据表
+	)
 
 	g.Execute()
 

@@ -2,111 +2,99 @@ package ffmpeg
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/go-kratos/kratos/v2/log"
 )
 
-type ffCommander[T interface{ *ffBase | *FFprobe | *FFmpeg }] interface {
-	AddGlobalArgs(args ...string) T
-	AddInputInfo(inputFilePath string, args ...string) T
-	AddOutputInfo(outputFilePath string, args ...string) T
-	SetAudioCodec(outputFilePath string, codec string) T
-	SetVideoCodec(outputFilePath string, codec string) T
-	SetLogLevel(level string) T
-	ShowCommand() T
-	Run() error
-	RunCombinedOutput() ([]byte, error)
+// ffBase 共享参数构造与执行，T 仅用于让链式方法返回所属的具体工具。
+type ffBase[T any] struct {
+	self          T          // 构造时绑定的外层工具实例。
+	command       string     // 要执行的程序名或路径。
+	globalArgs    globalArgs // 放在输入和输出之前的全局参数。
+	inputFileArgs inputArgs  // 按输入路径保存该输入的参数。
+	outputArgs    outputArgs // 按输出路径保存参数，只由支持输出的工具配置。
 }
 
-type ffBase struct {
-	// command is the ffmpeg-family command name.
-	// It contains ffmpeg, ffprobe, and ffplay.
-	command string
-
-	// globalArgs are the global arguments for ffmpeg-family command.
-	globalArgs globalArgs
-
-	// inputFileArgs are the input arguments for ffmpeg-family command.
-	// It is a map, the key is the input file path, the value is the arguments for this input file.
-	inputFileArgs inputArgs
-
-	// outputArgs are the output arguments for ffmpeg-family command.
-	// It is a map, the key is the input file path, the value is the arguments for this input file.
-	outputArgs outputArgs
-
-	outputFormat string
-}
-
-func newFFBase() *ffBase {
-	return &ffBase{
+// newFFBase 初始化单条命令的参数，并绑定外层实例供链式调用返回。
+func newFFBase[T any](command string, self T) *ffBase[T] {
+	return &ffBase[T]{
+		self:          self,
+		command:       command,
 		globalArgs:    globalArgs{},
 		inputFileArgs: make(inputArgs),
 		outputArgs:    make(outputArgs),
 	}
 }
 
-func (f *ffBase) AddInputInfo(inputFilePath string, arguments ...string) *ffBase {
+// AddInputInfo 添加输入路径与该输入的参数，返回当前工具继续配置。
+func (f *ffBase[T]) AddInputInfo(inputFilePath string, arguments ...string) T {
 	f.inputFileArgs.addInput(inputFilePath, arguments...)
-	return f
+	return f.self
 }
 
-func (f *ffBase) AddOutputInfo(outputFilePath string, arguments ...string) *ffBase {
-	f.outputArgs.addOutput(outputFilePath, arguments...)
-	return f
-}
-
-func (f *ffBase) AddGlobalArgs(args ...string) *ffBase {
+// AddGlobalArgs 按传入顺序追加全局参数，返回当前工具继续配置。
+func (f *ffBase[T]) AddGlobalArgs(args ...string) T {
 	f.globalArgs.addGlobal(args...)
-	return f
+	return f.self
 }
 
-func (f *ffBase) SetLogLevel(level string) *ffBase {
-	f.AddGlobalArgs("-v", level)
-	return f
+// SetLogLevel 设置媒体工具本身的输出级别，不影响 Go 应用的日志级别。
+func (f *ffBase[T]) SetLogLevel(level string) T {
+	return f.AddGlobalArgs("-v", level)
 }
 
-func (f *ffBase) SetVideoCodec(outputFile string, codec string) *ffBase {
-	f.AddOutputInfo(outputFile, "-c:v", codec)
-	return f
-}
-
-func (f *ffBase) SetAudioCodec(outputFile string, codec string) *ffBase {
-	f.AddOutputInfo(outputFile, "-c:a", codec)
-	return f
-}
-
-func (f *ffBase) Run() error {
-	args := f.buildArguments()
-	command := exec.Command(f.command, args...)
+// Run 执行命令并丢弃标准输出；ctx 控制子进程，失败时保留执行错误和标准错误输出。
+func (f *ffBase[T]) Run(ctx context.Context) error {
+	command := exec.CommandContext(ctx, f.command, f.buildArguments()...)
 	var stderr bytes.Buffer
 	command.Stderr = &stderr
 
 	err := command.Run()
 	if err != nil {
-		return errors.New(stderr.String())
+		return f.commandError(ctx, err, stderr.Bytes())
 	}
 	return nil
 }
 
-func (f *ffBase) RunCombinedOutput() ([]byte, error) {
-	args := f.buildArguments()
-	command := exec.Command(f.command, args...)
+// RunCombinedOutput 执行命令并返回合并后的输出；即使失败也保留已读取的输出。
+func (f *ffBase[T]) RunCombinedOutput(ctx context.Context) ([]byte, error) {
+	command := exec.CommandContext(ctx, f.command, f.buildArguments()...)
 	output, err := command.CombinedOutput()
-	return output, err
+	if err != nil {
+		return output, f.commandError(ctx, err, output)
+	}
+	return output, nil
 }
 
-func (f *ffBase) BuildCommand() string {
+// commandError 保留进程失败原因；取消导致的进程退出也能用 errors.Is 识别 context 错误。
+func (f *ffBase[T]) commandError(ctx context.Context, err error, output []byte) error {
+	if ctxErr := ctx.Err(); ctxErr != nil && !errors.Is(err, ctxErr) {
+		err = errors.Join(err, ctxErr)
+	}
+	if detail := strings.TrimSpace(string(output)); detail != "" {
+		return fmt.Errorf("%s: %w: %s", f.command, err, detail)
+	}
+	return fmt.Errorf("%s: %w", f.command, err)
+}
+
+// BuildCommand 返回用于诊断的参数文本，不作为 shell 命令执行。
+func (f *ffBase[T]) BuildCommand() string {
 	return strings.Join(f.buildArguments(), " ")
 }
 
-func (f *ffBase) ShowCommand() *ffBase {
-	fmt.Println(f.command + " " + f.BuildCommand())
-	return f
+// ShowCommand 将命令及参数写入调试日志，不启动子进程。
+func (f *ffBase[T]) ShowCommand() T {
+	log.Debugw("msg", "媒体处理命令", "program", f.command, "args", f.buildArguments())
+	return f.self
 }
 
-func (f *ffBase) buildArguments() []string {
+// buildArguments 按全局、输入、输出的分组构造 argv，每组文件选项紧邻其路径。
+func (f *ffBase[T]) buildArguments() []string {
 	var args []string
 
 	// add global arguments

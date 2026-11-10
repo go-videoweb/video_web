@@ -22,6 +22,7 @@ import (
 	videoinfov1 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/conf"
 	"vw_gateway/internal/pkg/codecs"
+	"vw_gateway/internal/pkg/middlewares"
 	"vw_gateway/internal/pkg/middlewares/auth"
 	"vw_gateway/internal/service/user_service"
 	"vw_gateway/internal/service/video_service"
@@ -80,8 +81,14 @@ func NewHTTPServer(
 	videoInteract *video.InteractService,
 	videoComment *video.CommentService,
 	logger log.Logger) *http.Server {
+	defaultTimeout := time.Second
+	if c.Http.Timeout != nil {
+		defaultTimeout = c.Http.Timeout.AsDuration()
+	}
 	var opts = []http.ServerOption{
+		http.Timeout(0),
 		http.Middleware(
+			middlewares.RequestTimeout(defaultTimeout),
 			recovery.Recovery(),
 			tracing.Server(),
 			logging.Server(logger),
@@ -108,9 +115,6 @@ func NewHTTPServer(
 	}
 	if c.Http.Addr != "" {
 		opts = append(opts, http.Address(c.Http.Addr))
-	}
-	if c.Http.Timeout != nil {
-		opts = append(opts, http.Timeout(c.Http.Timeout.AsDuration()))
 	}
 	srv := http.NewServer(opts...)
 	idv1.RegisterIdentityHTTPServer(srv, identity)

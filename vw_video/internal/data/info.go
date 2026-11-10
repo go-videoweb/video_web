@@ -41,6 +41,7 @@ func (v *videoInfoRepo) AddVideoCntView(ctx context.Context, videoId int64) erro
 	return nil
 }
 
+// SetCoverPath 更新视频封面路径，软删除或版本冲突导致未写入时返回错误。
 func (v *videoInfoRepo) SetCoverPath(ctx context.Context, videoId int64, coverPath string) error {
 	video := getQuery(ctx).Video
 	videoDo, _, err := addVideoModel(ctx, videoId)
@@ -48,44 +49,64 @@ func (v *videoInfoRepo) SetCoverPath(ctx context.Context, videoId int64, coverPa
 		return err
 	}
 
-	_, err = videoDo.Where(video.VideoID.Eq(videoId)).Updates(&model.Video{
+	result, err := videoDo.Where(video.VideoID.Eq(videoId)).Updates(&model.Video{
 		CoverPath: coverPath,
 	})
-
-	return err
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected != 1 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
-func (v *videoInfoRepo) UpdateVideoDurationSizeInfo(ctx context.Context, videoId int64, duration string, size int64) error {
+// UpdateVideoMediaInfo 在上下文选定的连接上保存原片信息，并检查版本条件是否命中。
+func (v *videoInfoRepo) UpdateVideoMediaInfo(ctx context.Context, videoId int64, videoFilePath, duration string, size int64) error {
 	video := getQuery(ctx).Video
 	videoDo, _, err := addVideoModel(ctx, videoId)
 	if err != nil {
 		return err
 	}
 
-	_, err = videoDo.Where(video.VideoID.Eq(videoId)).Updates(&model.Video{
-		Duration: duration,
-		Size:     size,
-	})
-	return err
-}
-
-func (v *videoInfoRepo) UpdateVideoFilePath(ctx context.Context, videoId int64, videoFilePath string) error {
-	video := getQuery(ctx).Video
-	videoDo, _, err := addVideoModel(ctx, videoId)
-	if err != nil {
-		return err
-	}
-
-	_, err = videoDo.Where(video.VideoID.Eq(videoId)).Updates(&model.Video{
+	result, err := videoDo.Where(video.VideoID.Eq(videoId)).Updates(&model.Video{
 		VideoPath: videoFilePath,
+		Duration:  duration,
+		Size:      size,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected != 1 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
+// CreateBasicVideoInfo 使用 ctx 选定的连接插入视频元信息，不管理事务。
 func (v *videoInfoRepo) CreateBasicVideoInfo(ctx context.Context, videoInfo *model.Video) error {
-	video := getQuery(ctx).Video
-	videoDo := video.WithContext(ctx)
-	return videoDo.Create(videoInfo)
+	return getQuery(ctx).Video.WithContext(ctx).Create(videoInfo)
+}
+
+// CreateVideoUploadStatus 使用 ctx 选定的连接插入上传状态，不决定状态值或管理事务。
+func (v *videoInfoRepo) CreateVideoUploadStatus(ctx context.Context, uploadStatus *model.VideoUploadStatus) error {
+	return getQuery(ctx).VideoUploadStatus.WithContext(ctx).Create(uploadStatus)
+}
+
+// GetVideoUploadStatus 在 ctx 选定的连接上查询单个视频的上传状态。
+func (v *videoInfoRepo) GetVideoUploadStatus(ctx context.Context, videoId int64) (*model.VideoUploadStatus, error) {
+	upload := getQuery(ctx).VideoUploadStatus
+	return upload.WithContext(ctx).Where(upload.VideoID.Eq(videoId)).First()
+}
+
+// UpdateVideoUploadStatus 按视频 ID 和旧状态更新阶段、错误描述和更新时间。
+// errorMessage 为空时清除旧错误，调用方负责处理未命中。
+func (v *videoInfoRepo) UpdateVideoUploadStatus(ctx context.Context, videoId int64, from, to, errorMessage string, updatedTime time.Time) (bool, error) {
+	upload := getQuery(ctx).VideoUploadStatus
+	result, err := upload.WithContext(ctx).
+		Where(upload.VideoID.Eq(videoId), upload.Status.Eq(from)).
+		UpdateSimple(upload.Status.Value(to), upload.UpdatedTime.Value(updatedTime), upload.UploadErrorMsg.Value(errorMessage))
+	return result.RowsAffected == 1, err
 }
 
 func (v *videoInfoRepo) GetVideoInfoById(ctx context.Context, videoId int64) (*model.Video, error) {

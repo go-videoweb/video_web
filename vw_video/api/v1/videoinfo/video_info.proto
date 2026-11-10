@@ -32,6 +32,9 @@ service VideoInfo {
 
     rpc AddVideoCntShared(AddVideoCntSharedReq) returns (google.protobuf.Empty) {}
     rpc AddVideoCntSharedRevert(AddVideoCntSharedReq) returns (google.protobuf.Empty) {}
+
+    // 仅发布者可查询视频的上传和处理进度。
+    rpc GetVideoUploadStatus(GetVideoUploadStatusReq) returns (GetVideoUploadStatusResp) {}
 }
 
 message FileResp {
@@ -242,4 +245,19 @@ message GetPublisherIdByVideoIdResp {
 message AddVideoCntSharedReq {
     int64 video_id       = 1;
     bool is_compensation = 2;
+}
+
+message GetVideoUploadStatusReq {
+    int64 video_id = 1;
+    // 由网关鉴权确认的用户 ID。
+    int64 user_id = 2;
+}
+
+message GetVideoUploadStatusResp {
+    // waiting_cover、waiting_video、uploading、processing、completed 或 failed。
+    string status = 1;
+    // 最近一次状态更新时间。已完成记录清理后，此字段为空。
+    google.protobuf.Timestamp updated_time = 2;
+    // 上传或处理失败时的提示。
+    string upload_error_msg = 3;
 }

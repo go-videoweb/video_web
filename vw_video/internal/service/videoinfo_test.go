@@ -4,24 +4,36 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strconv"
 	"testing"
 
+	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
+	"google.golang.org/grpc/status"
+	"util/helper"
 	videov1 "vw_video/api/v1/videoinfo"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
+	"vw_video/internal/pkg/ecode/errdef"
 	"vw_video/internal/service"
 )
 
 type metadataRepo struct {
 	biz.VideoInfoRepo
-	saved *model.Video
-	err   error
+	saved       *model.Video
+	savedStatus *model.VideoUploadStatus
+	err         error
 }
 
 func (r *metadataRepo) CreateBasicVideoInfo(_ context.Context, video *model.Video) error {
 	r.saved = video
 	return r.err
+}
+
+// CreateVideoUploadStatus 记录用例初始化的状态，供 RPC 返回值测试核对。
+func (r *metadataRepo) CreateVideoUploadStatus(_ context.Context, uploadStatus *model.VideoUploadStatus) error {
+	r.savedStatus = uploadStatus
+	return nil
 }
 
 // TestUploadVideoInfoReturnsSavedID 验证上传返回服务端生成并成功保存的视频 ID，保存失败不返回成功响应。
@@ -36,7 +48,7 @@ func TestUploadVideoInfoReturnsSavedID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &metadataRepo{err: tc.err}
 			logger := log.NewStdLogger(io.Discard)
-			uc := biz.NewVideoInfoUsecase(repo, nil, logger)
+			uc := biz.NewVideoInfoUsecase(repo, readTransaction{}, logger)
 			svc := service.NewVideoInfo(uc, logger)
 			resp, err := svc.UploadVideoInfo(context.Background(), &videov1.UploadVideoInfoReq{
 				VideoInfo: &videov1.VideoMetaInfo{
@@ -51,13 +63,21 @@ func TestUploadVideoInfoReturnsSavedID(t *testing.T) {
 				t.Fatal("saved metadata changed")
 			}
 			if tc.err != nil {
-				if err == nil || resp != nil {
+				if err == nil || resp != nil || repo.savedStatus != nil {
 					t.Fatal("failed save must not return a success response or video ID")
+				}
+				rpcError := kerrors.FromError(status.Convert(err).Err())
+				want := errdef.ErrUploadVideoInfoFailed
+				if rpcError.Metadata[helper.RPCBusinessCodeKey] != strconv.Itoa(int(want.Code)) {
+					t.Fatalf("gRPC 转换后丢失业务码：%v", rpcError)
 				}
 				return
 			}
 			if err != nil || resp == nil || resp.VideoId != repo.saved.VideoID {
 				t.Fatal("response ID must match the saved video")
+			}
+			if repo.savedStatus == nil || repo.savedStatus.VideoID != resp.VideoId || repo.savedStatus.Status != "waiting_cover" {
+				t.Fatal("上传状态应使用响应返回的 ID 和初始状态")
 			}
 		})
 	}
@@ -66,7 +86,7 @@ func TestUploadVideoInfoReturnsSavedID(t *testing.T) {
 // TestUploadVideoInfoUsecaseReturnsZeroOnSaveFailure 验证保存失败时业务层仅返回零 ID 和错误。
 func TestUploadVideoInfoUsecaseReturnsZeroOnSaveFailure(t *testing.T) {
 	repo := &metadataRepo{err: errors.New("save failed")}
-	uc := biz.NewVideoInfoUsecase(repo, nil, log.NewStdLogger(io.Discard))
+	uc := biz.NewVideoInfoUsecase(repo, readTransaction{}, log.NewStdLogger(io.Discard))
 	videoID, err := uc.UploadVideoInfo(context.Background(), &videov1.VideoMetaInfo{Title: "test"})
 	if err == nil || videoID != 0 {
 		t.Fatal("failed save must return zero ID and an error")

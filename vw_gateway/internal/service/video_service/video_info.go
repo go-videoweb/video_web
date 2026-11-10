@@ -4,6 +4,7 @@ import (
 	"context"
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/go-kratos/kratos/v2/transport"
 	videoinfov1 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/biz/videobiz"
 	"vw_gateway/internal/domain"
@@ -48,6 +49,24 @@ func (info *InfoService) GetVideoInfo(ctx context.Context, req *videoinfov1.GetV
 		}
 	}
 	return resp, nil
+}
+
+// GetVideoUploadStatus 使用鉴权身份查询投稿进度，要求 HTTP 客户端每次读取最新结果。
+func (info *InfoService) GetVideoUploadStatus(ctx context.Context, req *videoinfov1.GetVideoUploadStatusReq) (*videoinfov1.GetVideoUploadStatusResp, error) {
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	result, err := info.videoInfo.GetVideoUploadStatus(ctx, req.GetVideoId(), userId)
+	if err != nil {
+		return nil, err
+	}
+	if tr, ok := transport.FromServerContext(ctx); ok {
+		tr.ReplyHeader().Set("Cache-Control", "no-store")
+	}
+	return &videoinfov1.GetVideoUploadStatusResp{
+		Status: result.GetStatus(), UpdatedTime: result.GetUpdatedTime(), UploadErrorMsg: result.GetUploadErrorMsg(),
+	}, nil
 }
 
 // GetFavoriteVideos 使用鉴权身份读取收藏夹分页内容，身份缺失时不调用下游。
@@ -106,8 +125,13 @@ func (info *InfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.U
 		}}, nil
 }
 
+// UploadVideoCover 将鉴权身份和视频 ID 传给视频服务，由视频服务校验归属。
 func (info *InfoService) UploadVideoCover(ctx context.Context, req *videoinfov1.UploadVideoCoverReq) (*videoinfov1.UploadVideoCoverResp, error) {
-	err := info.videoInfo.UploadVideoCover(ctx, req.UserId, req.VideoId)
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	err := info.videoInfo.UploadVideoCover(ctx, userId, req.VideoId)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +142,13 @@ func (info *InfoService) UploadVideoCover(ctx context.Context, req *videoinfov1.
 		}}, nil
 }
 
+// UploadVideoFile 将鉴权身份和视频 ID 传给视频服务，由视频服务校验上传条件。
 func (info *InfoService) UploadVideoFile(ctx context.Context, req *videoinfov1.UploadVideoFileReq) (*videoinfov1.UploadVideoFileResp, error) {
-	err := info.videoInfo.UploadVideoFile(ctx, req.UserId, req.VideoId)
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	err := info.videoInfo.UploadVideoFile(ctx, userId, req.VideoId)
 	if err != nil {
 		return nil, err
 	}

@@ -1,13 +1,13 @@
 package ffmpeg
 
 import (
+	"context"
 	"strconv"
 	"strings"
 )
 
-// GetVideoDuration gets the duration of the video file.
-// The duration is rounded off to the nearest integer in seconds.
-func GetVideoDuration(inputFilePath string) (int64, error) {
+// GetVideoDuration 使用 ffprobe 读取时长并四舍五入到整秒；ctx 控制探测进程。
+func GetVideoDuration(ctx context.Context, inputFilePath string) (int64, error) {
 	ffprobeOperator := NewFFprobe()
 
 	outData, err := ffprobeOperator.
@@ -15,7 +15,7 @@ func GetVideoDuration(inputFilePath string) (int64, error) {
 		AddGlobalArgs("-v", "quiet").
 		ShowEntries(inputFilePath, "duration").
 		SetOutputFormat(inputFilePath, "csv=p=0").
-		RunCombinedOutput()
+		RunCombinedOutput(ctx)
 	if err != nil {
 		return 0, err
 	}

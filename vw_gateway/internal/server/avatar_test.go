@@ -173,7 +173,6 @@ func TestRegisterThenUpdateAvatarHTTP(t *testing.T) {
 			writer := httptest.NewRecorder()
 			server.ServeHTTP(writer, request)
 			if scenario == "unauthenticated" {
-				// 项目既有鉴权错误使用业务码，HTTP 状态可能为 200；按统一协议断言拒绝。
 				assertMissingToken(t, writer)
 				if repo.updates != 0 {
 					t.Fatal("未登录更新调用了下游")
@@ -188,12 +187,14 @@ func TestRegisterThenUpdateAvatarHTTP(t *testing.T) {
 					t.Fatal("更新响应缺少可访问地址")
 				}
 			} else {
-				if writer.Code < 400 || repo.updates != 0 {
+				if repo.updates != 0 {
 					t.Fatalf("无效上传调用了下游: %d %s", writer.Code, writer.Body.String())
 				}
-				if (scenario == "oversize" || scenario == "body limit") && writer.Code != 413 {
-					t.Fatalf("大小限制错误: %d %s", writer.Code, writer.Body.String())
+				wantCode := http.StatusBadRequest
+				if scenario == "oversize" || scenario == "body limit" {
+					wantCode = http.StatusRequestEntityTooLarge
 				}
+				assertHTTPErrorCode(t, writer, wantCode)
 			}
 		})
 	}
@@ -204,12 +205,13 @@ func TestRegisterThenUpdateAvatarHTTP(t *testing.T) {
 	if changed.Code != 200 || changed.Body.Len() != 5<<20 || !bytes.Equal(changed.Body.Bytes(), repo.data) || changed.Header().Get("ETag") == etag {
 		t.Fatal("替换后仍返回旧缓存")
 	}
-	for _, path := range []string{"/api/v1/users/0/avatar", "/api/v1/users/99/avatar"} {
+	for path, wantCode := range map[string]int{
+		"/api/v1/users/0/avatar":  http.StatusBadRequest,
+		"/api/v1/users/99/avatar": http.StatusNotFound,
+	} {
 		writer := httptest.NewRecorder()
 		server.ServeHTTP(writer, httptest.NewRequest(http.MethodGet, path, nil))
-		if writer.Code < 400 {
-			t.Fatal("无效或不存在的用户头像返回成功")
-		}
+		assertHTTPErrorCode(t, writer, wantCode)
 	}
 	removed := httptest.NewRecorder()
 	server.ServeHTTP(removed, httptest.NewRequest(http.MethodPost, "/api/v1/user/profile/avatar", nil))
@@ -221,7 +223,8 @@ func TestRegisterThenUpdateAvatarHTTP(t *testing.T) {
 	retry := httptest.NewRequest(http.MethodPost, "/api/v1/user/register", strings.NewReader(`{"username":"another","birthday":"2001-01-01"}`))
 	retry.Header.Set("Content-Type", "application/json")
 	server.ServeHTTP(failed, retry)
-	if failed.Code != 500 || !strings.Contains(failed.Body.String(), "REGISTRATION_SESSION_FAILED") || !strings.Contains(failed.Body.String(), "user_created") {
+	assertHTTPErrorCode(t, failed, http.StatusInternalServerError)
+	if !strings.Contains(failed.Body.String(), "REGISTRATION_SESSION_FAILED") || !strings.Contains(failed.Body.String(), "user_created") {
 		t.Fatalf("部分成功未明确告知: %s", failed.Body.String())
 	}
 }

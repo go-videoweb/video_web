@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	video "vw_video/api/v1/videoinfo"
+	"vw_video/internal/data/dal/model"
 )
 
 type dashRepo struct {
@@ -31,6 +32,12 @@ func (r *dashRepo) GetPublisherIdByVideoId(ctx context.Context, id int64) (int64
 	r.ctx, r.videoID = ctx, id
 	r.calls++
 	return r.publisher, r.err
+}
+
+// GetVideoInfoById 返回缺少封面路径的旧视频，用于覆盖目录回退。
+func (r *dashRepo) GetVideoInfoById(ctx context.Context, id int64) (*model.Video, error) {
+	publisher, err := r.GetPublisherIdByVideoId(ctx, id)
+	return &model.Video{VideoID: id, PublisherID: publisher}, err
 }
 
 func (r *dashRepo) GetVideoFilePathById(ctx context.Context, id int64) (string, error) {
