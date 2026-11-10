@@ -708,6 +708,25 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.GetVideoInfoResp'
+    /api/v1/video/{videoId}/upload-status:
+        get:
+            tags:
+                - VideoInfo
+            description: 发布者查询视频的上传和处理进度。业务失败通过响应体的 code、reason 和 message 返回。
+            operationId: VideoInfo_GetVideoUploadStatus
+            parameters:
+                - name: videoId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/gateway.api.v1.video.videoinfo.GetVideoUploadStatusResp'
     /api/v1/{userId}/follow:
         put:
             tags:
@@ -791,11 +810,7 @@ paths:
         post:
             tags:
                 - VideoInfo
-            description: |-
-                Request Order: 1. UploadVideoInfo 2. UploadVideoFile 3. UploadVideoCover
-                 1(UploadVideoInfo) Will Create a new directory for the video,
-                 2(UploadVideoFile) and 3(UploadVideoCover) will upload the video file and cover file to the directory.
-                 The order of 2 and 3 is not important.
+            description: 投稿顺序为上传视频元信息、封面、原片。
             operationId: VideoInfo_UploadVideoInfo
             parameters:
                 - name: userId
@@ -950,6 +965,7 @@ paths:
         post:
             tags:
                 - VideoInfo
+            description: 原片落盘后返回，视频服务随后在后台生成 DASH。
             operationId: VideoInfo_UploadVideoFile
             parameters:
                 - name: userId
@@ -2018,6 +2034,20 @@ components:
                 pageSize:
                     type: integer
                     format: int32
+        gateway.api.v1.video.videoinfo.GetVideoUploadStatusResp:
+            type: object
+            properties:
+                status:
+                    type: string
+                    enum: [waiting_cover, waiting_video, uploading, processing, completed, failed]
+                updatedTime:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    description: 最近一次状态更新时间。已完成记录清理后，此字段为空。
+                uploadErrorMsg:
+                    type: string
+                    description: 上传或处理失败时的提示。
         gateway.api.v1.video.videoinfo.UserVideoStatus:
             type: object
             properties:

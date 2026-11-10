@@ -29,6 +29,8 @@ type VideoInfoRepo interface {
 	UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) (int64, error)
 	UploadVideoCover(ctx context.Context, publisherId, videoId int64, fh *multipart.FileHeader) error
 	UploadVideoFile(ctx context.Context, publisherId int64, videoId int64, fh *multipart.FileHeader) error
+	// GetVideoUploadStatus 使用已鉴权的用户 ID 向视频服务查询上传状态。
+	GetVideoUploadStatus(ctx context.Context, videoId, userId int64) (*videoinfov2.GetVideoUploadStatusResp, error)
 }
 
 type VideoInfoUsecase struct {
@@ -52,6 +54,11 @@ func (uc *VideoInfoUsecase) GetVideoDetail(ctx context.Context, videoId, userId 
 // GetFavoriteVideos 转发收藏夹分页查询，保留权限、参数和下游错误的原始语义。
 func (uc *VideoInfoUsecase) GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) (*videoinfov2.GetFavoriteVideosResp, error) {
 	return uc.repo.GetFavoriteVideos(ctx, userId, favoritesId, pageNum, pageSize)
+}
+
+// GetVideoUploadStatus 转发投稿状态查询，由视频服务校验发布者身份。
+func (uc *VideoInfoUsecase) GetVideoUploadStatus(ctx context.Context, videoId, userId int64) (*videoinfov2.GetVideoUploadStatusResp, error) {
+	return uc.repo.GetVideoUploadStatus(ctx, videoId, userId)
 }
 
 func (uc *VideoInfoUsecase) GetVideoList(ctx context.Context, class []string, num int32, size int32) ([]*domain.VideoSummary, error) {

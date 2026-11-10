@@ -31,6 +31,19 @@ func (s *VideoInfoService) GetVideoInfo(ctx context.Context, req *videoinfov1.Ge
 	return s.info.GetVideoInfoById(ctx, req.VideoId, req.UserId)
 }
 
+// GetVideoUploadStatus 返回发布者可见的阶段、更新时间和失败原因。
+func (s *VideoInfoService) GetVideoUploadStatus(ctx context.Context, req *videoinfov1.GetVideoUploadStatusReq) (*videoinfov1.GetVideoUploadStatusResp, error) {
+	uploadStatus, err := s.info.GetVideoUploadStatus(ctx, req.GetVideoId(), req.GetUserId())
+	if err != nil {
+		return nil, helper.WithRPCBusinessCode(err)
+	}
+	resp := &videoinfov1.GetVideoUploadStatusResp{Status: uploadStatus.Status, UploadErrorMsg: uploadStatus.UploadErrorMsg}
+	if !uploadStatus.UpdatedTime.IsZero() {
+		resp.UpdatedTime = timestamppb.New(uploadStatus.UpdatedTime)
+	}
+	return resp, nil
+}
+
 // GetFavoriteVideos 返回按收藏时间分页的视频摘要，收藏时间与视频发布时间分别编码。
 func (s *VideoInfoService) GetFavoriteVideos(ctx context.Context, req *videoinfov1.GetFavoriteVideosReq) (*videoinfov1.GetFavoriteVideosResp, error) {
 	rows, total, pageNum, pageSize, err := s.info.GetFavoriteVideos(ctx, req.UserId, req.FavoritesId, req.PageNum, req.PageSize)

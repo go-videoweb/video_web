@@ -49,6 +49,8 @@ const (
 	VIDEOINFO_CoverUploadStage
 	VIDEOINFO_FileUploadStage
 	VIDEOINFO_CoverRequired
+	VIDEOINFO_UploadStatusNotFound
+	VIDEOINFO_GetUploadStatusFailed
 )
 
 const RetryStr = "请稍后再试"

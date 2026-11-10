@@ -44,6 +44,11 @@ func (v *videoInfoRepo) GetVideoInfo(ctx context.Context, videoId, userId int64)
 	return domain.NewVideoDetail(resp), nil
 }
 
+// GetVideoUploadStatus 向视频 RPC 传递视频 ID 和可信访问者身份。
+func (v *videoInfoRepo) GetVideoUploadStatus(ctx context.Context, videoId, userId int64) (*videoinfov1.GetVideoUploadStatusResp, error) {
+	return v.data.videoInfoClient.GetVideoUploadStatus(ctx, &videoinfov1.GetVideoUploadStatusReq{VideoId: videoId, UserId: userId})
+}
+
 // GetFavoriteVideos 仅传递网关鉴权确认的身份，不以客户端参数作为访问者。
 func (v *videoInfoRepo) GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) (*videoinfov1.GetFavoriteVideosResp, error) {
 	resp, err := v.data.videoInfoClient.GetFavoriteVideos(ctx, &videoinfov1.GetFavoriteVideosReq{
