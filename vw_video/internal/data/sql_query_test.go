@@ -206,8 +206,6 @@ func TestVideoExplicitQueryOffline(t *testing.T) {
 		{"贝壳计数", "video", func(ctx context.Context, tx *sql.Tx) error { return i.UpdateVideoShells(ctx, tx, 9, 1) }},
 		{"弹幕点赞", "barrages", func(ctx context.Context, tx *sql.Tx) error { return i.AddVideoBarrageUpvote(ctx, tx, 11) }},
 		{"取消弹幕点赞", "barrages", func(ctx context.Context, tx *sql.Tx) error { return i.DecrementVideoBarrageUpvote(ctx, tx, 11) }},
-		{"分享计数", "video", func(ctx context.Context, tx *sql.Tx) error { return v.UpdateVideoCntShare(ctx, tx, 9) }},
-		{"分享补偿", "video", func(ctx context.Context, tx *sql.Tx) error { return v.UpdateVideoCntShareCompensation(ctx, tx, 9) }},
 		{"热度", "video", func(ctx context.Context, tx *sql.Tx) error { return v.SetVideoHot(ctx, tx, 9, 1) }},
 		{"个人状态", "user_video_status", func(ctx context.Context, tx *sql.Tx) error {
 			return i.ApplyUserVideoStatus(ctx, tx, 7, 9, &biz.VideoStatusPatch{IsLike: &biz.StatusChange{Before: 0, After: 1}})

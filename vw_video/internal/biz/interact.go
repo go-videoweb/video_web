@@ -8,7 +8,6 @@ import (
 	_ "github.com/dtm-labs/dtmdriver-kratos"
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/grpc/codes"
-	"strconv"
 	"util/dbutil/mysqlutil"
 	"util/helper"
 	interactv1 "vw_video/api/v1/interact"
@@ -40,7 +39,12 @@ type InteractRepo interface {
 	SetFavoriteStatus(ctx context.Context, userID, videoID int64, favorite bool) error
 
 	UpdateVideoShells(ctx context.Context, tx *sql.Tx, videoID int64, countShells int32) error
-	ShareVideo(ctx context.Context, videoID int64) string
+	// EnsureShareStatus 确保个人状态行存在，保留已有互动字段。
+	EnsureShareStatus(ctx context.Context, userID, videoID int64) error
+	// MarkVideoShared 返回本次是否从未分享更新为已分享。
+	MarkVideoShared(ctx context.Context, userID, videoID int64) (bool, error)
+	// IncrementVideoShare 增加有效视频的分享计数和热度。
+	IncrementVideoShare(ctx context.Context, videoID int64) error
 	AddVideoCntBarrage(ctx context.Context, videoID int64) error
 	AddBarrage(ctx context.Context, into *interactv1.VideoSendBarrageReq) error
 	GetBarragePage(ctx context.Context, query *BarrageQuery) ([]*model.Barrage, error)
@@ -116,10 +120,6 @@ func (u *InteractUsecase) UpdateVideoShells(ctx context.Context, videoID int64, 
 		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
 	}
 	return nil
-}
-
-func (u *InteractUsecase) ShareVideo(ctx context.Context, videoID int64) (string, error) {
-	return "/api/v1/video/" + strconv.FormatInt(videoID, 10) + "/info", nil
 }
 
 // SendBarrage 校验整数秒位置，在本地事务内保存弹幕及视频弹幕计数。

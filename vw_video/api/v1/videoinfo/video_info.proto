@@ -30,9 +30,6 @@ service VideoInfo {
 
     rpc GetPublisherIdByVideoId(GetPublisherIdByVideoIdReq) returns (GetPublisherIdByVideoIdResp) {}
 
-    rpc AddVideoCntShared(AddVideoCntSharedReq) returns (google.protobuf.Empty) {}
-    rpc AddVideoCntSharedRevert(AddVideoCntSharedReq) returns (google.protobuf.Empty) {}
-
     // 仅发布者可查询视频的上传和处理进度。
     rpc GetVideoUploadStatus(GetVideoUploadStatusReq) returns (GetVideoUploadStatusResp) {}
 }
@@ -240,11 +237,6 @@ message GetPublisherIdByVideoIdReq {
 }
 message GetPublisherIdByVideoIdResp {
     int64 publisher_id = 1;
-}
-
-message AddVideoCntSharedReq {
-    int64 video_id       = 1;
-    bool is_compensation = 2;
 }
 
 message GetVideoUploadStatusReq {

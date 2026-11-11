@@ -115,7 +115,7 @@ func TestCommentBarrageHTTP(t *testing.T) {
 	}
 	t.Cleanup(cleanup)
 	cs := video.NewVideoCommentService(videobiz.NewVideoCommentUsecase(videodata.NewVideoCommentRepo(d, logger), logger), logger)
-	bs := video.NewInteractService(videobiz.NewInteractUsecase(videodata.NewInteractRepo(d, logger), logger), logger)
+	bs := video.NewInteractService(videobiz.NewInteractUsecase(videodata.NewInteractRepo(d, logger), nil), logger)
 	srv := NewHTTPServer(&conf.Server{Http: &conf.Server_HTTP{}}, &conf.JWT{Secret: secret, AccessTokenExpiration: 1}, nil, nil, nil, nil, cache, nil, nil, nil, bs, cs, logger)
 	for _, tc := range []struct {
 		name, method, path, body string

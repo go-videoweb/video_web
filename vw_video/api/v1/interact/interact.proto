@@ -18,7 +18,8 @@ service VideoInteract {
     rpc VideoThrowShells(VideoThrowShellsReq) returns (google.protobuf.Empty) {}
     rpc VideoThrowShellsRevert(VideoThrowShellsReq) returns (google.protobuf.Empty) {}
 
-    rpc VideoShare(VideoShareReq) returns (VideoShareResp) {}
+    // 记录登录用户的分享，同一用户和视频仅首次计数。
+    rpc RecordVideoShare(RecordVideoShareReq) returns (google.protobuf.Empty) {}
 
     rpc VideoSendBarrage(VideoSendBarrageReq) returns (google.protobuf.Empty) {}
     rpc GetBarrages(GetBarragesReq) returns (GetBarragesResp) {}
@@ -66,12 +67,10 @@ message VideoThrowShellsReq {
     int32 shells   = 3;
 }
 
-message VideoShareReq {
-    int64 video_id  = 1;
-    int32 is_shared = 2;  // 1: Share, -1: Not shared before
-}
-message VideoShareResp {
-    string uri = 1;
+message RecordVideoShareReq {
+    int64 video_id = 1;
+    // 网关鉴权确认的操作人。
+    int64 user_id = 2;
 }
 
 message VideoSendBarrageReq {

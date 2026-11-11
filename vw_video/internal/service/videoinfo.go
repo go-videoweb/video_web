@@ -151,15 +151,3 @@ func (s *VideoInfoService) GetPublisherIdByVideoId(ctx context.Context, req *vid
 		PublisherId: publisherId,
 	}, nil
 }
-
-func (s *VideoInfoService) AddVideoCntShared(ctx context.Context, req *videoinfov1.AddVideoCntSharedReq) (*emptypb.Empty, error) {
-	err := s.info.UpdateVideoCntShare(ctx, req.VideoId, req.IsCompensation)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
-}
-func (s *VideoInfoService) AddVideoCntSharedRevert(ctx context.Context, req *videoinfov1.AddVideoCntSharedReq) (*emptypb.Empty, error) {
-	req.IsCompensation = !req.IsCompensation
-	return s.AddVideoCntShared(ctx, req)
-}
