@@ -2,8 +2,13 @@ package videobiz
 
 import (
 	"context"
-	"github.com/go-kratos/kratos/v2/log"
+	"net/url"
+	"strconv"
+	"strings"
+
 	interactv1 "vw_gateway/api/v1/video/video_interact"
+	"vw_gateway/internal/conf"
+	"vw_gateway/internal/pkg/ecode/errdef"
 )
 
 type InteractRepo interface {
@@ -12,19 +17,19 @@ type InteractRepo interface {
 	UpvoteBarrage(ctx context.Context, userID int64, req *interactv1.VideoUpvoteBarrageReq) (*interactv1.VideoUpvoteBarrageResp, error)
 	GetBarrages(ctx context.Context, userID int64, req *interactv1.GetBarragesReq) (*interactv1.GetBarragesResp, error)
 	SendBarrage(ctx context.Context, userId int64, req *interactv1.VideoSendBarrageReq) error
-	ShareVideo(ctx context.Context, userId int64, videoId int64) (string, error)
+	RecordVideoShare(ctx context.Context, userId, videoId int64) error
 	ThrowShells(ctx context.Context, userId int64, videoId int64, count int32) error
 }
 
 type InteractUsecase struct {
-	repo InteractRepo
-	log  *log.Helper
+	repo             InteractRepo
+	publicSiteOrigin string
 }
 
-func NewInteractUsecase(repo InteractRepo, logger log.Logger) *InteractUsecase {
+func NewInteractUsecase(repo InteractRepo, service *conf.Service) *InteractUsecase {
 	return &InteractUsecase{
-		repo: repo,
-		log:  log.NewHelper(logger),
+		repo:             repo,
+		publicSiteOrigin: service.GetPublicSiteOrigin(),
 	}
 }
 
@@ -51,8 +56,33 @@ func (u *InteractUsecase) SendBarrage(ctx context.Context, userId int64, req *in
 	return u.repo.SendBarrage(ctx, userId, req)
 }
 
-func (u *InteractUsecase) Share(ctx context.Context, id int64, id2 int64) (string, error) {
-	return u.repo.ShareVideo(ctx, id, id2)
+// Share 生成公开观看页链接，并将分享行为交给视频服务记录。
+// 配置无效时在调用视频服务前返回错误，避免记录一次无法返回链接的分享。
+func (u *InteractUsecase) Share(ctx context.Context, userId, videoId int64) (string, error) {
+	origin, err := url.Parse(strings.TrimSpace(u.publicSiteOrigin))
+	if err != nil {
+		return "", errdef.ErrInvalidPublicSiteOrigin
+	}
+	if origin.Scheme != "http" && origin.Scheme != "https" {
+		return "", errdef.ErrInvalidPublicSiteOrigin
+	}
+	if origin.Hostname() == "" || origin.User != nil {
+		return "", errdef.ErrInvalidPublicSiteOrigin
+	}
+	if path := origin.EscapedPath(); path != "" && path != "/" {
+		return "", errdef.ErrInvalidPublicSiteOrigin
+	}
+	if origin.ForceQuery || origin.RawQuery != "" {
+		return "", errdef.ErrInvalidPublicSiteOrigin
+	}
+	if origin.Fragment != "" {
+		return "", errdef.ErrInvalidPublicSiteOrigin
+	}
+	if err := u.repo.RecordVideoShare(ctx, userId, videoId); err != nil {
+		return "", err
+	}
+	origin.Path = "/watch/" + strconv.FormatInt(videoId, 10)
+	return origin.String(), nil
 }
 
 func (u *InteractUsecase) ThrowShells(ctx context.Context, userId int64, videoId int64, count int32) error {

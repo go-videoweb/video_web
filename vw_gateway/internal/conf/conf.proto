@@ -82,6 +82,8 @@ message Service {
     }
     User user       = 1;
     Video video     = 2;
+     // 浏览器访问前端站点的 origin，用于生成观看页分享地址。
+    string public_site_origin = 3;
 }
 
 message DTM {

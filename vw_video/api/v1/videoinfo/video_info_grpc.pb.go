@@ -31,8 +31,6 @@ const (
 	VideoInfo_UploadVideoFile_FullMethodName         = "/video.v1.videoinfo.VideoInfo/UploadVideoFile"
 	VideoInfo_UploadVideoCover_FullMethodName        = "/video.v1.videoinfo.VideoInfo/UploadVideoCover"
 	VideoInfo_GetPublisherIdByVideoId_FullMethodName = "/video.v1.videoinfo.VideoInfo/GetPublisherIdByVideoId"
-	VideoInfo_AddVideoCntShared_FullMethodName       = "/video.v1.videoinfo.VideoInfo/AddVideoCntShared"
-	VideoInfo_AddVideoCntSharedRevert_FullMethodName = "/video.v1.videoinfo.VideoInfo/AddVideoCntSharedRevert"
 	VideoInfo_GetVideoUploadStatus_FullMethodName    = "/video.v1.videoinfo.VideoInfo/GetVideoUploadStatus"
 )
 
@@ -52,8 +50,6 @@ type VideoInfoClient interface {
 	UploadVideoFile(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UploadVideoFileReq, emptypb.Empty], error)
 	UploadVideoCover(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UploadVideoCoverReq, emptypb.Empty], error)
 	GetPublisherIdByVideoId(ctx context.Context, in *GetPublisherIdByVideoIdReq, opts ...grpc.CallOption) (*GetPublisherIdByVideoIdResp, error)
-	AddVideoCntShared(ctx context.Context, in *AddVideoCntSharedReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	AddVideoCntSharedRevert(ctx context.Context, in *AddVideoCntSharedReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// 仅发布者可查询视频的上传和处理进度。
 	GetVideoUploadStatus(ctx context.Context, in *GetVideoUploadStatusReq, opts ...grpc.CallOption) (*GetVideoUploadStatusResp, error)
 }
@@ -218,26 +214,6 @@ func (c *videoInfoClient) GetPublisherIdByVideoId(ctx context.Context, in *GetPu
 	return out, nil
 }
 
-func (c *videoInfoClient) AddVideoCntShared(ctx context.Context, in *AddVideoCntSharedReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, VideoInfo_AddVideoCntShared_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *videoInfoClient) AddVideoCntSharedRevert(ctx context.Context, in *AddVideoCntSharedReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, VideoInfo_AddVideoCntSharedRevert_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *videoInfoClient) GetVideoUploadStatus(ctx context.Context, in *GetVideoUploadStatusReq, opts ...grpc.CallOption) (*GetVideoUploadStatusResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetVideoUploadStatusResp)
@@ -264,8 +240,6 @@ type VideoInfoServer interface {
 	UploadVideoFile(grpc.ClientStreamingServer[UploadVideoFileReq, emptypb.Empty]) error
 	UploadVideoCover(grpc.ClientStreamingServer[UploadVideoCoverReq, emptypb.Empty]) error
 	GetPublisherIdByVideoId(context.Context, *GetPublisherIdByVideoIdReq) (*GetPublisherIdByVideoIdResp, error)
-	AddVideoCntShared(context.Context, *AddVideoCntSharedReq) (*emptypb.Empty, error)
-	AddVideoCntSharedRevert(context.Context, *AddVideoCntSharedReq) (*emptypb.Empty, error)
 	// 仅发布者可查询视频的上传和处理进度。
 	GetVideoUploadStatus(context.Context, *GetVideoUploadStatusReq) (*GetVideoUploadStatusResp, error)
 	mustEmbedUnimplementedVideoInfoServer()
@@ -310,12 +284,6 @@ func (UnimplementedVideoInfoServer) UploadVideoCover(grpc.ClientStreamingServer[
 }
 func (UnimplementedVideoInfoServer) GetPublisherIdByVideoId(context.Context, *GetPublisherIdByVideoIdReq) (*GetPublisherIdByVideoIdResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPublisherIdByVideoId not implemented")
-}
-func (UnimplementedVideoInfoServer) AddVideoCntShared(context.Context, *AddVideoCntSharedReq) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AddVideoCntShared not implemented")
-}
-func (UnimplementedVideoInfoServer) AddVideoCntSharedRevert(context.Context, *AddVideoCntSharedReq) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AddVideoCntSharedRevert not implemented")
 }
 func (UnimplementedVideoInfoServer) GetVideoUploadStatus(context.Context, *GetVideoUploadStatusReq) (*GetVideoUploadStatusResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVideoUploadStatus not implemented")
@@ -489,42 +457,6 @@ func _VideoInfo_GetPublisherIdByVideoId_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
-func _VideoInfo_AddVideoCntShared_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AddVideoCntSharedReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(VideoInfoServer).AddVideoCntShared(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: VideoInfo_AddVideoCntShared_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VideoInfoServer).AddVideoCntShared(ctx, req.(*AddVideoCntSharedReq))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _VideoInfo_AddVideoCntSharedRevert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AddVideoCntSharedReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(VideoInfoServer).AddVideoCntSharedRevert(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: VideoInfo_AddVideoCntSharedRevert_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VideoInfoServer).AddVideoCntSharedRevert(ctx, req.(*AddVideoCntSharedReq))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _VideoInfo_GetVideoUploadStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetVideoUploadStatusReq)
 	if err := dec(in); err != nil {
@@ -569,14 +501,6 @@ var VideoInfo_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPublisherIdByVideoId",
 			Handler:    _VideoInfo_GetPublisherIdByVideoId_Handler,
-		},
-		{
-			MethodName: "AddVideoCntShared",
-			Handler:    _VideoInfo_AddVideoCntShared_Handler,
-		},
-		{
-			MethodName: "AddVideoCntSharedRevert",
-			Handler:    _VideoInfo_AddVideoCntSharedRevert_Handler,
 		},
 		{
 			MethodName: "GetVideoUploadStatus",

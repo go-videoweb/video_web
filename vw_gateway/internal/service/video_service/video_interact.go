@@ -4,9 +4,11 @@ import (
 	"context"
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/go-kratos/kratos/v2/transport"
 	"net/http"
 	interactv1 "vw_gateway/api/v1/video/video_interact"
 	"vw_gateway/internal/biz/videobiz"
+	"vw_gateway/internal/pkg/ecode/errdef/uerr"
 )
 
 type InteractService struct {
@@ -67,11 +69,18 @@ func (s *InteractService) VideoSendBarrage(ctx context.Context, req *interactv1.
 	}, nil
 }
 
+// VideoShare 从鉴权上下文取得用户身份，记录分享后返回公开观看页链接。
 func (s *InteractService) VideoShare(ctx context.Context, req *interactv1.VideoShareReq) (*interactv1.VideoShareResp, error) {
-	curUserId := ctx.Value(userIdKey).(int64)
-	url, err := s.interactUsecase.Share(ctx, curUserId, req.VideoId)
+	curUserId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || curUserId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	url, err := s.interactUsecase.Share(ctx, curUserId, req.GetVideoId())
 	if err != nil {
 		return nil, err
+	}
+	if tr, ok := transport.FromServerContext(ctx); ok {
+		tr.ReplyHeader().Set("Cache-Control", "no-store")
 	}
 	return &interactv1.VideoShareResp{
 		Url:        url,

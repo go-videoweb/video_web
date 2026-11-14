@@ -51,7 +51,7 @@ func TestFavoriteSingleVideoRPC(t *testing.T) {
 				c.resp = nil
 			}
 			logger := log.NewStdLogger(io.Discard)
-			svc := video.NewInteractService(videobiz.NewInteractUsecase(NewInteractRepo(&Data{videoInteractClient: c}, logger), logger), logger)
+			svc := video.NewInteractService(videobiz.NewInteractUsecase(NewInteractRepo(&Data{videoInteractClient: c}, logger), nil), logger)
 			ctx := context.WithValue(context.Background(), "user_id", int64(7))
 			resp, err := svc.VideoFavorite(ctx, req)
 			if c.calls != 1 || c.req.UserId != 7 || c.req.VideoId != 9 || c.req.FavoriteId != 13 || c.req.Favorite != req.Favorite || c.req.FavoriteRecordId != req.FavoriteRecordId {

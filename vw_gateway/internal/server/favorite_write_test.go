@@ -64,7 +64,7 @@ func TestFavoriteWriteHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(cleanup)
-	svc := video.NewInteractService(videobiz.NewInteractUsecase(videodata.NewInteractRepo(data, logger), logger), logger)
+	svc := video.NewInteractService(videobiz.NewInteractUsecase(videodata.NewInteractRepo(data, logger), nil), logger)
 	srv := NewHTTPServer(&conf.Server{Http: &conf.Server_HTTP{}}, &conf.JWT{Secret: secret, AccessTokenExpiration: 1}, nil, nil, nil, nil, cache, nil, nil, nil, svc, nil, logger)
 	for _, tc := range []struct {
 		name, body string

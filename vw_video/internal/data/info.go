@@ -121,42 +121,6 @@ func (v *videoInfoRepo) GetBarragesByVideoId(ctx context.Context, videoId int64)
 	return barrageDo.Where(barrage.VideoID.Eq(videoId)).Find()
 }
 
-// UpdateVideoCntShare 通过统一查询入口使用显式事务增加分享数和热度，不自行提交。
-func (v *videoInfoRepo) UpdateVideoCntShare(ctx context.Context, tx *sql.Tx, videoID int64) error {
-	ctx, err := bindSQLTx(ctx, tx)
-	if err != nil {
-		return err
-	}
-	video := getQuery(ctx).Video
-	videoDo, videoModel, err := addVideoModel(ctx, videoID)
-	if err != nil {
-		return err
-	}
-	_, err = videoDo.Where(video.VideoID.Eq(videoID)).Updates(map[string]any{
-		"cnt_shares": videoModel.CntShares + 1,
-		"hot":        videoModel.Hot + HotEachShare,
-	})
-	return err
-}
-
-// UpdateVideoCntShareCompensation 在传入事务内补偿分享数和热度，查询与更新错误透传。
-func (v *videoInfoRepo) UpdateVideoCntShareCompensation(ctx context.Context, tx *sql.Tx, videoID int64) error {
-	ctx, err := bindSQLTx(ctx, tx)
-	if err != nil {
-		return err
-	}
-	video := getQuery(ctx).Video
-	videoDo, videoModel, err := addVideoModel(ctx, videoID)
-	if err != nil {
-		return err
-	}
-	_, err = videoDo.Where(video.VideoID.Eq(videoID)).Updates(map[string]any{
-		"cnt_shares": videoModel.CntShares - 1,
-		"hot":        videoModel.Hot - HotEachShare,
-	})
-	return err
-}
-
 func (v *videoInfoRepo) GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.Video, error) {
 	video := getQuery(ctx).Video
 	videoDo := video.WithContext(ctx)
@@ -231,11 +195,4 @@ func (v *videoInfoRepo) SetVideoHot(ctx context.Context, tx *sql.Tx, videoId int
 		return err
 	}
 	return nil
-}
-
-// GetSqlTx is a helper function to get *sql.Tx from *gorm.DB.
-// This is used to be the DTM barrier's Call method's argument.
-func (v *videoInfoRepo) GetSqlTx() *sql.Tx {
-	tx := v.data.mysql.Begin()
-	return tx.Statement.ConnPool.(*sql.Tx)
 }

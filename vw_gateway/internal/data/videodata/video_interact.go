@@ -129,70 +129,12 @@ func (i *interactRepo) SendBarrage(ctx context.Context, userId int64, req *inter
 	return err
 }
 
-func (i *interactRepo) ShareVideo(ctx context.Context, userId int64, videoId int64) (string, error) {
-	// 1. Get the current status of the user-video
-	origin, err := i.data.videoInteractClient.GetUserVideoStatus(ctx, &interactGRPC.GetUserVideoStatusReq{
-		VideoId: videoId,
-		UserId:  userId,
+// RecordVideoShare 将可信身份和视频 ID 交给视频服务，等待分享事务提交。
+func (i *interactRepo) RecordVideoShare(ctx context.Context, userId, videoId int64) error {
+	_, err := i.data.videoInteractClient.RecordVideoShare(ctx, &interactGRPC.RecordVideoShareReq{
+		UserId: userId, VideoId: videoId,
 	})
-	if err != nil {
-		return "", err
-	}
-
-	videoAddr, err := resolver.GetRandomAddr(ctx, videoService)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := i.data.videoInteractClient.VideoShare(ctx, &interactGRPC.VideoShareReq{
-		VideoId:  videoId,
-		IsShared: checkIsShared(origin.Status),
-	})
-	if err != nil {
-		return "", err
-	}
-	uri := resp.Uri
-
-	// TODO: 目前先写死返回的url，后续需要改成根据实际情况返回
-	url := "http://127.0.0.1:8080" + uri
-
-	isShared := checkIsShared(origin.Status)
-
-	// If isShared == -1, it means the video is not shared by this user before,
-	// so we need to add the saga to update the hot count and set the user-video status
-	if isShared == -1 {
-		gid, saga := newSaga(ctx, i.data.dtmServerAddr)
-		i.logger.Infof("[ShareVideo] gid: %s", gid)
-		wrapSagaAdd(
-			saga,
-			&sagaMember{
-				videoAddr + videoinfoGRPC.VideoInfo_AddVideoCntShared_FullMethodName,
-				videoAddr + videoinfoGRPC.VideoInfo_AddVideoCntSharedRevert_FullMethodName,
-				&videoinfoGRPC.AddVideoCntSharedReq{
-					VideoId:        videoId,
-					IsCompensation: false,
-				},
-			},
-			&sagaMember{
-				videoAddr + interactGRPC.VideoInteract_SetUserVideoStatus_FullMethodName,
-				videoAddr + interactGRPC.VideoInteract_SetUserVideoStatusRevert_FullMethodName,
-				&interactGRPC.SetUserVideoStatusReq{
-					UserId:       userId,
-					VideoId:      videoId,
-					OriginStatus: origin.Status,
-					Statuses: &interactGRPC.SetUserVideoStatusReq_Statuses{
-						IsShared: -isShared, // reverse the status of Shared
-					},
-				},
-			},
-		)
-		err = saga.Submit()
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return url, nil
+	return err
 }
 
 // ThrowShells 读取原个人状态后编排用户余额、视频计数和个人状态的 Saga。

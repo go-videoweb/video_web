@@ -12,3 +12,6 @@ func init() {
 var (
 	INTERNAL_ERROR *kerr.Error
 )
+
+// ErrInvalidPublicSiteOrigin 表示公开站点地址缺失或格式无效。
+var ErrInvalidPublicSiteOrigin = kerr.InternalServer("INVALID_PUBLIC_SITE_ORIGIN", "分享站点地址未配置或格式无效")

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"util/helper"
 	interactv1 "vw_video/api/v1/interact"
 	"vw_video/internal/biz"
 
@@ -65,15 +66,12 @@ func (s *InteractService) VideoThrowShellsRevert(ctx context.Context, req *inter
 	return nil, nil
 }
 
-func (s *InteractService) VideoShare(ctx context.Context, req *interactv1.VideoShareReq) (*interactv1.VideoShareResp, error) {
-	uri, err := s.interactUsecase.ShareVideo(ctx, req.VideoId)
-	if err != nil {
-		return nil, err
+// RecordVideoShare 记录当前用户的分享，只在视频服务事务提交后返回成功。
+func (s *InteractService) RecordVideoShare(ctx context.Context, req *interactv1.RecordVideoShareReq) (*emptypb.Empty, error) {
+	if err := s.interactUsecase.RecordVideoShare(ctx, req.GetUserId(), req.GetVideoId()); err != nil {
+		return nil, helper.WithRPCBusinessCode(err)
 	}
-
-	return &interactv1.VideoShareResp{
-		Uri: uri,
-	}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // VideoSendBarrage 接收整数秒位置，只有弹幕及视频计数提交成功才返回成功。

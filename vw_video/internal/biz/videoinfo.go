@@ -2,7 +2,6 @@ package biz
 
 import (
 	"context"
-	"database/sql"
 	stderr "errors"
 	"fmt"
 	"io"
@@ -21,8 +20,6 @@ import (
 	"vw_video/internal/data/dal/model"
 	"vw_video/internal/pkg/ecode/errdef"
 
-	"github.com/dtm-labs/dtm/client/dtmcli"
-	"github.com/dtm-labs/dtm/client/dtmgrpc"
 	"github.com/go-kratos/kratos/v2/log"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -46,9 +43,6 @@ const (
 
 // VideoInfoRepo 定义公共视频信息、上传状态、个人状态和最近观看时间的仓储能力。
 type VideoInfoRepo interface {
-	/* Used for dtm */
-	GetSqlTx() *sql.Tx
-
 	GetVideoInfoById(ctx context.Context, videoId int64) (*model.Video, error)
 	GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.Video, error)
 	GetVideoFilePathById(ctx context.Context, videoId int64) (string, error)
@@ -66,8 +60,6 @@ type VideoInfoRepo interface {
 	UpdateVideoMediaInfo(ctx context.Context, videoId int64, videoFilePath, duration string, size int64) error
 	GetPublisherIdByVideoId(CTX context.Context, videoId int64) (publisherId int64, err error)
 	GetBarragesByVideoId(ctx context.Context, videoId int64) ([]*model.Barrage, error)
-	UpdateVideoCntShare(ctx context.Context, tx *sql.Tx, videoID int64) error
-	UpdateVideoCntShareCompensation(ctx context.Context, tx *sql.Tx, videoID int64) error
 	// GetUserVideoStatus 只读个人互动字段，无记录返回默认位掩码；收藏归属另行查询。
 	GetUserVideoStatus(ctx context.Context, videoId int64, userId int64) (int64, error)
 	// GetUserFavorite 从有效关系读取收藏夹及关系 ID，无记录时两个 ID 均为零。
@@ -696,26 +688,6 @@ func (uc *VideoInfoUsecase) GetVideoCover(videoId int64, stream grpc.ServerStrea
 
 func (uc *VideoInfoUsecase) GetPublisherIdByVideoId(ctx context.Context, videoId int64) (int64, error) {
 	return uc.repo.GetPublisherIdByVideoId(ctx, videoId)
-}
-
-func (uc *VideoInfoUsecase) UpdateVideoCntShare(ctx context.Context, videoId int64, isCompensation bool) error {
-	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-
-	err = barrier.Call(uc.repo.GetSqlTx(), func(tx *sql.Tx) error {
-		if isCompensation {
-			return uc.repo.UpdateVideoCntShareCompensation(ctx, tx, videoId)
-		} else {
-			return uc.repo.UpdateVideoCntShare(ctx, tx, videoId)
-		}
-	})
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-
-	return nil
 }
 
 // sendFileStream 以文件名、数据块的顺序发送本地普通文件。

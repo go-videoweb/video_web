@@ -24,13 +24,6 @@ func checkIsFavorited(status int64) int32 {
 	return -1
 }
 
-func checkIsShared(status int64) int32 {
-	if status&ShareStatus > 0 {
-		return 1
-	}
-	return -1
-}
-
 func checkIsThrownShell(status int64) int32 {
 	if status&ThrowShellStatus > 0 {
 		return 1

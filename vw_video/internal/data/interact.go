@@ -91,10 +91,6 @@ func (i *interactRepo) UpdateVideoShells(ctx context.Context, tx *sql.Tx, videoI
 	return nil
 }
 
-func (i *interactRepo) ShareVideo(ctx context.Context, videoID int64) string {
-	return ""
-}
-
 // AddVideoCntBarrage 在上下文选定的连接上增加弹幕数和热度，数据库错误透传。
 func (i *interactRepo) AddVideoCntBarrage(ctx context.Context /*tx *sql.Tx,*/, videoID int64) error {
 	video := getQuery(ctx).Video

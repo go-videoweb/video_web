@@ -106,7 +106,7 @@ func TestSocialGatewayIdentityAndForwarding(t *testing.T) {
 	bc := &socialBarrageClient{}
 	d := &Data{videoCommentClient: cc, videoInteractClient: bc}
 	cs := video.NewVideoCommentService(videobiz.NewVideoCommentUsecase(NewVideoCommentRepo(d, logger), logger), logger)
-	bs := video.NewInteractService(videobiz.NewInteractUsecase(NewInteractRepo(d, logger), logger), logger)
+	bs := video.NewInteractService(videobiz.NewInteractUsecase(NewInteractRepo(d, logger), nil), logger)
 	ctx := context.WithValue(context.Background(), "user_id", int64(7))
 	liked := false
 	reply, err := cs.UpvoteComment(ctx, &apiComment.UpvoteCommentReq{VideoId: 9, CommentId: 11, Liked: &liked})
