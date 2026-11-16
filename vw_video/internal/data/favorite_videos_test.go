@@ -160,11 +160,12 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 			if err != nil || total != 3 || len(sqls) != wantQueries {
 				t.Fatalf("分页查询失败：total=%d, queries=%d, err=%v", total, len(sqls), err)
 			}
-			filter := " FROM `favorite_video` WHERE (favorites_id = ? AND deleted_at IS NULL) AND video_id IN (SELECT video_id FROM `video` WHERE deleted_at IS NULL)"
+			published := "`video`.`video_id` IN (SELECT `video_upload_status`.`video_id` FROM `video_upload_status` WHERE `video_upload_status`.`status` = ?)"
+			filter := " FROM `favorite_video` WHERE (favorites_id = ? AND deleted_at IS NULL) AND video_id IN (SELECT `video`.`video_id` FROM `video` WHERE " + published + " AND `video`.`deleted_at` IS NULL)"
 			if sqls[1] != "SELECT count(*)"+filter || sqls[2] != "SELECT video_id, created_at AS collected_at"+filter+" ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?" {
 				t.Fatalf("完整 SQL 的筛选分组、删除过滤或分页错误：%v", sqls)
 			}
-			if !reflect.DeepEqual(args[1], []interface{}{int64(9)}) || !reflect.DeepEqual(args[2], []interface{}{int64(9), 2, 2}) {
+			if !reflect.DeepEqual(args[1], []interface{}{int64(9), "completed"}) || !reflect.DeepEqual(args[2], []interface{}{int64(9), "completed", 2, 2}) {
 				t.Fatalf("内容筛选或分页参数错误：%#v", args)
 			}
 			if sqls[len(sqls)-1] != wantAccessSQL || !reflect.DeepEqual(args[len(args)-1], args[0]) {
@@ -176,7 +177,8 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 				}
 				return
 			}
-			if sqls[3] != "SELECT * FROM `video` WHERE video_id IN (?,?) AND `video`.`deleted_at` IS NULL" || !reflect.DeepEqual(args[3], []interface{}{int64(42), int64(43)}) {
+			if sqls[3] != "SELECT * FROM `video` WHERE "+published+" AND `video`.`video_id` IN (?,?) AND `video`.`deleted_at` IS NULL" ||
+				!reflect.DeepEqual(args[3], []interface{}{"completed", int64(42), int64(43)}) {
 				t.Fatalf("摘要未按本页 ID 批量读取：%s %#v", sqls[3], args[3])
 			}
 			wantRows := 2

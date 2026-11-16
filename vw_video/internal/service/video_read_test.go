@@ -30,7 +30,7 @@ func (r *readRepo) GetVideoListByClass(_ context.Context, classes []string, page
 	}
 	return []*model.Video{r.row}, r.err
 }
-func (r *readRepo) GetVideoInfoById(context.Context, int64) (*model.Video, error) {
+func (r *readRepo) GetPublishedVideoByID(context.Context, int64) (*model.Video, error) {
 	return r.row, r.err
 }
 func (*readRepo) GetBarragesByVideoId(context.Context, int64) ([]*model.Barrage, error) {

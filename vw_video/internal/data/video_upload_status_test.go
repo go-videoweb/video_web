@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"io"
 	"strings"
@@ -9,8 +10,12 @@ import (
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
+	drivermysql "github.com/go-sql-driver/mysql"
+	"gorm.io/gorm"
+	utilCtx "util/context"
 	videoinfov1 "vw_video/api/v1/videoinfo"
 	"vw_video/internal/biz"
+	"vw_video/internal/data/dal/query"
 )
 
 // TestUploadVideoInfoWithUploadStatus 验证真实用例的两次单表插入共用一个事务，任一写入失败都会回滚。
@@ -75,6 +80,54 @@ func TestUploadVideoInfoWithUploadStatus(t *testing.T) {
 				if state.commits != 0 || state.rollbacks != 1 {
 					t.Fatalf("插入错误未回滚: err=%v commits=%d rollbacks=%d", err, state.commits, state.rollbacks)
 				}
+			}
+		})
+	}
+}
+
+// TestDuplicateUploadReturnsOriginalID 验证创建冲突回滚后按发布者和标题读取原 ID。
+// 只有查到有效同名投稿才返回成功，且不会重写上传状态。
+func TestDuplicateUploadReturnsOriginalID(t *testing.T) {
+	for _, matching := range []bool{true, false} {
+		name := "没有匹配的投稿"
+		if matching {
+			name = "找到同名投稿"
+		}
+		t.Run(name, func(t *testing.T) {
+			insert := &socialSQLStep{
+				contains: []string{"INSERT INTO `video`"},
+				err:      &drivermysql.MySQLError{Number: 1062},
+			}
+			lookup := &socialSQLStep{
+				contains: []string{"FROM `video`", "`video`.`publisher_id` = ?", "`video`.`title` = ?", "`video`.`deleted_at` IS NULL"},
+				columns:  []string{"video_id"},
+			}
+			if matching {
+				lookup.rows = [][]driver.Value{{int64(42)}}
+			}
+			d, state := newSocialSQL(t, insert, lookup)
+			err := d.mysql.Callback().Query().Before("gorm:query").Register("verify_upload_rollback", func(_ *gorm.DB) {
+				if state.rollbacks != 1 {
+					t.Error("原视频 ID 必须在插入事务回滚后读取")
+				}
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx := utilCtx.WithValue(context.Background(), transactionKey{}, &query.QueryTx{Query: query.Use(d.mysql)})
+			uc := biz.NewVideoInfoUsecase(&videoInfoRepo{}, d, log.NewStdLogger(io.Discard))
+			id, err := uc.UploadVideoInfo(ctx, &videoinfov1.VideoMetaInfo{PublisherId: 7, Title: "同名投稿"})
+			if matching && (err != nil || id != 42) {
+				t.Fatalf("同名投稿应返回原 ID：id=%d err=%v", id, err)
+			}
+			if !matching && (err == nil || id != 0) {
+				t.Fatalf("未找到同名投稿却报告成功：id=%d err=%v", id, err)
+			}
+			if state.begins != 1 || state.commits != 0 || state.rollbacks != 1 {
+				t.Fatalf("重复创建的事务边界不符：begin=%d commit=%d rollback=%d", state.begins, state.commits, state.rollbacks)
+			}
+			if len(lookup.args) != 3 || lookup.args[0].Value != int64(7) || lookup.args[1].Value != "同名投稿" {
+				t.Fatalf("同名查询参数不符：%v", lookup.args)
 			}
 		})
 	}
