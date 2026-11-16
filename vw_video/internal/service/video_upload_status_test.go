@@ -40,7 +40,7 @@ func (r *uploadStatusRepo) GetVideoUploadStatus(context.Context, int64) (*model.
 	return r.uploadStatus, r.statusErr
 }
 
-// TestGetVideoUploadStatus 验证发布者鉴权、状态字段、已完成回退及业务码传输。
+// TestGetVideoUploadStatus 验证发布者鉴权、状态字段、缺失状态及业务码传输。
 func TestGetVideoUploadStatus(t *testing.T) {
 	updated := time.Date(2026, 11, 10, 8, 9, 10, 123000000, time.UTC)
 	for _, tc := range []struct {
@@ -51,7 +51,7 @@ func TestGetVideoUploadStatus(t *testing.T) {
 		wantStatusReads             int
 	}{
 		{name: "保留失败原因和更新时间", userID: 7, wantStatus: "failed", wantStatusReads: 1},
-		{name: "清理已完成状态后回退", userID: 7, videoPath: "video.mp4", statusErr: gorm.ErrRecordNotFound, wantStatus: "completed", wantStatusReads: 1},
+		{name: "已有原片路径仍须有状态", userID: 7, videoPath: "video.mp4", statusErr: gorm.ErrRecordNotFound, wantError: errdef.ErrVideoUploadStatusNotFound, wantStatusReads: 1},
 		{name: "未完成视频缺少状态", userID: 7, statusErr: gorm.ErrRecordNotFound, wantError: errdef.ErrVideoUploadStatusNotFound, wantStatusReads: 1},
 		{name: "状态查询故障", userID: 7, videoPath: "video.mp4", statusErr: errors.New("database unavailable"), wantError: errdef.ErrGetVideoUploadStatusFailed, wantStatusReads: 1},
 		{name: "非发布者", userID: 8, wantError: errdef.ErrVideoNotFound},
@@ -84,11 +84,7 @@ func TestGetVideoUploadStatus(t *testing.T) {
 			if err != nil || resp.GetStatus() != tc.wantStatus {
 				t.Fatalf("上传状态不符：%v %v", resp, err)
 			}
-			if tc.wantStatus == "completed" {
-				if resp.UpdatedTime != nil || resp.UploadErrorMsg != "" {
-					t.Fatalf("完成回退返回了虚构的时间或错误：%v", resp)
-				}
-			} else if resp.GetUploadErrorMsg() != "视频处理失败" || !resp.GetUpdatedTime().AsTime().Equal(updated) {
+			if resp.GetUploadErrorMsg() != "视频处理失败" || !resp.GetUpdatedTime().AsTime().Equal(updated) {
 				t.Fatalf("失败详情不符：%v", resp)
 			}
 		})

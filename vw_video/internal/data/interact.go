@@ -168,7 +168,8 @@ func (i *interactRepo) AddBarrage(ctx context.Context, info *interactv1.VideoSen
 }
 
 func (i *interactRepo) GetPublisherIdByVideoId(ctx context.Context, videoID int64) (int64, error) {
-	_, video, err := addVideoModel(ctx, videoID)
+	q := getQuery(ctx).Video
+	video, err := publishedVideos(ctx).Select(q.PublisherID).Where(q.VideoID.Eq(videoID)).First()
 	if err != nil {
 		return 0, err
 	}

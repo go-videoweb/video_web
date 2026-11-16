@@ -112,8 +112,18 @@ func (info *InfoService) GetVideoList(ctx context.Context, req *videoinfov1.GetV
 	return ret, nil
 }
 
+// UploadVideoInfo 用鉴权身份创建或找回同名投稿，并返回视频 ID。
 func (info *InfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.UploadVideoInfoReq) (*videoinfov1.UploadVideoInfoResp, error) {
-	videoID, err := info.videoInfo.UploadVideoInfo(ctx, videoMetaInfoToDomain(req.VideoInfo))
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	if req.GetVideoInfo() == nil {
+		return nil, kerrors.BadRequest("VIDEO_INFO_REQUIRED", "请填写视频元信息")
+	}
+	detail := videoMetaInfoToDomain(req.GetVideoInfo())
+	detail.PublisherId = userId
+	videoID, err := info.videoInfo.UploadVideoInfo(ctx, detail)
 	if err != nil {
 		return nil, err
 	}

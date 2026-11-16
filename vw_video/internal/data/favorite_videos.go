@@ -17,15 +17,16 @@ type favoriteVideoRow struct {
 }
 
 // GetFavoriteVideos 分步读取收藏夹权限、关系分页和视频摘要，保持收藏时间及 ID 降序。
-// 计数和分页共用有效视频子查询，先排除已软删除视频，再计算偏移；摘要按本页 ID 批量读取。
+// 计数和分页共用已发布视频子查询，再计算偏移；摘要按本页 ID 批量读取。
 // 不调用详情用例，不增加播放量或写入观看历史，也不修改现有收藏关系。
 func (v *videoInfoRepo) GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) ([]*biz.FavoriteVideo, int64, error) {
 	db := getQuery(ctx).Video.WithContext(ctx).UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
 	if err := v.data.requireFavoriteAccess(ctx, userId, favoritesId, false); err != nil {
 		return nil, 0, err
 	}
+	video := getQuery(ctx).Video
 	base := func() *gorm.DB {
-		videos := db.Table("video").Select("video_id").Where("deleted_at IS NULL")
+		videos := publishedVideos(ctx).Select(video.VideoID).UnderlyingDB()
 		return db.Table("favorite_video").
 			Where("favorites_id = ? AND deleted_at IS NULL", favoritesId).
 			Where("video_id IN (?)", videos)
@@ -47,8 +48,8 @@ func (v *videoInfoRepo) GetFavoriteVideos(ctx context.Context, userId, favorites
 		for i, row := range rows {
 			ids[i] = row.VideoID
 		}
-		var videos []*model.Video
-		if err := db.Model(&model.Video{}).Where("video_id IN ?", ids).Find(&videos).Error; err != nil {
+		videos, err := publishedVideos(ctx).Where(video.VideoID.In(ids...)).Find()
+		if err != nil {
 			return nil, 0, err
 		}
 		byID := make(map[int64]*model.Video, len(videos))

@@ -68,7 +68,7 @@ func (i *interactRepo) SetBarrageLike(ctx context.Context, userID, videoID, barr
 	changed := false
 	if liked {
 		err = q.WithContext(ctx).Create(&model.UserBarrageLike{UserID: userID, VideoID: videoID, BarrageID: barrageID, CreateAt: time.Now()})
-		if err != nil && !isDuplicateLike(err) {
+		if err != nil && !isDuplicateKey(err) {
 			return nil, err
 		}
 		changed = err == nil

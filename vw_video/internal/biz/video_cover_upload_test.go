@@ -36,6 +36,14 @@ func (r *coverUploadRepo) GetVideoInfoById(context.Context, int64) (*model.Video
 	return &r.video, nil
 }
 
+// GetPublishedVideoByID 模拟公开查询，只返回处理完成的视频。
+func (r *coverUploadRepo) GetPublishedVideoByID(context.Context, int64) (*model.Video, error) {
+	if r.phase != VideoUploadCompleted {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &r.video, nil
+}
+
 // GetPublisherIdByVideoId 返回测试视频的发布者。
 func (r *coverUploadRepo) GetPublisherIdByVideoId(context.Context, int64) (int64, error) {
 	return r.video.PublisherID, nil
@@ -51,7 +59,7 @@ func (r *coverUploadRepo) GetVideoUploadStatus(context.Context, int64) (*model.V
 
 // UpdateVideoUploadStatus 模拟旧状态已被其他请求改变，或在测试事务内更新状态。
 func (r *coverUploadRepo) UpdateVideoUploadStatus(ctx context.Context, id int64, from, to, errorMessage string, _ time.Time) (bool, error) {
-	if from == videoUploadWaitingCover || to == videoUploadCompleted {
+	if from == videoUploadWaitingCover || to == VideoUploadCompleted {
 		if r.txCtx == nil || ctx != r.txCtx {
 			return false, errors.New("状态更新缺少事务")
 		}
@@ -166,6 +174,10 @@ func TestUploadVideoCoverCommit(t *testing.T) {
 				return
 			}
 			download := &dashStream[video.GetVideoCoverResp]{ctx: context.Background()}
+			if err = uc.GetVideoCover(42, download); !errors.Is(err, errdef.ErrPublishedVideoNotFound) || len(download.messages) != 0 {
+				t.Fatalf("原片未完成时返回了封面：%v", err)
+			}
+			repo.phase = VideoUploadCompleted
 			if err = uc.GetVideoCover(42, download); err != nil || len(download.messages) != 2 ||
 				string(download.messages[1].GetCoverFile().GetFileData()) != "封面数据" {
 				t.Fatalf("提交后的封面无法下载：%v", err)
@@ -360,7 +372,7 @@ func TestUploadVideoFileProcessesAfterReply(t *testing.T) {
 	}
 	select {
 	case err := <-repo.result:
-		if err != nil || repo.phase != videoUploadCompleted {
+		if err != nil || repo.phase != VideoUploadCompleted {
 			t.Fatalf("请求取消后未完成后台处理：%s %v", repo.phase, err)
 		}
 		if _, err := os.Stat(filepath.Join(filepath.Dir(repo.video.VideoPath), dashPath, dashName)); err != nil {

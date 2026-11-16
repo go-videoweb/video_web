@@ -45,6 +45,9 @@ func NewVideoInfoUsecase(repo VideoInfoRepo, _ log.Logger) *VideoInfoUsecase {
 
 func (uc *VideoInfoUsecase) GetVideoDetail(ctx context.Context, videoId, userId int64) (*domain.VideoDetail, error) {
 	resp, err := uc.repo.GetVideoInfo(ctx, videoId, userId)
+	if errors.IsNotFound(err) {
+		return nil, err
+	}
 	if err != nil {
 		return nil, helper.HandleError(verr.ErrGetVideoListFailed, err)
 	}

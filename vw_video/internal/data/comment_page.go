@@ -7,18 +7,19 @@ import (
 	commentv1 "vw_video/api/v1/comment"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
+	"vw_video/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	drivermysql "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 )
 
-// requireVideo 验证视频仍有效，读取不增加播放量或写入观看历史。
+// requireVideo 验证视频仍有效且已上传完成，读取不增加播放量或写入观看历史。
 func requireVideo(ctx context.Context, videoID int64) error {
 	q := getQuery(ctx).Video
-	_, err := q.WithContext(ctx).Select(q.VideoID).Where(q.VideoID.Eq(videoID)).First()
+	_, err := publishedVideos(ctx).Select(q.VideoID).Where(q.VideoID.Eq(videoID)).First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return kerrors.NotFound("VIDEO_NOT_FOUND", "视频不存在")
+		return errdef.ErrPublishedVideoNotFound
 	}
 	return err
 }
@@ -108,8 +109,8 @@ func (v *videoCommentRepo) GetCommentLikes(ctx context.Context, userID, videoID 
 	return states, err
 }
 
-// isDuplicateLike 只识别唯一键冲突，不将外键、连接等数据库错误当成重复点赞。
-func isDuplicateLike(err error) bool {
+// isDuplicateKey 识别 GORM 或 MySQL 驱动返回的唯一键冲突。
+func isDuplicateKey(err error) bool {
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return true
 	}
@@ -138,7 +139,7 @@ func (v *videoCommentRepo) SetCommentLike(ctx context.Context, userID, videoID, 
 	changed := false
 	if liked {
 		err = relation.WithContext(ctx).Create(&model.UserCommentLike{UserID: userID, VideoID: videoID, CommentID: commentID, CreatedAt: time.Now()})
-		if err != nil && !isDuplicateLike(err) {
+		if err != nil && !isDuplicateKey(err) {
 			return nil, err
 		}
 		changed = err == nil

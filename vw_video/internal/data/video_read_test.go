@@ -43,6 +43,9 @@ func TestVideoListQueryOffline(t *testing.T) {
 			row := &model.Video{VideoID: 42, Description: "description", VideoPath: "/video.mp4", CreatedAt: time.Date(2024, 6, 9, 10, 11, 12, 0, time.UTC)}
 			err = db.Callback().Query().Replace("gorm:query", func(tx *gorm.DB) {
 				originalQuery(tx)
+				if tx.Statement.Dest == nil {
+					return
+				}
 				calls++
 				sqlText, vars = tx.Statement.SQL.String(), tx.Statement.Vars
 				if fail {
@@ -60,10 +63,11 @@ func TestVideoListQueryOffline(t *testing.T) {
 			}
 			ctx := utilCtx.WithValue(context.Background(), transactionKey{}, &query.QueryTx{Query: query.Use(db)})
 			rows, err := (&videoInfoRepo{}).GetVideoListByClass(ctx, []string{"music", "animation"}, 2, 3)
-			if calls != 1 || !strings.Contains(sqlText, "SELECT * FROM") || !strings.Contains(sqlText, "`class` IN (?,?)") || !strings.Contains(sqlText, "`hot` DESC") || !strings.Contains(sqlText, "LIMIT ? OFFSET ?") {
+			if calls != 1 || !strings.Contains(sqlText, "SELECT * FROM") || !strings.Contains(sqlText, "`class` IN (?,?)") || !strings.Contains(sqlText, "`hot` DESC") || !strings.Contains(sqlText, "LIMIT ? OFFSET ?") ||
+				!strings.Contains(sqlText, "FROM `video_upload_status` WHERE `video_upload_status`.`status` = ?") {
 				t.Fatalf("classification, ordering or pagination changed: %s", sqlText)
 			}
-			if !reflect.DeepEqual(vars, []interface{}{"music", "animation", 3, 3}) {
+			if !reflect.DeepEqual(vars, []interface{}{"completed", "music", "animation", 3, 3}) {
 				t.Fatalf("unexpected query arguments: %#v", vars)
 			}
 			if fail {
