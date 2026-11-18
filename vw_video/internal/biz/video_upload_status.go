@@ -10,7 +10,7 @@ import (
 )
 
 // GetVideoUploadStatus 读取本人视频的上传状态，userId 必须是可信调用方确认的用户。
-// 找不到状态记录时，仅已保存原片路径的视频可视为完成，此时更新时间为空。
+// 缺少状态记录时返回状态不存在。
 func (uc *VideoInfoUsecase) GetVideoUploadStatus(ctx context.Context, videoId, userId int64) (*model.VideoUploadStatus, error) {
 	if videoId <= 0 || userId <= 0 {
 		return nil, errdef.ErrInvalidVideoUploadIDs
@@ -33,8 +33,5 @@ func (uc *VideoInfoUsecase) GetVideoUploadStatus(ctx context.Context, videoId, u
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errdef.ErrGetVideoUploadStatusFailed.WithCause(err)
 	}
-	if video.VideoPath == "" {
-		return nil, errdef.ErrVideoUploadStatusNotFound
-	}
-	return &model.VideoUploadStatus{VideoID: videoId, Status: videoUploadCompleted}, nil
+	return nil, errdef.ErrVideoUploadStatusNotFound
 }

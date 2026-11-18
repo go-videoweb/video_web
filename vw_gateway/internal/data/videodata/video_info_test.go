@@ -153,11 +153,15 @@ func TestUploadVideoInfoGatewayResponse(t *testing.T) {
 			client := &metadataClient{response: &videov2.UploadVideoInfoResp{VideoId: tc.videoID}}
 			repo := NewVideoInfoRepo(&Data{videoInfoClient: client}, logger)
 			svc := video.NewVideoInfoService(videobiz.NewVideoInfoUsecase(repo, logger), logger)
-			response, err := svc.UploadVideoInfo(context.Background(), &videov1.UploadVideoInfoReq{
+			ctx := context.WithValue(context.Background(), "user_id", int64(7))
+			response, err := svc.UploadVideoInfo(ctx, &videov1.UploadVideoInfoReq{
 				VideoInfo: &videov1.VideoMetaInfo{Title: "test", PublisherId: 42},
 			})
 			if client.calls != 1 {
 				t.Fatal("metadata creation must not be retried automatically")
+			}
+			if client.request.GetVideoInfo().GetPublisherId() != 7 {
+				t.Fatal("metadata creation must use the authenticated publisher ID")
 			}
 			if tc.videoID == 0 {
 				if err == nil || response != nil {

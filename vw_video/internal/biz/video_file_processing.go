@@ -90,7 +90,7 @@ func (uc *VideoInfoUsecase) generateVideoDASH(ctx context.Context, videoId int64
 	writeCtx, cancel := context.WithTimeout(ctx, videoUploadWriteTimeout)
 	defer cancel()
 	return dashDir, uc.tx.WithTx(writeCtx, func(txCtx context.Context) error {
-		if err := uc.changeVideoUploadStatus(txCtx, videoId, videoUploadProcessing, videoUploadCompleted, ""); err != nil {
+		if err := uc.changeVideoUploadStatus(txCtx, videoId, videoUploadProcessing, VideoUploadCompleted, ""); err != nil {
 			return err
 		}
 		return uc.repo.UpdateVideoMediaInfo(txCtx, videoId, videoFilePath, durationStr, size)

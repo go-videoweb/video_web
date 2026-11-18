@@ -87,7 +87,7 @@ func TestUploadVideoInfoReturnsSavedID(t *testing.T) {
 func TestUploadVideoInfoUsecaseReturnsZeroOnSaveFailure(t *testing.T) {
 	repo := &metadataRepo{err: errors.New("save failed")}
 	uc := biz.NewVideoInfoUsecase(repo, readTransaction{}, log.NewStdLogger(io.Discard))
-	videoID, err := uc.UploadVideoInfo(context.Background(), &videov1.VideoMetaInfo{Title: "test"})
+	videoID, err := uc.UploadVideoInfo(context.Background(), &videov1.VideoMetaInfo{PublisherId: 7, Title: "test"})
 	if err == nil || videoID != 0 {
 		t.Fatal("failed save must return zero ID and an error")
 	}

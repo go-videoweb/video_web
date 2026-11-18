@@ -9,6 +9,7 @@ import (
 	"time"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
+	"vw_video/internal/data/dal/query"
 )
 
 type videoInfoRepo struct {
@@ -85,7 +86,22 @@ func (v *videoInfoRepo) UpdateVideoMediaInfo(ctx context.Context, videoId int64,
 
 // CreateBasicVideoInfo 使用 ctx 选定的连接插入视频元信息，不管理事务。
 func (v *videoInfoRepo) CreateBasicVideoInfo(ctx context.Context, videoInfo *model.Video) error {
-	return getQuery(ctx).Video.WithContext(ctx).Create(videoInfo)
+	err := getQuery(ctx).Video.WithContext(ctx).Create(videoInfo)
+	if isDuplicateKey(err) {
+		return gorm.ErrDuplicatedKey
+	}
+	return err
+}
+
+// GetVideoIDByPublisherAndTitle 回读已提交的同名有效投稿，沿用数据库标题列的比较规则。
+func (v *videoInfoRepo) GetVideoIDByPublisherAndTitle(ctx context.Context, publisherID int64, title string) (int64, error) {
+	video := getQuery(ctx).Video
+	row, err := video.WithContext(ctx).Select(video.VideoID).
+		Where(video.PublisherID.Eq(publisherID), video.Title.Eq(title)).First()
+	if err != nil {
+		return 0, err
+	}
+	return row.VideoID, nil
 }
 
 // CreateVideoUploadStatus 使用 ctx 选定的连接插入上传状态，不决定状态值或管理事务。
@@ -115,6 +131,20 @@ func (v *videoInfoRepo) GetVideoInfoById(ctx context.Context, videoId int64) (*m
 	return videoDo.Where(video.VideoID.Eq(videoId)).First()
 }
 
+// publishedVideos 仅选择完成上传的视频，缺少状态记录的视频也会被排除。
+func publishedVideos(ctx context.Context) query.IVideoDo {
+	q := getQuery(ctx)
+	video := q.Video.WithContext(ctx)
+	upload := q.VideoUploadStatus
+	completed := upload.WithContext(ctx).Select(upload.VideoID).Where(upload.Status.Eq(biz.VideoUploadCompleted))
+	return video.Where(video.Columns(q.Video.VideoID).In(completed))
+}
+
+// GetPublishedVideoByID 按 ID 读取公开视频，未发布、已删除和不存在均返回 gorm.ErrRecordNotFound。
+func (v *videoInfoRepo) GetPublishedVideoByID(ctx context.Context, videoID int64) (*model.Video, error) {
+	return publishedVideos(ctx).Where(getQuery(ctx).Video.VideoID.Eq(videoID)).First()
+}
+
 func (v *videoInfoRepo) GetBarragesByVideoId(ctx context.Context, videoId int64) ([]*model.Barrage, error) {
 	barrage := getQuery(ctx).Barrage
 	barrageDo := barrage.WithContext(ctx)
@@ -123,24 +153,12 @@ func (v *videoInfoRepo) GetBarragesByVideoId(ctx context.Context, videoId int64)
 
 func (v *videoInfoRepo) GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.Video, error) {
 	video := getQuery(ctx).Video
-	videoDo := video.WithContext(ctx)
-
-	return videoDo.
+	return publishedVideos(ctx).
 		Where(video.Class.In(class...)).
 		Order(video.Hot.Desc()).
 		Offset(int((pageNum - 1) * pageSize)).
 		Limit(int(pageSize)).
 		Find()
-}
-
-func (v *videoInfoRepo) GetVideoFilePathById(ctx context.Context, videoId int64) (string, error) {
-	video := getQuery(ctx).Video
-	videoDo := video.WithContext(ctx)
-	res, err := videoDo.Where(video.VideoID.Eq(videoId)).Select(video.VideoPath).First()
-	if err != nil {
-		return "", err
-	}
-	return res.VideoPath, nil
 }
 
 func (v *videoInfoRepo) GetPublisherIdByVideoId(ctx context.Context, videoId int64) (publisherId int64, err error) {

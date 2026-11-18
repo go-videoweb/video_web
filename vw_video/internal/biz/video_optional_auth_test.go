@@ -27,7 +27,7 @@ func (r *optionalViewerRepo) fail(at string) error {
 	}
 	return nil
 }
-func (r *optionalViewerRepo) GetVideoInfoById(context.Context, int64) (*model.Video, error) {
+func (r *optionalViewerRepo) GetPublishedVideoByID(context.Context, int64) (*model.Video, error) {
 	r.detailCalls++
 	return &model.Video{VideoID: 42, Title: "public detail"}, r.fail("detail")
 }
