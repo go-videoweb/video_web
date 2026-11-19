@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 	"time"
+	"vw_user/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
@@ -72,14 +73,14 @@ func TestGetFavoriteInfo(t *testing.T) {
 	}{
 		{name: "公开", id: 9, row: &model.Favorite{FavoritesID: 9, UserID: 7, IsPrivate: 1}},
 		{name: "私密", id: 9, row: &model.Favorite{FavoritesID: 9, UserID: 7, IsPrivate: -1}},
-		{name: "零ID", code: 400},
-		{name: "负ID", id: -1, code: 400},
-		{name: "不存在", id: 9, err: gorm.ErrRecordNotFound, code: 404},
-		{name: "空记录", id: 9, code: 404},
+		{name: "零ID", code: errdef.ErrInvalidFavorite.Code},
+		{name: "负ID", id: -1, code: errdef.ErrInvalidFavorite.Code},
+		{name: "不存在", id: 9, err: gorm.ErrRecordNotFound, code: errdef.ErrFavoriteNotFound.Code},
+		{name: "空记录", id: 9, code: errdef.ErrFavoriteNotFound.Code},
 		{name: "存储故障", id: 9, err: fault, code: 500},
-		{name: "错误ID", id: 9, row: &model.Favorite{FavoritesID: 8, UserID: 7, IsPrivate: 1}, code: 500},
-		{name: "缺少归属", id: 9, row: &model.Favorite{FavoritesID: 9, IsPrivate: 1}, code: 500},
-		{name: "异常隐私", id: 9, row: &model.Favorite{FavoritesID: 9, UserID: 7}, code: 500},
+		{name: "错误ID", id: 9, row: &model.Favorite{FavoritesID: 8, UserID: 7, IsPrivate: 1}, code: errdef.ErrInvalidFavoriteMetadata.Code},
+		{name: "缺少归属", id: 9, row: &model.Favorite{FavoritesID: 9, IsPrivate: 1}, code: errdef.ErrInvalidFavoriteMetadata.Code},
+		{name: "异常隐私", id: 9, row: &model.Favorite{FavoritesID: 9, UserID: 7}, code: errdef.ErrInvalidFavoriteMetadata.Code},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &favoriteInfoRepo{row: tc.row, err: tc.err}

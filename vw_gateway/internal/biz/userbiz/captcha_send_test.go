@@ -2,6 +2,7 @@ package userbiz
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -80,8 +81,14 @@ func TestEmailCodeSendHTTP(t *testing.T) {
 				if writer.Code != 200 || sender.calls != 1 || repo.email != "user@example.com" || repo.ip != "203.0.113.5" || repo.purpose != "reset_password" {
 					t.Fatal("发送参数或顺序错误")
 				}
-			} else if writer.Code < 400 {
-				t.Fatal("错误被误报成功")
+			} else {
+				var body struct {
+					Code   int32  `json:"code"`
+					Reason string `json:"reason"`
+				}
+				if err := json.Unmarshal(writer.Body.Bytes(), &body); err != nil || writer.Code != http.StatusOK || body.Code == 0 || body.Reason == "" {
+					t.Fatalf("错误响应缺少业务码：%s", writer.Body.String())
+				}
 			}
 			if (scenario == "cache failure" || scenario == "missing purpose") && sender.calls != 0 {
 				t.Fatal("验证或缓存失败仍发信")

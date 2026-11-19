@@ -2,8 +2,8 @@ package videodata
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	api "vw_gateway/api/v1/video/video_interact"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	rpc "vw_video/api/v1/interact"
 )
 
@@ -20,7 +20,7 @@ func (i *interactRepo) GetBarrages(ctx context.Context, userID int64, req *api.G
 		return nil, err
 	}
 	if resp == nil {
-		return nil, kerrors.InternalServer("INVALID_VIDEO_RESPONSE", "视频服务未返回弹幕列表")
+		return nil, errdef.ErrInvalidVideoResponse
 	}
 	result := &api.GetBarragesResp{
 		Barrages:   make([]*api.BarrageInfo, 0, len(resp.Barrages)),

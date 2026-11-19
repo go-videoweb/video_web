@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"vw_video/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"gorm.io/gorm"
@@ -102,7 +103,7 @@ func TestPartialVideoStatusUpdateOffline(t *testing.T) {
 			t.Fatalf("未锁定目标状态：%s", selectSQL)
 		}
 		if conflict {
-			if err == nil || kerrors.FromError(err).Code != 409 || updateSQL != "" {
+			if err == nil || kerrors.FromError(err).Code != errdef.ErrInteractionStateConflict.Code || updateSQL != "" {
 				t.Fatalf("并发状态未拒绝：%v %s", err, updateSQL)
 			}
 			continue

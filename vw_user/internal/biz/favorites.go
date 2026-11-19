@@ -3,7 +3,6 @@ package biz
 import (
 	"context"
 	stderr "errors"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"
 	"util/dbutil/mysqlutil"
@@ -54,10 +53,10 @@ func NewFavoritesUsecase(repo FavoritesRepo, tx mysqlutil.Transaction, logger lo
 // 私密标记沿用 1=公开、-1=私密；省略时的 0 保持原数据库默认公开行为。
 func (uc *FavoritesUsecase) CreateFavorites(ctx context.Context, info *domain.FavoritesInfo) (int64, error) {
 	if info == nil || info.UserId <= 0 || info.FavoritesName == nil || info.IsPrivate == nil || info.Description == nil {
-		return 0, kerrors.BadRequest("INVALID_FAVORITE", "创建收藏夹需要有效用户和完整的收藏夹信息")
+		return 0, errdef.ErrInvalidFavorite
 	}
 	if *info.IsPrivate != -1 && *info.IsPrivate != 0 && *info.IsPrivate != 1 {
-		return 0, kerrors.BadRequest("INVALID_FAVORITE_PRIVACY", "收藏夹隐私标记必须为 1（公开）或 -1（私密）")
+		return 0, errdef.ErrInvalidFavoritePrivacy
 	}
 	ok, err := uc.repo.CheckFavoritesName(ctx, info.UserId, *info.FavoritesName)
 	if err != nil {
@@ -87,7 +86,7 @@ func (uc *FavoritesUsecase) CreateFavorites(ctx context.Context, info *domain.Fa
 // GetFavoritesList 返回指定用户的全部收藏夹；非法身份和查询失败均不伪装为空列表。
 func (uc *FavoritesUsecase) GetFavoritesList(ctx context.Context, userId int64) ([]*model.Favorite, error) {
 	if userId <= 0 {
-		return nil, kerrors.BadRequest("INVALID_USER_ID", "用户 ID 必须为正数")
+		return nil, errdef.ErrInvalidUserID
 	}
 	list, err := uc.repo.GetFavoritesList(ctx, userId)
 	if err != nil {
@@ -100,17 +99,17 @@ func (uc *FavoritesUsecase) GetFavoritesList(ctx context.Context, userId int64) 
 // 输入：收藏夹 ID 必须为正数；输出：有效元信息，不存在返回 404，存储故障原样返回。
 func (uc *FavoritesUsecase) GetFavoriteInfo(ctx context.Context, favoriteId int64) (*model.Favorite, error) {
 	if favoriteId <= 0 {
-		return nil, kerrors.BadRequest("INVALID_FAVORITE", "收藏夹 ID 必须为正数")
+		return nil, errdef.WithMessage(errdef.ErrInvalidFavorite, "收藏夹 ID 必须为正数")
 	}
 	favorite, err := uc.repo.GetFavoritesMetadata(ctx, favoriteId)
 	if stderr.Is(err, gorm.ErrRecordNotFound) || (err == nil && favorite == nil) {
-		return nil, kerrors.NotFound("FAVORITE_NOT_FOUND", "收藏夹不存在")
+		return nil, errdef.ErrFavoriteNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
 	if favorite.FavoritesID != favoriteId || favorite.UserID <= 0 || (favorite.IsPrivate != -1 && favorite.IsPrivate != 1) {
-		return nil, kerrors.InternalServer("INVALID_FAVORITE_METADATA", "收藏夹元信息异常")
+		return nil, errdef.ErrInvalidFavoriteMetadata
 	}
 	return favorite, nil
 }
@@ -119,7 +118,7 @@ func (uc *FavoritesUsecase) GetFavoriteInfo(ctx context.Context, favoriteId int6
 // 非本人和不存在统一返回 404，保持既有非空收藏夹不可删除规则。
 func (uc *FavoritesUsecase) DeleteFavorites(ctx context.Context, userId, favoritesId int64) error {
 	if userId <= 0 || favoritesId <= 0 {
-		return kerrors.BadRequest("INVALID_FAVORITE", "用户和收藏夹 ID 必须为正数")
+		return errdef.WithMessage(errdef.ErrInvalidFavorite, "用户和收藏夹 ID 必须为正数")
 	}
 	err := uc.tx.WithTx(ctx, func(ctx context.Context) error {
 		if err := uc.requireFavoriteOwner(ctx, userId, favoritesId); err != nil {
@@ -147,10 +146,10 @@ func (uc *FavoritesUsecase) DeleteFavorites(ctx context.Context, userId, favorit
 // ModifyFavorites 仅允许收藏夹所有者更新属性，保留可选字段的零值更新语义。
 func (uc *FavoritesUsecase) ModifyFavorites(ctx context.Context, info *domain.FavoritesInfo) error {
 	if info == nil || info.UserId <= 0 || info.FavoritesId <= 0 {
-		return kerrors.BadRequest("INVALID_FAVORITE", "用户和收藏夹 ID 必须为正数")
+		return errdef.WithMessage(errdef.ErrInvalidFavorite, "用户和收藏夹 ID 必须为正数")
 	}
 	if info.IsPrivate != nil && *info.IsPrivate != -1 && *info.IsPrivate != 1 {
-		return kerrors.BadRequest("INVALID_FAVORITE_PRIVACY", "收藏夹隐私标记必须为 1（公开）或 -1（私密）")
+		return errdef.ErrInvalidFavoritePrivacy
 	}
 	if err := uc.requireFavoriteOwner(ctx, info.UserId, info.FavoritesId); err != nil {
 		return err
@@ -166,7 +165,7 @@ func (uc *FavoritesUsecase) ModifyFavorites(ctx context.Context, info *domain.Fa
 func (uc *FavoritesUsecase) requireFavoriteOwner(ctx context.Context, userId, favoritesId int64) error {
 	favorite, err := uc.repo.GetFavoritesMetadata(ctx, favoritesId)
 	if stderr.Is(err, gorm.ErrRecordNotFound) || (err == nil && (favorite == nil || favorite.UserID != userId)) {
-		return kerrors.NotFound("FAVORITE_NOT_FOUND", "收藏夹不存在")
+		return errdef.ErrFavoriteNotFound
 	}
 	return err
 }

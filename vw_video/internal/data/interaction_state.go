@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"vw_video/internal/pkg/ecode/errdef"
 
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
 
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -103,7 +103,7 @@ func applyVideoStatusPatch(db *gorm.DB, userID, videoID int64, patch *biz.VideoS
 			continue
 		}
 		if entry.current != entry.change.Before {
-			return kerrors.Conflict("INTERACTION_STATE_CONFLICT", "互动状态已变化，请重新查询后操作")
+			return errdef.ErrInteractionStateConflict
 		}
 		updates[entry.column] = entry.change.After
 	}

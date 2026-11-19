@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"vw_user/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	drivermysql "github.com/go-sql-driver/mysql"
@@ -104,7 +105,7 @@ func TestAccountSQL(t *testing.T) {
 					t.Fatal("写入错误未透传")
 				}
 			} else if scenario == "zero rows" {
-				if kerrors.Code(err) != 409 {
+				if kerrors.Code(err) != int(errdef.ErrPasswordResetConflict.Code) {
 					t.Fatal("零行更新未拒绝")
 				}
 			} else if err != nil {
@@ -117,7 +118,7 @@ func TestAccountSQL(t *testing.T) {
 			if scenario == "missing" && err != nil {
 				t.Fatal("未占用邮箱被拒绝")
 			}
-			if scenario != "read error" && scenario != "missing" && kerrors.Code(err) != 409 {
+			if scenario != "read error" && scenario != "missing" && kerrors.Code(err) != int(errdef.ErrEmailInUse.Code) {
 				t.Fatal("邮箱冲突未拒绝")
 			}
 		})
@@ -127,7 +128,7 @@ func TestAccountSQL(t *testing.T) {
 // TestAccountDuplicateWrite 验证唯一键并发冲突转为业务错误，其他数据库错误仍原样保留。
 func TestAccountDuplicateWrite(t *testing.T) {
 	err := accountWriteError(&drivermysql.MySQLError{Number: 1062, Message: "private index details"})
-	if kerrors.Code(err) != 409 || strings.Contains(err.Error(), "private index") {
+	if kerrors.Code(err) != int(errdef.ErrAccountConflict.Code) || strings.Contains(err.Error(), "private index") {
 		t.Fatal("唯一键冲突暴露原始信息")
 	}
 	failure := stderr.New("connection lost")

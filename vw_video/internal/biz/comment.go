@@ -2,7 +2,6 @@ package biz
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"math"
@@ -12,6 +11,7 @@ import (
 	"util/iputil"
 	commentv1 "vw_video/api/v1/comment"
 	"vw_video/internal/data/dal/model"
+	"vw_video/internal/pkg/ecode/errdef"
 )
 
 const maxCommentContentRunes = 5000
@@ -45,7 +45,7 @@ func NewVideoCommentUsecase(repo VideoCommentRepo, tx mysqlutil.Transaction, log
 // CreateComment 验证回复归属后创建评论，整楼回复数和视频计数在同一事务内更新。
 // 输入：parentID=-1 表示主评论；其他 ID 必须指向同视频下的有效评论。
 func (u *VideoCommentUsecase) CreateComment(ctx context.Context, videoID, parentID, publisherID int64, content, ipAddr string) (int64, error) {
-	invalid := kerrors.BadRequest("INVALID_COMMENT", "评论参数无效")
+	invalid := errdef.ErrInvalidComment
 	if videoID <= 0 || publisherID <= 0 {
 		return 0, invalid
 	}
@@ -103,7 +103,7 @@ func (u *VideoCommentUsecase) GetCommentList(ctx context.Context, req *commentv1
 		return nil, err
 	}
 	if total > math.MaxInt32 {
-		return nil, kerrors.InternalServer("COMMENT_COUNT_OVERFLOW", "评论总数超出响应范围")
+		return nil, errdef.ErrCommentCountOverflow
 	}
 	return &commentv1.GetCommentListResp{
 		Comments:   items,
@@ -120,17 +120,17 @@ func (u *VideoCommentUsecase) GetCommentReplies(ctx context.Context, req *commen
 		return nil, err
 	}
 	if req.CommentId <= 0 {
-		return nil, kerrors.BadRequest("INVALID_ROOT_COMMENT", "必须提供主评论 ID")
+		return nil, errdef.ErrInvalidRootComment
 	}
 	root, err := u.repo.GetCommentInfo(ctx, req.CommentId)
 	if err != nil {
 		return nil, err
 	}
 	if root.VideoID != req.VideoId {
-		return nil, kerrors.NotFound("COMMENT_NOT_FOUND", "主评论不存在")
+		return nil, errdef.ErrCommentNotFound
 	}
 	if root.ParentID != -1 || root.RootID != root.CommentID {
-		return nil, kerrors.NotFound("COMMENT_NOT_FOUND", "主评论不存在")
+		return nil, errdef.ErrCommentNotFound
 	}
 	items, _, next, more, err := u.readCommentPage(ctx, q)
 	if err != nil {
@@ -209,7 +209,7 @@ func (u *VideoCommentUsecase) readCommentPage(ctx context.Context, q *CommentQue
 
 // UpvoteComment 在本地事务中设置明确目标，重复操作不重复调整计数。
 func (u *VideoCommentUsecase) UpvoteComment(ctx context.Context, req *commentv1.UpvoteCommentReq) (*commentv1.UpvoteCommentResp, error) {
-	invalid := kerrors.BadRequest("INVALID_COMMENT_LIKE", "必须提供身份、视频、评论及点赞目标状态")
+	invalid := errdef.ErrInvalidCommentLike
 	if req.UserId <= 0 || req.VideoId <= 0 {
 		return nil, invalid
 	}

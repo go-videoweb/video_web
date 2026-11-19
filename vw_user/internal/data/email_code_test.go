@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"vw_user/internal/pkg/ecode/errdef"
 
 	"github.com/alicebob/miniredis/v2"
 	kerrors "github.com/go-kratos/kratos/v2/errors"
@@ -88,7 +89,7 @@ func TestEmailCodeBudgets(t *testing.T) {
 		if err := repo.SetCodeToCache(ctx, "budget@example.com", "654321", helper.EmailCodeReset, "192.0.2.1", 5*time.Minute); err != nil {
 			t.Fatal(err)
 		}
-		if err := repo.ConsumeCode(ctx, "budget@example.com", helper.EmailCodeReset, "654321"); kerrors.Code(err) != 429 {
+		if err := repo.ConsumeCode(ctx, "budget@example.com", helper.EmailCodeReset, "654321"); kerrors.Code(err) != int(errdef.ErrEmailCodeRateLimited.Code) {
 			t.Fatalf("重发重置了验证预算: %v", err)
 		}
 	})
@@ -98,12 +99,12 @@ func TestEmailCodeBudgets(t *testing.T) {
 			if err := repo.SetCodeToCache(ctx, "send@example.com", "123456", helper.EmailCodeRegister, "192.0.2.1", 5*time.Minute); err != nil {
 				t.Fatal(err)
 			}
-			if err := repo.SetCodeToCache(ctx, "send@example.com", "654321", helper.EmailCodeReset, "192.0.2.1", 5*time.Minute); kerrors.Code(err) != 429 {
+			if err := repo.SetCodeToCache(ctx, "send@example.com", "654321", helper.EmailCodeReset, "192.0.2.1", 5*time.Minute); kerrors.Code(err) != int(errdef.ErrEmailCodeRateLimited.Code) {
 				t.Fatal("跨用途绕过了冷却")
 			}
 			server.FastForward(time.Minute)
 		}
-		if err := repo.SetCodeToCache(ctx, "send@example.com", "123456", helper.EmailCodeReset, "192.0.2.1", 5*time.Minute); kerrors.Code(err) != 429 {
+		if err := repo.SetCodeToCache(ctx, "send@example.com", "123456", helper.EmailCodeReset, "192.0.2.1", 5*time.Minute); kerrors.Code(err) != int(errdef.ErrEmailCodeRateLimited.Code) {
 			t.Fatal("未限制邮箱小时发送次数")
 		}
 	})
@@ -130,7 +131,7 @@ func TestEmailCodeBudgets(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if err := repo.SetCodeToCache(ctx, "last@example.com", "123456", helper.EmailCodeReset, "192.0.2.1", 5*time.Minute); kerrors.Code(err) != 429 {
+		if err := repo.SetCodeToCache(ctx, "last@example.com", "123456", helper.EmailCodeReset, "192.0.2.1", 5*time.Minute); kerrors.Code(err) != int(errdef.ErrEmailCodeRateLimited.Code) {
 			t.Fatal("未限制IP小时发送次数")
 		}
 		if err := repo.data.redis.Set(ctx, "7", "old-access", time.Hour).Err(); err != nil {

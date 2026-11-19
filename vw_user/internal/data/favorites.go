@@ -3,11 +3,11 @@ package data
 import (
 	"context"
 	stderr "errors"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"
 	"vw_user/internal/biz"
 	"vw_user/internal/data/dal/model"
+	"vw_user/internal/pkg/ecode/errdef"
 )
 
 type favoritesRepo struct {
@@ -56,7 +56,7 @@ func (f *favoritesRepo) DeleteFavorites(ctx context.Context, userId, favoritesId
 		return err
 	}
 	if result.RowsAffected == 0 {
-		return kerrors.NotFound("FAVORITE_NOT_FOUND", "收藏夹不存在")
+		return errdef.ErrFavoriteNotFound
 	}
 	return nil
 }
@@ -80,7 +80,7 @@ func (f *favoritesRepo) UpdateFavorites(ctx context.Context, favorite map[string
 	userId, userOK := favorite["user_id"].(int64)
 	favoritesId, favoriteOK := favorite["favorites_id"].(int64)
 	if !userOK || !favoriteOK || userId <= 0 || favoritesId <= 0 {
-		return kerrors.BadRequest("INVALID_FAVORITE", "用户和收藏夹 ID 必须为正数")
+		return errdef.WithMessage(errdef.ErrInvalidFavorite, "用户和收藏夹 ID 必须为正数")
 	}
 	updates := make(map[string]any)
 	for _, field := range []string{"favorites_name", "is_private", "description"} {

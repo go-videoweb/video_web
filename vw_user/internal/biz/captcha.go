@@ -2,11 +2,11 @@ package biz
 
 import (
 	"context"
-	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"net"
 	"time"
 	"util/helper"
+	"vw_user/internal/pkg/ecode/errdef"
 )
 
 type CaptchaRepo interface {
@@ -33,10 +33,10 @@ func NewCaptchaUsecase(logger log.Logger, repo CaptchaRepo) *CaptchaUsecase {
 func (cu *CaptchaUsecase) DeleteCodeFromCache(ctx context.Context, email, purpose string) error {
 	email, err := helper.NormalizeEmail(email)
 	if err != nil {
-		return err
+		return errdef.AccountValidationError(err)
 	}
 	if err := helper.ValidateEmailCodePurpose(purpose); err != nil {
-		return err
+		return errdef.AccountValidationError(err)
 	}
 	return cu.repo.DeleteCodeFromCache(ctx, email, purpose)
 }
@@ -45,17 +45,17 @@ func (cu *CaptchaUsecase) DeleteCodeFromCache(ctx context.Context, email, purpos
 func (cu *CaptchaUsecase) SetCodeToCache(ctx context.Context, email, code, purpose, clientIP string, expiration time.Duration) error {
 	email, err := helper.NormalizeEmail(email)
 	if err != nil {
-		return err
+		return errdef.AccountValidationError(err)
 	}
 	if err := helper.ValidateEmailCodePurpose(purpose); err != nil {
-		return err
+		return errdef.AccountValidationError(err)
 	}
 	ip := net.ParseIP(clientIP)
 	if ip == nil {
-		return errors.BadRequest("INVALID_CLIENT_IP", "无法识别请求来源")
+		return errdef.ErrInvalidClientIP
 	}
 	if expiration != 5*time.Minute {
-		return errors.BadRequest("INVALID_CODE_EXPIRATION", "验证码有效期必须为五分钟")
+		return errdef.ErrInvalidCodeExpiration
 	}
 	if len(code) != 6 {
 		return invalidEmailCode()
@@ -70,5 +70,5 @@ func (cu *CaptchaUsecase) SetCodeToCache(ctx context.Context, email, code, purpo
 
 // invalidEmailCode 统一报告未签发、过期、用途不符及错误验证码，不暴露具体缓存状态。
 func invalidEmailCode() error {
-	return errors.BadRequest("INVALID_EMAIL_CODE", "验证码无效或已失效，请重新获取")
+	return errdef.ErrInvalidEmailCode
 }

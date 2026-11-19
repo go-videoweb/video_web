@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/protobuf/types/known/emptypb"
 	commentv1 "vw_video/api/v1/comment"
 	"vw_video/internal/biz"
+	"vw_video/internal/pkg/ecode/errdef"
 )
 
 type VideoCommentService struct {
@@ -47,7 +47,7 @@ func (s *VideoCommentService) UpvoteComment(ctx context.Context, req *commentv1.
 
 // UpvoteCommentRevert 拒绝旧补偿请求，避免修改本地事务已经提交的点赞。
 func (s *VideoCommentService) UpvoteCommentRevert(ctx context.Context, req *commentv1.UpvoteCommentReq) (*emptypb.Empty, error) {
-	return nil, kerrors.New(501, "COMMENT_SAGA_REMOVED", "评论点赞已改为本地事务，不支持旧补偿调用")
+	return nil, errdef.ErrCommentSagaRemoved
 }
 
 func (s *VideoCommentService) CheckIfUserUpvotedComment(ctx context.Context, req *commentv1.CheckIfUserUpvotedCommentReq) (*commentv1.CheckIfUserUpvotedCommentResp, error) {

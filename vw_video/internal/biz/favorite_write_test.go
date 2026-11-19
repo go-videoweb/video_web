@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"vw_video/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"vw_video/internal/data/dal/model"
@@ -327,7 +328,7 @@ func TestFavoriteRecordGeneration(t *testing.T) {
 		t.Fatal("relation generation reused")
 	}
 	cmd.Favorite, cmd.RecordID = -1, first.RecordID
-	if _, err := uc.SetVideoFavorite(context.Background(), cmd); err == nil || kerrors.FromError(err).Code != 409 || r.relation.ID != second.RecordID || r.count != 1 || r.status != 1 {
+	if _, err := uc.SetVideoFavorite(context.Background(), cmd); err == nil || kerrors.FromError(err).Code != errdef.ErrFavoriteRecordChanged.Code || r.relation.ID != second.RecordID || r.count != 1 || r.status != 1 {
 		t.Fatal("old cancellation affected new favorite")
 	}
 }
@@ -335,7 +336,7 @@ func TestFavoriteRecordGeneration(t *testing.T) {
 // TestFavoriteInvalidCommand 验证旧式省略操作、身份无效、错误记录 ID 均在访问仓储前拒绝。
 func TestFavoriteInvalidCommand(t *testing.T) {
 	for _, cmd := range []*FavoriteCommand{nil, {}, {UserID: 7, VideoID: 9, FavoriteID: 13}, {UserID: 7, VideoID: 9, FavoriteID: 13, Favorite: -1}, {UserID: 7, VideoID: 9, FavoriteID: 13, Favorite: 1, RecordID: 23}} {
-		if _, err := (&InteractUsecase{}).SetVideoFavorite(context.Background(), cmd); err == nil || kerrors.FromError(err).Code != 400 {
+		if _, err := (&InteractUsecase{}).SetVideoFavorite(context.Background(), cmd); err == nil || kerrors.FromError(err).Code != errdef.ErrInvalidFavorite.Code {
 			t.Fatal("invalid command accepted")
 		}
 	}

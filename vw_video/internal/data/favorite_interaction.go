@@ -3,8 +3,8 @@ package data
 import (
 	"context"
 	"errors"
+	"vw_video/internal/pkg/ecode/errdef"
 
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	drivermysql "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -17,14 +17,14 @@ import (
 // 输入：收藏夹 ID；输出：字段完整的元信息或原 RPC 错误，不回退共享数据库。
 func (d *Data) getFavoriteMetadata(ctx context.Context, favoriteID int64) (*biz.FavoriteMetadata, error) {
 	if d == nil || d.favoriteClient == nil {
-		return nil, kerrors.ServiceUnavailable("FAVORITE_SERVICE_UNAVAILABLE", "收藏夹服务不可用")
+		return nil, errdef.ErrFavoriteServiceUnavailable
 	}
 	row, err := d.favoriteClient.GetFavoriteInfo(ctx, &favorv1.GetFavoriteInfoReq{FavoriteId: favoriteID})
 	if err != nil {
 		return nil, err
 	}
 	if row == nil || row.FavoriteId != favoriteID || row.UserId <= 0 {
-		return nil, kerrors.InternalServer("INVALID_FAVORITE_METADATA", "收藏夹元信息异常")
+		return nil, errdef.ErrInvalidFavoriteMetadata
 	}
 	return &biz.FavoriteMetadata{FavoriteID: row.FavoriteId, UserID: row.UserId, IsPrivate: row.IsPrivate}, nil
 }
@@ -54,10 +54,10 @@ func (i *interactRepo) CreateFavoriteRelation(ctx context.Context, relation *mod
 	err := result.Error
 	var duplicate *drivermysql.MySQLError
 	if errors.Is(err, gorm.ErrDuplicatedKey) || (errors.As(err, &duplicate) && duplicate.Number == 1062) {
-		return kerrors.Conflict("FAVORITE_RELATION_CONFLICT", "收藏关系已变化，请刷新后重试")
+		return errdef.WithMessage(errdef.ErrFavoriteRelationConflict, "收藏关系已变化，请刷新后重试")
 	}
 	if err == nil && result.RowsAffected != 1 {
-		return kerrors.Conflict("FAVORITE_RELATION_CONFLICT", "收藏关系未成功创建")
+		return errdef.WithMessage(errdef.ErrFavoriteRelationConflict, "收藏关系未成功创建")
 	}
 	return err
 }
@@ -74,7 +74,7 @@ func (i *interactRepo) DeleteFavoriteRelation(ctx context.Context, relation *mod
 		return err
 	}
 	if result.RowsAffected != 1 {
-		return kerrors.Conflict("FAVORITE_RECORD_CHANGED", "收藏记录已变化，请刷新后重试")
+		return errdef.ErrFavoriteRecordChanged
 	}
 	return nil
 }
@@ -84,21 +84,21 @@ func (i *interactRepo) DeleteFavoriteRelation(ctx context.Context, relation *mod
 // 版本条件未匹配返回专用错误，由用例回滚后重试整个事务；其他 SQL 错误原样返回。
 func (i *interactRepo) UpdateFavoriteCount(ctx context.Context, videoID, delta int64) error {
 	if delta != 1 && delta != -1 {
-		return kerrors.BadRequest("INVALID_FAVORITE", "收藏计数变更必须为 1 或 -1")
+		return errdef.WithMessage(errdef.ErrInvalidFavorite, "收藏计数变更必须为 1 或 -1")
 	}
 	q := getQuery(ctx).Video
 	do, row, err := addVideoModel(ctx, videoID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return kerrors.NotFound("VIDEO_NOT_FOUND", "视频不存在")
+			return errdef.ErrPublishedVideoNotFound
 		}
 		return err
 	}
 	if !row.Version.Valid {
-		return kerrors.InternalServer("INVALID_VIDEO_VERSION", "视频版本缺失")
+		return errdef.ErrInvalidVideoVersion
 	}
 	if row.CntFavorited < 0 || (delta < 0 && row.CntFavorited < 1) {
-		return kerrors.Conflict("FAVORITE_COUNT_CONFLICT", "视频收藏计数异常")
+		return errdef.ErrFavoriteCountConflict
 	}
 	if delta < 0 {
 		do = do.Where(q.CntFavorited.Gte(1))
@@ -111,7 +111,7 @@ func (i *interactRepo) UpdateFavoriteCount(ctx context.Context, videoID, delta i
 		return biz.ErrFavoriteVersionConflict
 	}
 	if result.RowsAffected != 1 {
-		return kerrors.Conflict("FAVORITE_COUNT_CONFLICT", "视频收藏计数更新行数异常")
+		return errdef.WithMessage(errdef.ErrFavoriteCountConflict, "视频收藏计数更新行数异常")
 	}
 	return nil
 }

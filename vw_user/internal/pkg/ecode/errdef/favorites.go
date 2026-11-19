@@ -24,3 +24,15 @@ var (
 	ErrDeleteFavoriteFailed *kerr.Error
 	ErrFavoritesNotEmpty    *kerr.Error
 )
+
+// ErrInvalidFavorite 表示创建收藏夹需要有效用户和完整的收藏夹信息。
+var ErrInvalidFavorite = kerr.New(ecode.InvalidFavorite, "INVALID_FAVORITE", "创建收藏夹需要有效用户和完整的收藏夹信息")
+
+// ErrInvalidFavoritePrivacy 表示收藏夹隐私标记必须为 1（公开）或 -1（私密）。
+var ErrInvalidFavoritePrivacy = kerr.New(ecode.InvalidFavoritePrivacy, "INVALID_FAVORITE_PRIVACY", "收藏夹隐私标记必须为 1（公开）或 -1（私密）")
+
+// ErrFavoriteNotFound 表示收藏夹不存在。
+var ErrFavoriteNotFound = kerr.New(ecode.FavoriteNotFound, "FAVORITE_NOT_FOUND", "收藏夹不存在")
+
+// ErrInvalidFavoriteMetadata 表示收藏夹元信息异常。
+var ErrInvalidFavoriteMetadata = kerr.New(ecode.InvalidFavoriteMetadata, "INVALID_FAVORITE_METADATA", "收藏夹元信息异常")

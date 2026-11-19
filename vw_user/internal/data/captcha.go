@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"time"
 	"vw_user/internal/biz"
+	"vw_user/internal/pkg/ecode/errdef"
 )
 
 type captchaRepo struct {
@@ -35,7 +35,7 @@ func (r *captchaRepo) SetCodeToCache(ctx context.Context, email, code, purpose, 
 		return err
 	}
 	if allowed != 1 {
-		return errors.New(429, "EMAIL_CODE_RATE_LIMITED", "验证码请求过于频繁，请稍后再试")
+		return errdef.ErrEmailCodeRateLimited
 	}
 	allowed, err = storeEmailCode.Run(ctx, r.data.redis, []string{
 		emailCodeKey(email, "cooldown"), emailCodeKey(email, "send-budget"), emailCodeKey(email, purpose),
@@ -44,7 +44,7 @@ func (r *captchaRepo) SetCodeToCache(ctx context.Context, email, code, purpose, 
 		return err
 	}
 	if allowed != 1 {
-		return errors.New(429, "EMAIL_CODE_RATE_LIMITED", "验证码请求过于频繁，请稍后再试")
+		return errdef.ErrEmailCodeRateLimited
 	}
 	return nil
 }
@@ -52,7 +52,7 @@ func (r *captchaRepo) SetCodeToCache(ctx context.Context, email, code, purpose, 
 // ConsumeCode 校验并一次性消费正确验证码，错误尝试与小时预算不会因重发而清零。
 func (r *captchaRepo) ConsumeCode(ctx context.Context, email, purpose, inputCode string) error {
 	if len(inputCode) != 6 {
-		return errors.BadRequest("INVALID_EMAIL_CODE", "验证码无效或已失效，请重新获取")
+		return errdef.ErrInvalidEmailCode
 	}
 	result, err := consumeEmailCode.Run(ctx, r.data.redis, []string{
 		emailCodeKey(email, purpose), emailCodeKey(email, "verify-budget"),
@@ -61,10 +61,10 @@ func (r *captchaRepo) ConsumeCode(ctx context.Context, email, purpose, inputCode
 		return err
 	}
 	if result == -1 {
-		return errors.New(429, "EMAIL_CODE_RATE_LIMITED", "验证码验证次数过多，请稍后再试")
+		return errdef.WithMessage(errdef.ErrEmailCodeRateLimited, "验证码验证次数过多，请稍后再试")
 	}
 	if result != 1 {
-		return errors.BadRequest("INVALID_EMAIL_CODE", "验证码无效或已失效，请重新获取")
+		return errdef.ErrInvalidEmailCode
 	}
 	return nil
 }

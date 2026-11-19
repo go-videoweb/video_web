@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"vw_user/internal/pkg/ecode/errdef"
 
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -46,7 +46,7 @@ func NewFileUsecase(logger log.Logger, repo FileRepo) *FileUsecase {
 // GetAvatar 按用户 ID 读取图片；空路径或文件丢失时回退默认头像，不存在的用户返回 404。
 func (u *FileUsecase) GetAvatar(ctx context.Context, userID int64) (*filev1.AvatarResp, error) {
 	if userID <= 0 {
-		return nil, kerrors.BadRequest("INVALID_USER_ID", "用户 ID 无效")
+		return nil, errdef.WithMessage(errdef.ErrInvalidUserID, "用户 ID 无效")
 	}
 	path, err := u.repo.GetAvatarPath(ctx, userID)
 	if err != nil {
@@ -61,14 +61,14 @@ func (u *FileUsecase) GetAvatar(ctx context.Context, userID int64) (*filev1.Avat
 		data, err = u.readAvatar(userID, defaultPath)
 	}
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, kerrors.NotFound("AVATAR_NOT_FOUND", "头像及默认头像文件不存在")
+		return nil, errdef.ErrAvatarNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
 	contentType, _, err := validateAvatar(data)
 	if err != nil {
-		return nil, kerrors.InternalServer("INVALID_STORED_AVATAR", "头像文件损坏或格式不支持")
+		return nil, errdef.ErrInvalidStoredAvatar
 	}
 	return &filev1.AvatarResp{Content: data, ContentType: contentType}, nil
 }
@@ -78,14 +78,14 @@ func (u *FileUsecase) GetAvatar(ctx context.Context, userID int64) (*filev1.Avat
 func (u *FileUsecase) UpdateAvatar(stream grpc.ClientStreamingServer[filev1.UpdateAvatarReq, emptypb.Empty]) error {
 	first, err := stream.Recv()
 	if err == io.EOF {
-		return kerrors.BadRequest("INVALID_AVATAR_STREAM", "缺少头像元信息")
+		return errdef.ErrInvalidAvatarStream
 	}
 	if err != nil {
 		return err
 	}
 	metadata := first.GetMetaData()
 	if metadata == nil || metadata.UserId <= 0 {
-		return kerrors.BadRequest("INVALID_AVATAR_STREAM", "首帧必须为有效用户元信息")
+		return errdef.WithMessage(errdef.ErrInvalidAvatarStream, "首帧必须为有效用户元信息")
 	}
 	ctx, userID := stream.Context(), metadata.UserId
 	previous, err := u.repo.GetAvatarPath(ctx, userID)
@@ -103,10 +103,10 @@ func (u *FileUsecase) UpdateAvatar(stream grpc.ClientStreamingServer[filev1.Upda
 		}
 		block, ok := req.GetData().(*filev1.UpdateAvatarReq_FileContent)
 		if !ok {
-			return kerrors.BadRequest("INVALID_AVATAR_STREAM", "元信息只允许出现在首帧")
+			return errdef.WithMessage(errdef.ErrInvalidAvatarStream, "元信息只允许出现在首帧")
 		}
 		if len(block.FileContent) > maxAvatarBytes-content.Len() {
-			return kerrors.New(413, "AVATAR_TOO_LARGE", "头像不能超过 5 MiB")
+			return errdef.ErrAvatarTooLarge
 		}
 		content.Write(block.FileContent)
 	}
@@ -159,12 +159,12 @@ func (u *FileUsecase) UpdateAvatar(stream grpc.ClientStreamingServer[filev1.Upda
 
 // validateAvatar 验证 JPEG/PNG 的实际内容及解码尺寸，不信任文件名、扩展名或 MIME 声明。
 func validateAvatar(content []byte) (string, string, error) {
-	invalid := kerrors.BadRequest("INVALID_AVATAR", "头像必须是完整的 JPEG 或 PNG 图片，尺寸不能超过 4096")
+	invalid := errdef.ErrInvalidAvatar
 	if len(content) == 0 {
 		return "", "", invalid
 	}
 	if len(content) > maxAvatarBytes {
-		return "", "", kerrors.New(413, "AVATAR_TOO_LARGE", "头像不能超过 5 MiB")
+		return "", "", errdef.ErrAvatarTooLarge
 	}
 	config, format, err := image.DecodeConfig(bytes.NewReader(content))
 	if err != nil {
@@ -207,7 +207,7 @@ func (u *FileUsecase) avatarDirectory(userID int64) (string, error) {
 		return "", err
 	}
 	if actual != expected {
-		return "", kerrors.InternalServer("INVALID_AVATAR_DIRECTORY", "头像目录不能重定向到其他位置")
+		return "", errdef.ErrInvalidAvatarDirectory
 	}
 	return actual, nil
 }
@@ -234,7 +234,7 @@ func (u *FileUsecase) safeAvatarPath(userID int64, path string) (string, error) 
 		return actual, nil
 	}
 	if filepath.Dir(actual) != filepath.Join(root, strconv.FormatInt(userID, 10)) || !strings.HasPrefix(filepath.Base(actual), "avatar") {
-		return "", kerrors.InternalServer("INVALID_AVATAR_PATH", "头像存储路径无效")
+		return "", errdef.ErrInvalidAvatarPath
 	}
 	return actual, nil
 }
@@ -255,7 +255,7 @@ func (u *FileUsecase) readAvatar(userID int64, path string) ([]byte, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, kerrors.InternalServer("INVALID_AVATAR_FILE", "头像不是普通文件")
+		return nil, errdef.ErrInvalidAvatarFile
 	}
 	return io.ReadAll(io.LimitReader(file, maxAvatarBytes+1))
 }

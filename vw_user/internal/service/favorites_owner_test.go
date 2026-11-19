@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"vw_user/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
@@ -56,9 +57,9 @@ func TestFavoriteOwnerMutations(t *testing.T) {
 		wantCode       int32
 	}{
 		{name: "本人空收藏夹", actor: 7, owner: 7, empty: true},
-		{name: "其他用户", actor: 8, owner: 7, empty: true, wantCode: 404},
-		{name: "不存在", actor: 7, missing: true, empty: true, wantCode: 404},
-		{name: "缺少身份", owner: 7, empty: true, wantCode: 400},
+		{name: "其他用户", actor: 8, owner: 7, empty: true, wantCode: errdef.ErrFavoriteNotFound.Code},
+		{name: "不存在", actor: 7, missing: true, empty: true, wantCode: errdef.ErrFavoriteNotFound.Code},
+		{name: "缺少身份", owner: 7, empty: true, wantCode: errdef.ErrInvalidFavorite.Code},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &favoriteOwnerRepo{owner: tc.owner, empty: tc.empty}

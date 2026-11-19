@@ -2,10 +2,10 @@ package userbiz
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"strconv"
 	"time"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	"vw_gateway/internal/pkg/middlewares/auth"
 )
 
@@ -72,7 +72,7 @@ func (uc *UserIdentityUsecase) Register(ctx context.Context, registerInfo *Regis
 	}
 	if err != nil {
 		uc.logger.Errorf("注册后建立登录态失败: %v", err)
-		return 0, "", "", kerrors.InternalServer("REGISTRATION_SESSION_FAILED", "账号已创建，但登录态建立失败，请登录后继续").
+		return 0, "", "", errdef.ErrRegistrationSessionFailed.
 			WithMetadata(map[string]string{"user_created": "true"})
 	}
 	return userID, accessToken, refreshToken, nil

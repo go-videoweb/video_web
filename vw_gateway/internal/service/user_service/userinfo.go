@@ -2,10 +2,10 @@ package user
 
 import (
 	"context"
-	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	infov1 "vw_gateway/api/v1/user/userinfo"
 	"vw_gateway/internal/biz/userbiz"
+	"vw_gateway/internal/pkg/ecode/errdef"
 )
 
 type InfoService struct {
@@ -37,7 +37,7 @@ func (uis *InfoService) ModifyEmail(ctx context.Context, req *infov1.ModifyEmail
 	// 换绑影响后续找回密码的归属，目标必须来自鉴权身份，不能相信路由中的 user_id。
 	userID, ok := ctx.Value("user_id").(int64)
 	if !ok || userID <= 0 {
-		return nil, errors.Unauthorized("USER_ID_MISSING", "请先登录")
+		return nil, errdef.ErrUserIDMissing
 	}
 	newEmail, err := uis.info.ModifyEmail(ctx, userID, req.Email, req.InputCode)
 	if err != nil {
@@ -55,7 +55,7 @@ func (uis *InfoService) ModifyEmail(ctx context.Context, req *infov1.ModifyEmail
 func (uis *InfoService) ModifyPassword(ctx context.Context, req *infov1.ModifyPasswordReq) (*infov1.ModifyPasswordResp, error) {
 	userID, ok := ctx.Value("user_id").(int64)
 	if !ok || userID <= 0 {
-		return nil, errors.Unauthorized("USER_ID_MISSING", "请先登录")
+		return nil, errdef.ErrUserIDMissing
 	}
 	err := uis.info.ModifyPassword(ctx, userID, req.OldPassword, req.NewPassword)
 	if err != nil {

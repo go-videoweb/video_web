@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"vw_user/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
@@ -283,8 +284,8 @@ func TestAvatarFiveMiBBoundary(t *testing.T) {
 	}
 	previous := repo.path
 	stream = &avatarUploadStream{requests: avatarFrames(append(content, 0))}
-	if err := usecase.UpdateAvatar(stream); kerrors.Code(err) != 413 {
-		t.Fatalf("超限未返回 413: %v", err)
+	if err := usecase.UpdateAvatar(stream); kerrors.Code(err) != int(errdef.ErrAvatarTooLarge.Code) {
+		t.Fatalf("超限未返回对应业务码: %v", err)
 	}
 	if repo.path != previous {
 		t.Fatal("超限上传修改了当前头像")

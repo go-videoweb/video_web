@@ -7,11 +7,11 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
 	"mime/multipart"
-	"net/http"
 	"util/helper"
 	"util/helper/file"
 	videoinfov1 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/domain"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	"vw_gateway/internal/pkg/ecode/errdef/uerr"
 	"vw_gateway/internal/pkg/ecode/errdef/verr"
 	videoinfov2 "vw_video/api/v1/videoinfo"
@@ -45,7 +45,7 @@ func NewVideoInfoUsecase(repo VideoInfoRepo, _ log.Logger) *VideoInfoUsecase {
 
 func (uc *VideoInfoUsecase) GetVideoDetail(ctx context.Context, videoId, userId int64) (*domain.VideoDetail, error) {
 	resp, err := uc.repo.GetVideoInfo(ctx, videoId, userId)
-	if errors.IsNotFound(err) {
+	if errors.Reason(err) == "VIDEO_NOT_FOUND" {
 		return nil, err
 	}
 	if err != nil {
@@ -98,7 +98,7 @@ func (uc *VideoInfoUsecase) UploadVideoCover(ctx context.Context, userId, videoI
 	httpReq, ok := khttp.RequestFromServerContext(ctx)
 	if !ok {
 		return helper.HandleError(
-			errors.New(http.StatusInternalServerError, "invalid context", "服务器内部错误"),
+			errdef.ErrInvalidRequestContext,
 			stderr.New("khttp.RequestFromServerContext(ctx) failed"))
 	}
 	fh, err := file.FormFile(httpReq, "cover")
@@ -119,7 +119,7 @@ func (uc *VideoInfoUsecase) UploadVideoFile(ctx context.Context, userId, videoId
 	httpReq, ok := khttp.RequestFromServerContext(ctx)
 	if !ok {
 		return helper.HandleError(
-			errors.New(http.StatusInternalServerError, "invalid context", "服务器内部错误"),
+			errdef.ErrInvalidRequestContext,
 			stderr.New("khttp.RequestFromServerContext(ctx) failed"))
 	}
 	fh, err := file.FormFile(httpReq, "file")

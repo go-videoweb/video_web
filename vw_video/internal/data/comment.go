@@ -3,11 +3,11 @@ package data
 import (
 	"context"
 	"errors"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
+	"vw_video/internal/pkg/ecode/errdef"
 )
 
 type videoCommentRepo struct {
@@ -32,7 +32,7 @@ func (v *videoCommentRepo) InsertComment(ctx context.Context, row *model.Comment
 			return 0, err
 		}
 		if result.RowsAffected != 1 {
-			return 0, kerrors.Conflict("COMMENT_ROOT_CHANGED", "主评论创建失败")
+			return 0, errdef.ErrCommentRootChanged
 		}
 	}
 	return row.CommentID, nil
@@ -50,20 +50,20 @@ func (v *videoCommentRepo) GetRootIDByParentID(ctx context.Context, videoID, par
 	q := getQuery(ctx).Comment
 	parent, err := q.WithContext(ctx).Where(q.VideoID.Eq(videoID), q.CommentID.Eq(parentID)).First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return 0, kerrors.NotFound("COMMENT_NOT_FOUND", "回复对象不存在")
+		return 0, errdef.WithMessage(errdef.ErrCommentNotFound, "回复对象不存在")
 	}
 	if err != nil {
 		return 0, err
 	}
 	root, err := q.WithContext(ctx).Where(q.VideoID.Eq(videoID), q.CommentID.Eq(parent.RootID), q.ParentID.Eq(-1)).First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return 0, kerrors.NotFound("COMMENT_NOT_FOUND", "主评论不存在")
+		return 0, errdef.ErrCommentNotFound
 	}
 	if err != nil {
 		return 0, err
 	}
 	if root.RootID != root.CommentID {
-		return 0, kerrors.Conflict("INVALID_COMMENT_ROOT", "评论楼层关系异常")
+		return 0, errdef.ErrInvalidCommentRoot
 	}
 	return root.CommentID, nil
 }
@@ -76,7 +76,7 @@ func (v *videoCommentRepo) IncrementCommentCntReplies(ctx context.Context, rootI
 		return err
 	}
 	if result.RowsAffected != 1 {
-		return kerrors.Conflict("COMMENT_ROOT_CHANGED", "主评论已变化")
+		return errdef.WithMessage(errdef.ErrCommentRootChanged, "主评论已变化")
 	}
 	return nil
 }
@@ -102,7 +102,7 @@ func incrementCommentVideoCount(ctx context.Context, videoID int64) error {
 		return err
 	}
 	if result.RowsAffected != 1 {
-		return kerrors.Conflict("VIDEO_CHANGED", "视频已变化")
+		return errdef.ErrVideoChanged
 	}
 	return nil
 }
@@ -112,7 +112,7 @@ func (v *videoCommentRepo) GetCommentInfo(ctx context.Context, commentID int64) 
 	q := getQuery(ctx).Comment
 	row, err := q.WithContext(ctx).Where(q.CommentID.Eq(commentID)).First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, kerrors.NotFound("COMMENT_NOT_FOUND", "评论不存在")
+		return nil, errdef.WithMessage(errdef.ErrCommentNotFound, "评论不存在")
 	}
 	return row, err
 }

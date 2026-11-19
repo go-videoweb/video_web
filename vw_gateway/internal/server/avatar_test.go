@@ -19,6 +19,7 @@ import (
 	filev1 "vw_gateway/api/v1/user/userfile"
 	"vw_gateway/internal/biz/userbiz"
 	"vw_gateway/internal/conf"
+	"vw_gateway/internal/pkg/ecode"
 	"vw_gateway/internal/pkg/middlewares/auth"
 	user "vw_gateway/internal/service/user_service"
 )
@@ -190,9 +191,12 @@ func TestRegisterThenUpdateAvatarHTTP(t *testing.T) {
 				if repo.updates != 0 {
 					t.Fatalf("无效上传调用了下游: %d %s", writer.Code, writer.Body.String())
 				}
-				wantCode := http.StatusBadRequest
+				wantCode := ecode.AvatarRequired
+				if scenario == "empty" {
+					wantCode = ecode.InvalidAvatar
+				}
 				if scenario == "oversize" || scenario == "body limit" {
-					wantCode = http.StatusRequestEntityTooLarge
+					wantCode = ecode.AvatarTooLarge
 				}
 				assertHTTPErrorCode(t, writer, wantCode)
 			}
@@ -206,7 +210,7 @@ func TestRegisterThenUpdateAvatarHTTP(t *testing.T) {
 		t.Fatal("替换后仍返回旧缓存")
 	}
 	for path, wantCode := range map[string]int{
-		"/api/v1/users/0/avatar":  http.StatusBadRequest,
+		"/api/v1/users/0/avatar":  ecode.InvalidUserID,
 		"/api/v1/users/99/avatar": http.StatusNotFound,
 	} {
 		writer := httptest.NewRecorder()
@@ -223,7 +227,7 @@ func TestRegisterThenUpdateAvatarHTTP(t *testing.T) {
 	retry := httptest.NewRequest(http.MethodPost, "/api/v1/user/register", strings.NewReader(`{"username":"another","birthday":"2001-01-01"}`))
 	retry.Header.Set("Content-Type", "application/json")
 	server.ServeHTTP(failed, retry)
-	assertHTTPErrorCode(t, failed, http.StatusInternalServerError)
+	assertHTTPErrorCode(t, failed, ecode.RegistrationSessionFailed)
 	if !strings.Contains(failed.Body.String(), "REGISTRATION_SESSION_FAILED") || !strings.Contains(failed.Body.String(), "user_created") {
 		t.Fatalf("部分成功未明确告知: %s", failed.Body.String())
 	}

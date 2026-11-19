@@ -2,12 +2,12 @@ package video
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/transport"
 	videoinfov1 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/biz/videobiz"
 	"vw_gateway/internal/domain"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	"vw_gateway/internal/pkg/ecode/errdef/uerr"
 )
 
@@ -119,7 +119,7 @@ func (info *InfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.U
 		return nil, uerr.ErrTokenInvalid
 	}
 	if req.GetVideoInfo() == nil {
-		return nil, kerrors.BadRequest("VIDEO_INFO_REQUIRED", "请填写视频元信息")
+		return nil, errdef.ErrVideoInfoRequired
 	}
 	detail := videoMetaInfoToDomain(req.GetVideoInfo())
 	detail.PublisherId = userId
@@ -190,7 +190,7 @@ func (info *InfoService) GetMpd(ctx context.Context, req *videoinfov1.ProvideMpd
 // 输出：分片文件响应；旧 segment_path 非空时返回参数错误，不调用下游。
 func (info *InfoService) GetSegments(ctx context.Context, req *videoinfov1.ProvideSegmentsReq) (*videoinfov1.FileResp, error) {
 	if req.SegmentPath != "" {
-		return nil, kerrors.BadRequest("SEGMENT_PATH_UNSUPPORTED", "use video_id and segment_name instead of segment_path")
+		return nil, errdef.ErrSegmentPathUnsupported
 	}
 	resp, err := info.videoInfo.GetSegment(ctx, req.VideoId, req.SegmentName)
 	if err != nil {

@@ -4,8 +4,8 @@ import (
 	"context"
 	stderr "errors"
 	"strconv"
+	"vw_user/internal/pkg/ecode/errdef"
 
-	"github.com/go-kratos/kratos/v2/errors"
 	drivermysql "github.com/go-sql-driver/mysql"
 	"gorm.io/gen/field"
 	"vw_user/internal/data/dal/model"
@@ -23,7 +23,7 @@ func (u *userInfoRepo) CheckEmailConflict(ctx context.Context, email string, exc
 		return err
 	}
 	if count > 0 {
-		return errors.Conflict("EMAIL_IN_USE", "该邮箱已被使用")
+		return errdef.ErrEmailInUse
 	}
 	return nil
 }
@@ -36,10 +36,10 @@ func (u *userInfoRepo) GetUserByEmail(ctx context.Context, email string) (*model
 		return nil, err
 	}
 	if len(rows) == 0 {
-		return nil, errors.BadRequest("PASSWORD_RESET_UNAVAILABLE", "无法完成密码重置，请核对邮箱并重新获取验证码")
+		return nil, errdef.ErrPasswordResetUnavailable
 	}
 	if len(rows) > 1 {
-		return nil, errors.Conflict("EMAIL_RELATION_CONFLICT", "邮箱归属异常，请联系管理员")
+		return nil, errdef.ErrEmailRelationConflict
 	}
 	return rows[0], nil
 }
@@ -55,7 +55,7 @@ func (u *userInfoRepo) ResetPasswordByEmail(ctx context.Context, userID int64, e
 		return err
 	}
 	if result.RowsAffected != 1 {
-		return errors.Conflict("PASSWORD_RESET_CONFLICT", "账号状态或邮箱已变更，请重新获取验证码")
+		return errdef.ErrPasswordResetConflict
 	}
 	return nil
 }
@@ -69,7 +69,7 @@ func (u *userInfoRepo) InvalidateUserSession(ctx context.Context, userID int64) 
 func accountWriteError(err error) error {
 	var duplicate *drivermysql.MySQLError
 	if stderr.As(err, &duplicate) && duplicate.Number == 1062 {
-		return errors.Conflict("ACCOUNT_CONFLICT", "邮箱或用户名已被使用")
+		return errdef.ErrAccountConflict
 	}
 	return err
 }

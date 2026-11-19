@@ -3,11 +3,11 @@ package data
 import (
 	"context"
 	"time"
+	"vw_video/internal/pkg/ecode/errdef"
 
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
 
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"gorm.io/gorm"
 )
 
@@ -76,14 +76,14 @@ func (v *videoInfoRepo) GetFavoriteVideos(ctx context.Context, userId, favorites
 // RPC 检查与视频数据库事务不构成跨服务原子快照。
 func (d *Data) requireFavoriteAccess(ctx context.Context, userId, favoritesId int64, write bool) error {
 	if userId <= 0 || favoritesId <= 0 {
-		return kerrors.BadRequest("INVALID_FAVORITE", "用户和收藏夹 ID 必须为正数")
+		return errdef.WithMessage(errdef.ErrInvalidFavorite, "用户和收藏夹 ID 必须为正数")
 	}
 	favorite, err := d.getFavoriteMetadata(ctx, favoritesId)
 	if err != nil {
 		return err
 	}
 	if favorite.UserID != userId && (write || favorite.IsPrivate) {
-		return kerrors.NotFound("FAVORITE_NOT_FOUND", "收藏夹不存在")
+		return errdef.ErrFavoriteNotFound
 	}
 	return nil
 }
@@ -92,7 +92,7 @@ func (d *Data) requireFavoriteAccess(ctx context.Context, userId, favoritesId in
 // 无有效关系返回两个零；多条关系或异常 ID 返回冲突，不能静默选择。
 func (v *videoInfoRepo) GetUserFavorite(ctx context.Context, userId, videoId int64) (int64, int64, error) {
 	if userId <= 0 || videoId <= 0 {
-		return 0, 0, kerrors.BadRequest("INVALID_FAVORITE", "用户和视频 ID 必须为正数")
+		return 0, 0, errdef.WithMessage(errdef.ErrInvalidFavorite, "用户和视频 ID 必须为正数")
 	}
 	db := getQuery(ctx).FavoriteVideo.WithContext(ctx).UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
 	var rows []*model.FavoriteVideo
@@ -103,7 +103,7 @@ func (v *videoInfoRepo) GetUserFavorite(ctx context.Context, userId, videoId int
 		return 0, 0, err
 	}
 	if len(rows) > 1 || (len(rows) == 1 && (rows[0].ID <= 0 || rows[0].FavoritesID <= 0)) {
-		return 0, 0, kerrors.Conflict("FAVORITE_RELATION_CONFLICT", "收藏关系异常，请核对收藏记录")
+		return 0, 0, errdef.WithMessage(errdef.ErrFavoriteRelationConflict, "收藏关系异常，请核对收藏记录")
 	}
 	if len(rows) == 0 {
 		return 0, 0, nil

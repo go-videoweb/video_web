@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 	favorv1 "vw_user/api/v1/favorites"
+	"vw_video/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"gorm.io/driver/mysql"
@@ -91,7 +92,7 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 					return nil, wantErr
 				}
 				if tc.missing || (stage > 1 && tc.removed) {
-					return nil, kerrors.NotFound("FAVORITE_NOT_FOUND", "收藏夹不存在")
+					return nil, errdef.ErrFavoriteNotFound
 				}
 				return &favorv1.GetFavoriteInfoResp{FavoriteId: 9, UserId: tc.owner, IsPrivate: tc.privacy != 1 || (stage > 1 && tc.revoked)}, nil
 			}}}
@@ -142,7 +143,7 @@ func TestFavoriteVideosQueryOffline(t *testing.T) {
 				if tc.revoked || tc.removed {
 					wantQueries = 5
 				}
-				if err == nil || kerrors.FromError(err).Code != 404 || len(sqls) != wantQueries || rows != nil || total != 0 {
+				if err == nil || kerrors.FromError(err).Code != errdef.ErrFavoriteNotFound.Code || len(sqls) != wantQueries || rows != nil || total != 0 {
 					t.Fatalf("无权响应泄露内容或计数：%d %v %v", total, rows, err)
 				}
 				return
@@ -240,7 +241,7 @@ func TestFavoriteRelationQueryOffline(t *testing.T) {
 				return
 			}
 			if len(tc.ids) > 1 {
-				if err == nil || kerrors.FromError(err).Code != 409 || id != 0 {
+				if err == nil || kerrors.FromError(err).Code != errdef.ErrFavoriteRelationConflict.Code || id != 0 {
 					t.Fatal("冲突被静默选择")
 				}
 				return

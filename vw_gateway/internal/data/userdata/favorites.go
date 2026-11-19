@@ -2,10 +2,10 @@ package userdata
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"vw_gateway/internal/biz/userbiz"
 	"vw_gateway/internal/domain"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	favorv1 "vw_user/api/v1/favorites"
 )
 
@@ -34,7 +34,7 @@ func (f *favoritesRepo) CreateFavorites(ctx context.Context, userId int64, favor
 		return 0, err
 	}
 	if resp.GetFavoriteId() <= 0 {
-		return 0, kerrors.InternalServer("FAVORITE_ID_MISSING", "用户服务未返回有效的收藏夹 ID，请先核对创建结果，勿重复提交")
+		return 0, errdef.ErrFavoriteIDMissing
 	}
 	return resp.FavoriteId, nil
 }
@@ -46,7 +46,7 @@ func (f *favoritesRepo) GetFavoritesList(ctx context.Context, userId int64) ([]*
 		return nil, err
 	}
 	if resp == nil {
-		return nil, kerrors.InternalServer("FAVORITES_LIST_MISSING", "用户服务未返回收藏夹列表响应")
+		return nil, errdef.ErrFavoritesListMissing
 	}
 	list := make([]*domain.FavoriteDetail, len(resp.FavoriteList))
 	for i, favorite := range resp.FavoriteList {
