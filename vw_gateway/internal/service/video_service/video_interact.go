@@ -2,12 +2,12 @@ package video
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/transport"
 	"net/http"
 	interactv1 "vw_gateway/api/v1/video/video_interact"
 	"vw_gateway/internal/biz/videobiz"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	"vw_gateway/internal/pkg/ecode/errdef/uerr"
 )
 
@@ -28,7 +28,7 @@ func NewInteractService(interactUsecase *videobiz.InteractUsecase, logger log.Lo
 func (s *InteractService) VideoFavorite(ctx context.Context, req *interactv1.VideoFavoriteReq) (*interactv1.VideoFavoriteResp, error) {
 	curUserId, ok := ctx.Value(userIdKey).(int64)
 	if !ok || curUserId <= 0 {
-		return nil, kerrors.Unauthorized("INVALID_USER_ID", "请先登录")
+		return nil, errdef.ErrInvalidUserIDUnauthorized
 	}
 	return s.interactUsecase.Favorite(ctx, curUserId, req)
 }
@@ -40,7 +40,7 @@ func (s *InteractService) VideoUpvoteBarrage(ctx context.Context, req *interactv
 		return nil, err
 	}
 	if req.Liked == nil {
-		return nil, kerrors.BadRequest("INVALID_BARRAGE_LIKE", "必须提供 liked")
+		return nil, errdef.ErrInvalidBarrageLike
 	}
 	return s.interactUsecase.UpvoteBarrage(ctx, userID, req)
 }

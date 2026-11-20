@@ -3,11 +3,11 @@ package data
 import (
 	"context"
 	"database/sql"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	interactv1 "vw_video/api/v1/interact"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
+	"vw_video/internal/pkg/ecode/errdef"
 )
 
 type interactRepo struct {
@@ -106,7 +106,7 @@ func (i *interactRepo) AddVideoCntBarrage(ctx context.Context /*tx *sql.Tx,*/, v
 		return err
 	}
 	if result.RowsAffected != 1 {
-		return kerrors.Conflict("VIDEO_CHANGED", "视频版本已变化，请重试发送")
+		return errdef.WithMessage(errdef.ErrVideoChanged, "视频版本已变化，请重试发送")
 	}
 	return nil
 }

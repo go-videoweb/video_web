@@ -3,11 +3,11 @@ package videodata
 import (
 	"context"
 	stderr "errors"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"util/resolver"
 	interactv1 "vw_gateway/api/v1/video/video_interact"
 	"vw_gateway/internal/biz/videobiz"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	userinfoGRPC "vw_user/api/v1/userinfo"
 	interactGRPC "vw_video/api/v1/interact"
 	videoinfoGRPC "vw_video/api/v1/videoinfo"
@@ -35,7 +35,7 @@ func (i *interactRepo) FavoriteVideo(ctx context.Context, userId int64, req *int
 		return nil, err
 	}
 	if resp == nil {
-		return nil, kerrors.InternalServer("INVALID_VIDEO_RESPONSE", "视频服务未返回收藏结果")
+		return nil, errdef.WithMessage(errdef.ErrInvalidVideoResponse, "视频服务未返回收藏结果")
 	}
 	return &interactv1.VideoFavoriteResp{StatusCode: 200, Message: resp.Message, IsFavorited: resp.IsFavorited, FavoriteId: resp.FavoriteId, FavoriteRecordId: resp.FavoriteRecordId}, nil
 }
@@ -113,7 +113,7 @@ func (i *interactRepo) UpvoteBarrage(ctx context.Context, userId int64, req *int
 		return nil, err
 	}
 	if resp == nil {
-		return nil, kerrors.InternalServer("INVALID_VIDEO_RESPONSE", "视频服务未返回点赞结果")
+		return nil, errdef.WithMessage(errdef.ErrInvalidVideoResponse, "视频服务未返回点赞结果")
 	}
 	return &interactv1.VideoUpvoteBarrageResp{StatusCode: 200, Message: "操作成功", IsUpvoted: resp.IsUpvoted, UpvoteCount: resp.UpvoteCount}, nil
 }

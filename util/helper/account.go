@@ -1,11 +1,23 @@
 package helper
 
 import (
+	"errors"
 	"net/mail"
 	"strings"
 	"unicode/utf8"
+)
 
-	"github.com/go-kratos/kratos/v2/errors"
+var (
+	// ErrInvalidEmailLength 表示邮箱不能为空且不得超过100字节。
+	ErrInvalidEmailLength = errors.New("邮箱不能为空且不得超过100字节")
+	// ErrInvalidEmailASCII 表示邮箱必须使用ASCII字符。
+	ErrInvalidEmailASCII = errors.New("邮箱必须使用ASCII字符")
+	// ErrInvalidEmailFormat 表示邮箱格式不正确。
+	ErrInvalidEmailFormat = errors.New("邮箱格式不正确")
+	// ErrInvalidPassword 表示密码长度必须为6至72字节。
+	ErrInvalidPassword = errors.New("密码长度必须为6至72字节")
+	// ErrInvalidCodePurpose 表示验证码用途不正确。
+	ErrInvalidCodePurpose = errors.New("验证码用途不正确")
 )
 
 const (
@@ -19,17 +31,17 @@ const (
 func NormalizeEmail(email string) (string, error) {
 	email = strings.TrimSpace(email)
 	if email == "" || len(email) > 100 {
-		return "", errors.BadRequest("INVALID_EMAIL", "邮箱不能为空且不得超过100字节")
+		return "", ErrInvalidEmailLength
 	}
 	for _, c := range email {
 		if c > 127 {
-			return "", errors.BadRequest("INVALID_EMAIL", "邮箱必须使用ASCII字符")
+			return "", ErrInvalidEmailASCII
 		}
 	}
 	email = strings.ToLower(email)
 	address, err := mail.ParseAddress(email)
 	if err != nil || address.Address != email || address.Name != "" {
-		return "", errors.BadRequest("INVALID_EMAIL", "邮箱格式不正确")
+		return "", ErrInvalidEmailFormat
 	}
 	return email, nil
 }
@@ -38,7 +50,7 @@ func NormalizeEmail(email string) (string, error) {
 // 不裁剪密码或修改大小写，避免前后端保存的密码含义不一致。
 func ValidatePassword(password string) error {
 	if !utf8.ValidString(password) || len(password) < 6 || len(password) > 72 {
-		return errors.BadRequest("INVALID_PASSWORD", "密码长度必须为6至72字节")
+		return ErrInvalidPassword
 	}
 	return nil
 }
@@ -49,6 +61,6 @@ func ValidateEmailCodePurpose(purpose string) error {
 	case EmailCodeRegister, EmailCodeChange, EmailCodeReset:
 		return nil
 	default:
-		return errors.BadRequest("INVALID_CODE_PURPOSE", "验证码用途不正确")
+		return ErrInvalidCodePurpose
 	}
 }

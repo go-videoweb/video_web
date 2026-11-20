@@ -14,4 +14,7 @@ var (
 )
 
 // ErrInvalidPublicSiteOrigin 表示公开站点地址缺失或格式无效。
-var ErrInvalidPublicSiteOrigin = kerr.InternalServer("INVALID_PUBLIC_SITE_ORIGIN", "分享站点地址未配置或格式无效")
+var ErrInvalidPublicSiteOrigin = kerr.New(ecode.InvalidPublicSiteOrigin, "INVALID_PUBLIC_SITE_ORIGIN", "分享站点地址未配置或格式无效")
+
+// ErrErrorEncodingFailed 表示响应错误编码失败。
+var ErrErrorEncodingFailed = kerr.New(ecode.ErrorEncodingFailed, "ERROR_ENCODING_FAILED", "服务器内部错误")

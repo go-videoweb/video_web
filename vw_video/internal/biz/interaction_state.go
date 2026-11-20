@@ -2,15 +2,14 @@ package biz
 
 import (
 	interactv1 "vw_video/api/v1/interact"
-
-	kerrors "github.com/go-kratos/kratos/v2/errors"
+	"vw_video/internal/pkg/ecode/errdef"
 )
 
 var (
 	// ErrInvalidInteractionIdentity 表示请求缺少有效身份、视频 ID 或必需的状态信息。
-	ErrInvalidInteractionIdentity = kerrors.BadRequest("INVALID_INTERACTION_IDENTITY", "用户和视频 ID 必须为正数")
+	ErrInvalidInteractionIdentity = errdef.ErrInvalidInteractionIdentity
 	// ErrInteractionNotSupported 表示尚未确定数据模型的评论或弹幕点赞能力暂未启用。
-	ErrInteractionNotSupported = kerrors.New(501, "INTERACTION_NOT_SUPPORTED", "暂未支持评论或弹幕点赞")
+	ErrInteractionNotSupported = errdef.ErrInteractionNotSupported
 )
 
 // StatusChange 记录单个互动字段的预期旧值和目标值，补偿时交换二者。
@@ -37,7 +36,7 @@ func videoStatusPatch(req *interactv1.SetUserVideoStatusReq, revert bool) (*Vide
 	statusSet := []int32{s.IsUpvoted, s.IsShared, s.IsFavorited, s.IsThrownShells}
 	for _, flag := range statusSet {
 		if flag < -1 || flag > 1 {
-			return nil, kerrors.BadRequest("INVALID_INTERACTION_STATUS", "互动标记只能为 -1、0 或 1")
+			return nil, errdef.ErrInvalidInteractionStatus
 		}
 	}
 	patch := &VideoStatusPatch{
@@ -46,7 +45,7 @@ func videoStatusPatch(req *interactv1.SetUserVideoStatusReq, revert bool) (*Vide
 	}
 	if s.IsThrownShells != 0 {
 		if req.OriginShellsCount < 0 || req.OriginShellsCount > 2 || req.ShellsCount < 0 || req.ShellsCount > 2 {
-			return nil, kerrors.BadRequest("INVALID_SHELLS_COUNT", "已投贝壳数量必须在 0 到 2 之间")
+			return nil, errdef.ErrInvalidShellsCount
 		}
 		patch.ShellsCount = &StatusChange{Before: int64(req.OriginShellsCount), After: int64(req.ShellsCount)}
 	}

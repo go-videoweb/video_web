@@ -9,8 +9,8 @@ import (
 	"util/getid"
 	"vw_user/internal/data/dal/model"
 	"vw_user/internal/domain"
+	"vw_user/internal/pkg/ecode/errdef"
 
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"
 )
@@ -63,7 +63,7 @@ func NewFollowUseCase(repo FollowRepo, _ UserInfoRepo, tx mysqlutil.Transaction,
 // validFollowUser 拒绝无可信身份的请求，下游 RPC 仅允许由受信任网关调用。
 func validFollowUser(id int64) error {
 	if id <= 0 {
-		return kerrors.BadRequest("INVALID_USER_ID", "用户 ID 必须为正数")
+		return errdef.ErrInvalidUserID
 	}
 	return nil
 }
@@ -72,7 +72,7 @@ func validFollowUser(id int64) error {
 func followListName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if !utf8.ValidString(name) || name == "" || utf8.RuneCountInString(name) > 20 {
-		return "", kerrors.BadRequest("INVALID_FOLLOW_LIST_NAME", "关注列表名称需为 1 至 20 个字符")
+		return "", errdef.ErrInvalidFollowListName
 	}
 	return name, nil
 }
@@ -89,14 +89,14 @@ func (u *FollowUsecase) GetFollowLists(ctx context.Context, userID int64) ([]*mo
 	defaults := 0
 	for _, row := range rows {
 		if row.UserID != userID {
-			return nil, kerrors.InternalServer("INVALID_FOLLOW_LIST", "关注列表归属异常")
+			return nil, errdef.ErrInvalidFollowList
 		}
 		if row.IsDefault {
 			defaults++
 		}
 	}
 	if defaults != 1 {
-		return nil, kerrors.Conflict("DEFAULT_FOLLOW_LIST_CONFLICT", "默认关注列表必须恰好一个，请先核对数据")
+		return nil, errdef.ErrDefaultFollowListConflict
 	}
 	return rows, nil
 }
@@ -106,7 +106,7 @@ func (u *FollowUsecase) GetFollowLists(ctx context.Context, userID int64) ([]*mo
 func (u *FollowUsecase) resolveFollowList(ctx context.Context, userID, listID int64) (*model.FollowList, error) {
 	row, err := u.repo.GetFollowList(ctx, userID, listID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, kerrors.NotFound("FOLLOW_LIST_NOT_FOUND", "关注列表不存在")
+		return nil, errdef.ErrFollowListNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (u *FollowUsecase) CreateFollowList(ctx context.Context, userID int64, name
 			return err
 		}
 		if exists {
-			return kerrors.Conflict("FOLLOW_LIST_NAME_EXISTS", "关注列表名称已存在")
+			return errdef.ErrFollowListNameExists
 		}
 		return u.repo.CreateFollowList(ctx, &model.FollowList{ListID: id, UserID: userID, ListName: name, IsDefault: false})
 	})
@@ -152,7 +152,7 @@ func (u *FollowUsecase) ModifyFollowList(ctx context.Context, userID, listID int
 		return err
 	}
 	if listID <= 0 {
-		return kerrors.BadRequest("INVALID_FOLLOW_LIST", "关注列表 ID 必须为正数")
+		return errdef.ErrInvalidFollowListID
 	}
 	name, err := followListName(name)
 	if err != nil {
@@ -174,7 +174,7 @@ func (u *FollowUsecase) ModifyFollowList(ctx context.Context, userID, listID int
 			return err
 		}
 		if exists {
-			return kerrors.Conflict("FOLLOW_LIST_NAME_EXISTS", "关注列表名称已存在")
+			return errdef.ErrFollowListNameExists
 		}
 		return u.repo.RenameFollowList(ctx, userID, listID, name)
 	})
@@ -186,7 +186,7 @@ func (u *FollowUsecase) SetDefaultFollowList(ctx context.Context, userID, listID
 		return err
 	}
 	if listID <= 0 {
-		return kerrors.BadRequest("INVALID_FOLLOW_LIST", "关注列表 ID 必须为正数")
+		return errdef.ErrInvalidFollowListID
 	}
 	return u.tx.WithTx(ctx, func(ctx context.Context) error {
 		if err := u.repo.LockFollowOwner(ctx, userID); err != nil {
@@ -214,13 +214,13 @@ func (u *FollowUsecase) DeleteFollowLists(ctx context.Context, userID int64, ids
 		return err
 	}
 	if len(ids) == 0 || len(ids) > 100 {
-		return kerrors.BadRequest("INVALID_FOLLOW_LIST_IDS", "一次需删除 1 至 100 个关注列表")
+		return errdef.ErrInvalidFollowListIDs
 	}
 	selected := make(map[int64]bool, len(ids))
 	unique := make([]int64, 0, len(ids))
 	for _, id := range ids {
 		if id <= 0 {
-			return kerrors.BadRequest("INVALID_FOLLOW_LIST_IDS", "关注列表 ID 必须为正数")
+			return errdef.WithMessage(errdef.ErrInvalidFollowListIDs, "关注列表 ID 必须为正数")
 		}
 		if !selected[id] {
 			selected[id] = true
@@ -239,13 +239,13 @@ func (u *FollowUsecase) DeleteFollowLists(ctx context.Context, userID int64, ids
 		for _, list := range lists {
 			if selected[list.ListID] {
 				if list.IsDefault {
-					return kerrors.Conflict("DEFAULT_FOLLOW_LIST_DELETE", "默认关注列表不可删除")
+					return errdef.ErrDefaultFollowListDelete
 				}
 				found++
 			}
 		}
 		if found != len(unique) {
-			return kerrors.NotFound("FOLLOW_LIST_NOT_FOUND", "至少一个关注列表不存在")
+			return errdef.WithMessage(errdef.ErrFollowListNotFound, "至少一个关注列表不存在")
 		}
 		rows, err := u.repo.GetFollowsInLists(ctx, userID, unique)
 		if err != nil {
@@ -273,7 +273,7 @@ func (u *FollowUsecase) Follow(ctx context.Context, userID, targetID, listID int
 		return nil, err
 	}
 	if targetID <= 0 || targetID == userID || listID <= 0 {
-		return nil, kerrors.BadRequest("INVALID_FOLLOW_TARGET", "不能关注自己，目标用户和分组 ID 必须有效")
+		return nil, errdef.ErrInvalidFollowTarget
 	}
 	var result *FollowRelation
 	err := u.tx.WithTx(ctx, func(ctx context.Context) error {
@@ -293,7 +293,7 @@ func (u *FollowUsecase) Follow(ctx context.Context, userID, targetID, listID int
 		}
 		if row != nil {
 			if row.FollowlistID != list.ListID {
-				return kerrors.Conflict("FOLLOW_GROUP_CONFLICT", "已在其他分组关注，请使用分组移动接口")
+				return errdef.ErrFollowGroupConflict
 			}
 			result = &FollowRelation{IsFollowing: true, FollowListID: row.FollowlistID}
 			return nil
@@ -319,7 +319,7 @@ func (u *FollowUsecase) Unfollow(ctx context.Context, userID, targetID int64) er
 		return err
 	}
 	if targetID <= 0 || targetID == userID {
-		return kerrors.BadRequest("INVALID_FOLLOW_TARGET", "目标用户 ID 无效")
+		return errdef.WithMessage(errdef.ErrInvalidFollowTarget, "目标用户 ID 无效")
 	}
 	return u.tx.WithTx(ctx, func(ctx context.Context) error {
 		if err := u.repo.LockFollowOwner(ctx, userID); err != nil {
@@ -345,7 +345,7 @@ func (u *FollowUsecase) GetFollowRelation(ctx context.Context, userID, targetID 
 		return nil, err
 	}
 	if targetID <= 0 {
-		return nil, kerrors.BadRequest("INVALID_FOLLOW_TARGET", "目标用户 ID 无效")
+		return nil, errdef.WithMessage(errdef.ErrInvalidFollowTarget, "目标用户 ID 无效")
 	}
 	if err := u.repo.CheckFollowTarget(ctx, targetID); err != nil {
 		return nil, err
@@ -366,7 +366,7 @@ func (u *FollowUsecase) MoveFollowee(ctx context.Context, userID, targetID, list
 		return err
 	}
 	if targetID <= 0 || targetID == userID || listID <= 0 {
-		return kerrors.BadRequest("INVALID_FOLLOW_TARGET", "目标用户和关注列表 ID 无效")
+		return errdef.WithMessage(errdef.ErrInvalidFollowTarget, "目标用户和关注列表 ID 无效")
 	}
 	return u.tx.WithTx(ctx, func(ctx context.Context) error {
 		if err := u.repo.LockFollowOwner(ctx, userID); err != nil {
@@ -383,7 +383,7 @@ func (u *FollowUsecase) MoveFollowee(ctx context.Context, userID, targetID, list
 			return err
 		}
 		if row == nil {
-			return kerrors.NotFound("FOLLOW_NOT_FOUND", "尚未关注该用户")
+			return errdef.ErrFollowNotFound
 		}
 		if row.FollowlistID == listID {
 			return nil
@@ -398,7 +398,7 @@ func (u *FollowUsecase) GetFolloweesInfo(ctx context.Context, userID, listID int
 		return nil, err
 	}
 	if listID < 0 || page < 0 || size < 0 {
-		return nil, kerrors.BadRequest("INVALID_FOLLOW_PAGE", "分组和分页参数不可为负数")
+		return nil, errdef.ErrInvalidFollowPage
 	}
 	if page == 0 {
 		page = 1
@@ -407,7 +407,7 @@ func (u *FollowUsecase) GetFolloweesInfo(ctx context.Context, userID, listID int
 		size = 20
 	}
 	if size > 100 || int64(page-1)*int64(size) > 2147483647 {
-		return nil, kerrors.BadRequest("INVALID_FOLLOW_PAGE", "分页范围过大")
+		return nil, errdef.WithMessage(errdef.ErrInvalidFollowPage, "分页范围过大")
 	}
 	if listID > 0 {
 		if _, err := u.resolveFollowList(ctx, userID, listID); err != nil {

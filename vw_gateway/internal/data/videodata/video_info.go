@@ -3,7 +3,6 @@ package videodata
 import (
 	"context"
 	"fmt"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
@@ -20,7 +19,8 @@ import (
 	videoinfov2 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/biz/videobiz"
 	"vw_gateway/internal/domain"
-	errdef "vw_gateway/internal/pkg/ecode/errdef/verr"
+	"vw_gateway/internal/pkg/ecode/errdef"
+	"vw_gateway/internal/pkg/ecode/errdef/verr"
 	videoinfov1 "vw_video/api/v1/videoinfo"
 )
 
@@ -58,11 +58,11 @@ func (v *videoInfoRepo) GetFavoriteVideos(ctx context.Context, userId, favorites
 		return nil, err
 	}
 	if resp == nil {
-		return nil, kerrors.InternalServer("FAVORITE_VIDEOS_MISSING", "视频服务未返回收藏夹内容响应")
+		return nil, errdef.ErrFavoriteVideosMissing
 	}
 	for _, item := range resp.Videos {
 		if item.GetVideo() == nil {
-			return nil, kerrors.InternalServer("FAVORITE_VIDEO_INVALID", "视频服务返回了缺少视频摘要的收藏记录")
+			return nil, errdef.ErrFavoriteVideoInvalid
 		}
 	}
 	return resp, nil
@@ -98,7 +98,7 @@ func (v *videoInfoRepo) UploadVideoInfo(ctx context.Context, info *domain.VideoD
 		return 0, err
 	}
 	if resp.GetVideoId() <= 0 {
-		return 0, kerrors.InternalServer("VIDEO_ID_MISSING", "video service returned an invalid video ID; verify deployment before retrying")
+		return 0, errdef.ErrVideoIDMissing
 	}
 	return resp.VideoId, nil
 }
@@ -288,7 +288,7 @@ func (v *videoInfoRepo) GetVideoMpd(ctx context.Context, videoId int64) (*videoi
 		VideoId: videoId,
 	})
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoMpdFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoMpdFailed, err)
 	}
 
 	getFilenameFn := func(resp *videoinfov1.GetVideoMpdResp) (string, error) {
@@ -306,7 +306,7 @@ func (v *videoInfoRepo) GetVideoMpd(ctx context.Context, videoId int64) (*videoi
 
 	fileResp, err := receiveStreamFile(stream, getFilenameFn, getFileDataFn)
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoMpdFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoMpdFailed, err)
 	}
 
 	fileResp.Headers = map[string]*videoinfov2.FileResp_HeaderValues{
@@ -324,7 +324,7 @@ func (v *videoInfoRepo) GetVideoSegment(ctx context.Context, videoId int64, segm
 		SegmentName: segmentName,
 	})
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoSegmentFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoSegmentFailed, err)
 	}
 
 	getFilenameFn := func(resp *videoinfov1.GetVideoSegmentResp) (string, error) {
@@ -342,7 +342,7 @@ func (v *videoInfoRepo) GetVideoSegment(ctx context.Context, videoId int64, segm
 
 	fileResp, err := receiveStreamFile(stream, getFilenameFn, getFileDataFn)
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoSegmentFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoSegmentFailed, err)
 	}
 
 	return fileResp, nil
@@ -356,7 +356,7 @@ func (v *videoInfoRepo) GetVideoCover(ctx context.Context, videoId int64) (*vide
 		VideoId: videoId,
 	})
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoCoverFailed, err)
 	}
 
 	getFilenameFn := func(resp *videoinfov1.GetVideoCoverResp) (string, error) {
@@ -374,7 +374,7 @@ func (v *videoInfoRepo) GetVideoCover(ctx context.Context, videoId int64) (*vide
 
 	fileResp, err := receiveStreamFile(stream, getFilenameFn, getFileDataFn)
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoCoverFailed, err)
 	}
 
 	if contentType := mime.TypeByExtension(filepath.Ext(fileResp.Filename)); contentType != "" {

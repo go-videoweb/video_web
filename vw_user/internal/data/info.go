@@ -32,7 +32,7 @@ func (u *userInfoRepo) CountFans(ctx context.Context, userID int64) (int64, erro
 	q := getQuery(ctx).UserFan
 	count, err := q.WithContext(ctx).Where(q.UserID.Eq(userID)).Count()
 	if err == nil && count > 2147483647 {
-		return 0, errors.InternalServer("FANS_COUNT_OVERFLOW", "粉丝数量超过当前 RPC int32 范围")
+		return 0, errdef.ErrFansCountOverflow
 	}
 	return count, err
 }
@@ -164,7 +164,7 @@ func (u *userInfoRepo) UpdateEmail(ctx context.Context, userId int64, newEmail s
 		return accountWriteError(err)
 	}
 	if result.RowsAffected != 1 {
-		return errors.Conflict("EMAIL_UPDATE_CONFLICT", "账号状态已变更，请重试")
+		return errdef.ErrEmailUpdateConflict
 	}
 	return nil
 }
@@ -185,7 +185,7 @@ func (u *userInfoRepo) UpdatePassword(ctx context.Context, userId int64, encrypt
 		return err
 	}
 	if result.RowsAffected != 1 {
-		return errors.Conflict("PASSWORD_UPDATE_CONFLICT", "账号状态已变更，请重试")
+		return errdef.ErrPasswordUpdateConflict
 	}
 	return nil
 }

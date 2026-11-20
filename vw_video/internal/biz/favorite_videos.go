@@ -4,8 +4,8 @@ import (
 	"context"
 	"math"
 	"time"
+	"vw_video/internal/pkg/ecode/errdef"
 
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"vw_video/internal/data/dal/model"
 )
 
@@ -20,7 +20,7 @@ type FavoriteVideo struct {
 // 本人可读取任意隐私级别，其他登录用户仅可读取公开收藏夹；无权与不存在均为 404。
 func (uc *VideoInfoUsecase) GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) ([]*FavoriteVideo, int64, int32, int32, error) {
 	if userId <= 0 || favoritesId <= 0 || pageNum < 0 || pageSize < 0 || pageSize > 100 {
-		return nil, 0, 0, 0, kerrors.BadRequest("INVALID_FAVORITE_PAGE", "需要有效身份、收藏夹 ID 和分页参数")
+		return nil, 0, 0, 0, errdef.ErrInvalidFavoritePage
 	}
 	if pageNum == 0 {
 		pageNum = 1
@@ -29,7 +29,7 @@ func (uc *VideoInfoUsecase) GetFavoriteVideos(ctx context.Context, userId, favor
 		pageSize = 20
 	}
 	if int64(pageNum-1)*int64(pageSize) > math.MaxInt32 {
-		return nil, 0, 0, 0, kerrors.BadRequest("INVALID_FAVORITE_PAGE", "分页偏移过大")
+		return nil, 0, 0, 0, errdef.WithMessage(errdef.ErrInvalidFavoritePage, "分页偏移过大")
 	}
 	rows, total, err := uc.repo.GetFavoriteVideos(ctx, userId, favoritesId, pageNum, pageSize)
 	if err != nil {

@@ -4,13 +4,13 @@ import (
 	"bytes"
 	stderr "errors"
 	"fmt"
-	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/transport/http"
 	"io"
 	nethttp "net/http"
 	"reflect"
 	"strconv"
 	"strings"
+	"vw_gateway/internal/pkg/ecode/errdef"
 )
 
 const maxMemory = 32 << 20 // 32MB
@@ -27,34 +27,34 @@ func RequestDecoder(r *http.Request, v interface{}) error {
 		if err != nil {
 			var tooLarge *nethttp.MaxBytesError
 			if stderr.As(err, &tooLarge) {
-				return errors.New(nethttp.StatusRequestEntityTooLarge, "AVATAR_TOO_LARGE", "头像请求体过大")
+				return errdef.WithMessage(errdef.ErrAvatarTooLarge, "头像请求体过大")
 			}
-			return errors.BadRequest("ParseMultipartForm ERROR", err.Error())
+			return errdef.WithMessage(errdef.ErrParseMultipartForm, err.Error())
 		}
 
 		err = bindFormDataByJSONTag(r.MultipartForm.Value, v)
 		if err != nil {
-			return errors.BadRequest("BIND", err.Error())
+			return errdef.WithMessage(errdef.ErrBindRequest, err.Error())
 		}
 		return nil
 	}
 
 	codec, ok := http.CodecForRequest(r, "Content-Type")
 	if !ok {
-		return errors.BadRequest("CODEC", fmt.Sprintf("unregister Content-Type: %s", r.Header.Get("Content-Type")))
+		return errdef.WithMessage(errdef.ErrRequestCodec, fmt.Sprintf("unregister Content-Type: %s", r.Header.Get("Content-Type")))
 	}
 	data, err := io.ReadAll(r.Body)
 
 	// reset body.
 	r.Body = io.NopCloser(bytes.NewBuffer(data))
 	if err != nil {
-		return errors.BadRequest("CODEC", err.Error())
+		return errdef.WithMessage(errdef.ErrRequestCodec, err.Error())
 	}
 	if len(data) == 0 {
 		return nil
 	}
 	if err = codec.Unmarshal(data, v); err != nil {
-		return errors.BadRequest("CODEC", fmt.Sprintf("body unmarshal %s", err.Error()))
+		return errdef.WithMessage(errdef.ErrRequestCodec, fmt.Sprintf("body unmarshal %s", err.Error()))
 	}
 	return nil
 }
@@ -64,7 +64,7 @@ func bindFormDataByJSONTag(value formDataValue, v interface{}) error {
 	val := reflect.ValueOf(v).Elem()
 	valType := val.Type()
 	if val.Kind() != reflect.Struct {
-		return errors.BadRequest("BIND", "v must be a struct")
+		return errdef.WithMessage(errdef.ErrBindRequest, "v must be a struct")
 	}
 	//遍历结构体字段，并根据结构体字段的json标签去表单值中查找对应的值，并绑定到结构体字段
 	for i := 0; i < val.NumField(); i++ {
@@ -112,7 +112,7 @@ func bindFormDataByJSONTag(value formDataValue, v interface{}) error {
 func bindFormDataByFieldName(value formDataValue, v interface{}) error {
 	val := reflect.ValueOf(v).Elem()
 	if val.Kind() != reflect.Struct {
-		return errors.BadRequest("BIND", "v must be a struct")
+		return errdef.WithMessage(errdef.ErrBindRequest, "v must be a struct")
 	}
 	//遍历表单值并绑定到结构体
 	for key, Values := range value {

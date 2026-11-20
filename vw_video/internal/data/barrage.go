@@ -7,8 +7,8 @@ import (
 	api "vw_video/api/v1/interact"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
+	"vw_video/internal/pkg/ecode/errdef"
 
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"gorm.io/gorm"
 )
 
@@ -59,7 +59,7 @@ func (i *interactRepo) SetBarrageLike(ctx context.Context, userID, videoID, barr
 	b := getQuery(ctx).Barrage
 	row, err := b.WithContext(ctx).Where(b.VideoID.Eq(videoID), b.BarrageID.Eq(barrageID)).First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, kerrors.NotFound("BARRAGE_NOT_FOUND", "弹幕不存在")
+		return nil, errdef.ErrBarrageNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (i *interactRepo) SetBarrageLike(ctx context.Context, userID, videoID, barr
 			return nil, err
 		}
 		if result.RowsAffected > 1 {
-			return nil, kerrors.Conflict("BARRAGE_LIKE_CONFLICT", "点赞关系异常")
+			return nil, errdef.ErrBarrageLikeConflict
 		}
 		changed = result.RowsAffected == 1
 	}
@@ -96,7 +96,7 @@ func (i *interactRepo) SetBarrageLike(ctx context.Context, userID, videoID, barr
 			return nil, result.Error
 		}
 		if result.RowsAffected != 1 {
-			return nil, kerrors.Conflict("BARRAGE_LIKE_CONFLICT", "弹幕已变化或点赞计数异常")
+			return nil, errdef.WithMessage(errdef.ErrBarrageLikeConflict, "弹幕已变化或点赞计数异常")
 		}
 		row, err = b.WithContext(ctx).Where(b.VideoID.Eq(videoID), b.BarrageID.Eq(barrageID)).First()
 		if err != nil {

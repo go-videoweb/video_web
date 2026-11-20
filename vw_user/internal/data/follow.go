@@ -3,7 +3,6 @@ package data
 import (
 	"context"
 	"errors"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	drivermysql "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
@@ -11,6 +10,7 @@ import (
 	"vw_user/internal/biz"
 	"vw_user/internal/data/dal/model"
 	"vw_user/internal/domain"
+	"vw_user/internal/pkg/ecode/errdef"
 )
 
 type followRepo struct {
@@ -32,7 +32,7 @@ func followDB(ctx context.Context) *gorm.DB {
 func followWriteError(err error) error {
 	var duplicate *drivermysql.MySQLError
 	if errors.Is(err, gorm.ErrDuplicatedKey) || (errors.As(err, &duplicate) && duplicate.Number == 1062) {
-		return kerrors.Conflict("FOLLOW_CONFLICT", "关注列表名称或关系已存在")
+		return errdef.ErrFollowConflict
 	}
 	return err
 }
@@ -43,7 +43,7 @@ func followAffected(result *gorm.DB, want int64) error {
 		return followWriteError(result.Error)
 	}
 	if result.RowsAffected != want {
-		return kerrors.Conflict("FOLLOW_WRITE_CONFLICT", "关注数据已变化，请刷新后重试")
+		return errdef.ErrFollowWriteConflict
 	}
 	return nil
 }
@@ -54,7 +54,7 @@ func (r *followRepo) LockFollowOwner(ctx context.Context, userID int64) error {
 	var row model.User
 	err := followDB(ctx).Select("user_id").Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", userID).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return kerrors.NotFound("USER_NOT_FOUND", "用户不存在")
+		return errdef.ErrUserNotFoundByID
 	}
 	return err
 }
@@ -64,7 +64,7 @@ func (r *followRepo) CheckFollowTarget(ctx context.Context, targetID int64) erro
 	var row model.User
 	err := followDB(ctx).Select("user_id").Where("user_id = ?", targetID).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return kerrors.NotFound("USER_NOT_FOUND", "目标用户不存在")
+		return errdef.WithMessage(errdef.ErrUserNotFoundByID, "目标用户不存在")
 	}
 	return err
 }
@@ -131,7 +131,7 @@ func (r *followRepo) CreateFollowPair(ctx context.Context, row *model.UserFollow
 		return followWriteError(result.Error)
 	}
 	if result.RowsAffected < 1 || result.RowsAffected > 2 {
-		return kerrors.Conflict("FOLLOW_WRITE_CONFLICT", "关注关系未成功创建")
+		return errdef.WithMessage(errdef.ErrFollowWriteConflict, "关注关系未成功创建")
 	}
 	fan := &model.UserFan{UserID: row.FollowUserID, FollowerID: row.UserID}
 	return followDB(ctx).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "user_id"}, {Name: "follower_id"}}, DoUpdates: clause.AssignmentColumns([]string{"deleted_at", "created_at", "updated_at"})}).Create(fan).Error

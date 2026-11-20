@@ -2,10 +2,10 @@ package videodata
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	vcommentv1 "vw_gateway/api/v1/video/video_comment"
 	"vw_gateway/internal/biz/videobiz"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	rpc "vw_video/api/v1/comment"
 )
 
@@ -32,7 +32,7 @@ func (v *videoCommentRepo) PublishVideoComment(ctx context.Context, userID, vide
 		return 0, err
 	}
 	if resp == nil {
-		return 0, kerrors.InternalServer("INVALID_VIDEO_RESPONSE", "视频服务未返回评论结果")
+		return 0, errdef.WithMessage(errdef.ErrInvalidVideoResponse, "视频服务未返回评论结果")
 	}
 	return resp.CommentId, nil
 }
@@ -50,7 +50,7 @@ func (v *videoCommentRepo) GetCommentList(ctx context.Context, userID int64, req
 		return nil, err
 	}
 	if resp == nil {
-		return nil, kerrors.InternalServer("INVALID_VIDEO_RESPONSE", "视频服务未返回评论列表")
+		return nil, errdef.WithMessage(errdef.ErrInvalidVideoResponse, "视频服务未返回评论列表")
 	}
 	return &vcommentv1.GetCommentListResp{
 		Comments:   convert(resp.Comments),
@@ -74,7 +74,7 @@ func (v *videoCommentRepo) GetCommentReplies(ctx context.Context, userID int64, 
 		return nil, err
 	}
 	if resp == nil {
-		return nil, kerrors.InternalServer("INVALID_VIDEO_RESPONSE", "视频服务未返回回复列表")
+		return nil, errdef.WithMessage(errdef.ErrInvalidVideoResponse, "视频服务未返回回复列表")
 	}
 	return &vcommentv1.GetCommentRepliesResp{
 		Replies:    convert(resp.Replies),
@@ -127,7 +127,7 @@ func (v *videoCommentRepo) UpvoteComment(ctx context.Context, userID int64, req 
 		return nil, err
 	}
 	if resp == nil {
-		return nil, kerrors.InternalServer("INVALID_VIDEO_RESPONSE", "视频服务未返回点赞结果")
+		return nil, errdef.WithMessage(errdef.ErrInvalidVideoResponse, "视频服务未返回点赞结果")
 	}
 	return &vcommentv1.UpvoteCommentResp{
 		StatusCode:  200,

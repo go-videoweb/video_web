@@ -2,12 +2,11 @@ package userbiz
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
 	"mime/multipart"
-	"net/http"
 	filev1 "vw_gateway/api/v1/user/userfile"
+	"vw_gateway/internal/pkg/ecode/errdef"
 )
 
 const maxAvatarBytes = 5 << 20
@@ -34,7 +33,7 @@ func NewUserFileUsecase(repo UserFileRepo, logger log.Logger) *UserFileUsecase {
 // GetAvatar 允许按公开用户 ID 读取头像，非法 ID 在调用下游前拒绝。
 func (u *UserFileUsecase) GetAvatar(ctx context.Context, userID int64) (*filev1.AvatarResp, error) {
 	if userID <= 0 {
-		return nil, kerrors.BadRequest("INVALID_USER_ID", "用户 ID 无效")
+		return nil, errdef.ErrInvalidUserID
 	}
 	return u.repo.GetAvatar(ctx, userID)
 }
@@ -43,22 +42,22 @@ func (u *UserFileUsecase) GetAvatar(ctx context.Context, userID int64) (*filev1.
 func (u *UserFileUsecase) UpdateAvatar(ctx context.Context) (int64, error) {
 	userID, ok := ctx.Value("user_id").(int64)
 	if !ok || userID <= 0 {
-		return 0, kerrors.Unauthorized("INVALID_IDENTITY", "请先登录")
+		return 0, errdef.ErrInvalidIdentity
 	}
 	request, ok := khttp.RequestFromServerContext(ctx)
 	if !ok {
-		return 0, kerrors.InternalServer("INVALID_CONTEXT", "缺少 HTTP 请求")
+		return 0, errdef.ErrInvalidContext
 	}
 	file, header, err := request.FormFile("avatar")
 	if err != nil {
-		return 0, kerrors.BadRequest("AVATAR_REQUIRED", "请提供 avatar 文件")
+		return 0, errdef.ErrAvatarRequired
 	}
 	_ = file.Close()
 	if header.Size <= 0 {
-		return 0, kerrors.BadRequest("INVALID_AVATAR", "头像不能为空")
+		return 0, errdef.ErrInvalidAvatar
 	}
 	if header.Size > maxAvatarBytes {
-		return 0, kerrors.New(http.StatusRequestEntityTooLarge, "AVATAR_TOO_LARGE", "头像不能超过 5 MiB")
+		return 0, errdef.ErrAvatarTooLarge
 	}
 	return userID, u.repo.UpdateAvatar(ctx, userID, header)
 }

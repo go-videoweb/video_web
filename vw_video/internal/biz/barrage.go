@@ -2,12 +2,12 @@ package biz
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 	api "vw_video/api/v1/interact"
 	"vw_video/internal/data/dal/model"
+	"vw_video/internal/pkg/ecode/errdef"
 )
 
 // BarragePageSize 限制单个时间区间内一次响应的弹幕条数。
@@ -38,7 +38,7 @@ type BarrageCursor struct {
 
 // NewBarrageQuery 校验播放区间和游标，单次时间范围最多一小时，批内最多五百条。
 func NewBarrageQuery(req *api.GetBarragesReq) (*BarrageQuery, error) {
-	invalid := kerrors.BadRequest("INVALID_BARRAGE_QUERY", "弹幕时间范围或游标无效")
+	invalid := errdef.ErrInvalidBarrageQuery
 	if req.VideoId <= 0 || req.UserId <= 0 {
 		return nil, invalid
 	}
@@ -140,7 +140,7 @@ func (u *InteractUsecase) GetBarrages(ctx context.Context, req *api.GetBarragesR
 
 // SetBarrageLike 在本地事务内设置明确点赞目标，关系和计数一起提交。
 func (u *InteractUsecase) SetBarrageLike(ctx context.Context, req *api.SetBarrageLikeReq) (*api.SetBarrageLikeResp, error) {
-	invalid := kerrors.BadRequest("INVALID_BARRAGE_LIKE", "必须提供身份、视频、弹幕及点赞目标状态")
+	invalid := errdef.ErrInvalidBarrageLike
 	if req.UserId <= 0 || req.VideoId <= 0 {
 		return nil, invalid
 	}
@@ -166,7 +166,7 @@ var barrageColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // validateBarrageSend 校验秒数、正文和颜色，不接受客户端指定初始点赞数。
 func validateBarrageSend(req *api.VideoSendBarrageReq) error {
-	invalid := kerrors.BadRequest("INVALID_BARRAGE", "弹幕内容、颜色或播放位置无效")
+	invalid := errdef.ErrInvalidBarrage
 	if req.PublisherId <= 0 || req.VideoId <= 0 {
 		return invalid
 	}

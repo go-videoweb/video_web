@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"vw_user/internal/data/dal/model"
+	"vw_user/internal/pkg/ecode/errdef"
 )
 
 type followTestKey struct{}
@@ -386,7 +387,7 @@ func TestFollowRequiresListIDOffline(t *testing.T) {
 		r := newMemoryFollowRepo()
 		u := NewFollowUseCase(r, nil, nil, nil)
 		state, err := u.Follow(context.Background(), 7, 9, id)
-		if err == nil || kerrors.FromError(err).Code != 400 || state != nil || len(r.follows) != 0 || len(r.fans) != 0 || r.count != 0 {
+		if err == nil || kerrors.FromError(err).Code != errdef.ErrInvalidFollowTarget.Code || state != nil || len(r.follows) != 0 || len(r.fans) != 0 || r.count != 0 {
 			t.Fatalf("非法列表 ID 未被拒绝：id=%d state=%v err=%v", id, state, err)
 		}
 	}
@@ -432,7 +433,7 @@ func TestResolveFollowListErrorsOffline(t *testing.T) {
 		code int32
 	}{
 		{name: "普通列表", row: &model.FollowList{ListID: 14, UserID: 7}},
-		{name: "不存在或非本人", err: errors.Join(errors.New("读取失败"), gorm.ErrRecordNotFound), code: 404},
+		{name: "不存在或非本人", err: errors.Join(errors.New("读取失败"), gorm.ErrRecordNotFound), code: errdef.ErrFollowListNotFound.Code},
 		{name: "存储故障", err: fault},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -444,7 +445,7 @@ func TestResolveFollowListErrorsOffline(t *testing.T) {
 			}
 			if tc.code != 0 {
 				if err == nil || kerrors.FromError(err).Code != tc.code || row != nil {
-					t.Fatal("未找到错误未转换为 404", row, err)
+					t.Fatal("未找到错误未转换为业务码", row, err)
 				}
 			} else if !errors.Is(err, tc.err) || row != tc.row {
 				t.Fatal("返回记录或存储错误被改变", row, err)

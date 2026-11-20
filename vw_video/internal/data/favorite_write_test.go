@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"vw_video/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
@@ -39,13 +40,13 @@ func TestFavoriteAccessRPCOffline(t *testing.T) {
 	}{
 		{name: "本人私密", row: &favorv1.GetFavoriteInfoResp{FavoriteId: 13, UserId: 7, IsPrivate: true}, write: true},
 		{name: "公开读取", row: &favorv1.GetFavoriteInfoResp{FavoriteId: 13, UserId: 8}},
-		{name: "公开写入", row: &favorv1.GetFavoriteInfoResp{FavoriteId: 13, UserId: 8}, write: true, code: 404},
-		{name: "私密读取", row: &favorv1.GetFavoriteInfoResp{FavoriteId: 13, UserId: 8, IsPrivate: true}, code: 404},
-		{name: "空元信息", code: 500},
-		{name: "错误ID", row: &favorv1.GetFavoriteInfoResp{FavoriteId: 14, UserId: 7}, code: 500},
-		{name: "缺所有者", row: &favorv1.GetFavoriteInfoResp{FavoriteId: 13}, code: 500},
+		{name: "公开写入", row: &favorv1.GetFavoriteInfoResp{FavoriteId: 13, UserId: 8}, write: true, code: errdef.ErrFavoriteNotFound.Code},
+		{name: "私密读取", row: &favorv1.GetFavoriteInfoResp{FavoriteId: 13, UserId: 8, IsPrivate: true}, code: errdef.ErrFavoriteNotFound.Code},
+		{name: "空元信息", code: errdef.ErrInvalidFavoriteMetadata.Code},
+		{name: "错误ID", row: &favorv1.GetFavoriteInfoResp{FavoriteId: 14, UserId: 7}, code: errdef.ErrInvalidFavoriteMetadata.Code},
+		{name: "缺所有者", row: &favorv1.GetFavoriteInfoResp{FavoriteId: 13}, code: errdef.ErrInvalidFavoriteMetadata.Code},
 		{name: "RPC故障", err: fault, code: 500},
-		{name: "不存在", err: kerrors.NotFound("FAVORITE_NOT_FOUND", "missing"), code: 404},
+		{name: "不存在", err: errdef.WithMessage(errdef.ErrFavoriteNotFound, "missing"), code: errdef.ErrFavoriteNotFound.Code},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
@@ -309,7 +310,13 @@ func TestFavoriteLocalFailuresOffline(t *testing.T) {
 				if mode == "commit" && (!errors.Is(err, fault) || state.commits != 1) {
 					t.Fatal("commit error lost")
 				}
-				if (mode == "duplicate" || strings.HasPrefix(mode, "zero-")) && kerrors.FromError(err).Code != 409 {
+				wantConflict := map[string]*kerrors.Error{
+					"duplicate":   errdef.ErrFavoriteRelationConflict,
+					"zero-create": errdef.ErrFavoriteRelationConflict,
+					"zero-count":  errdef.ErrFavoriteVersionConflict,
+					"zero-delete": errdef.ErrFavoriteRecordChanged,
+				}[mode]
+				if wantConflict != nil && !errors.Is(err, wantConflict) {
 					t.Fatalf("conflict not reported: %v", err)
 				}
 			}

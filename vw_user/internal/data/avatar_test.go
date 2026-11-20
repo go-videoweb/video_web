@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"vw_user/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"gorm.io/driver/mysql"
@@ -76,8 +77,8 @@ func TestAvatarRepoSQL(t *testing.T) {
 				t.Fatalf("读取条件错误: %s %#v", readSQL, readArgs)
 			}
 			if scenario == "missing" {
-				if kerrors.Code(err) != 404 {
-					t.Fatal("用户缺失未映射为 404")
+				if kerrors.Code(err) != int(errdef.ErrUserNotFoundByID.Code) {
+					t.Fatal("用户缺失未映射为业务码")
 				}
 				return
 			}
@@ -102,7 +103,7 @@ func TestAvatarRepoSQL(t *testing.T) {
 			}
 			switch scenario {
 			case "zero rows":
-				if kerrors.Code(err) != 409 {
+				if kerrors.Code(err) != int(errdef.ErrAvatarChanged.Code) {
 					t.Fatal("零行被报告成功")
 				}
 			case "update error":

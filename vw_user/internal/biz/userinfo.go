@@ -6,7 +6,6 @@ import (
 	stderr "errors"
 	"github.com/dtm-labs/dtm/client/dtmcli"
 	"github.com/dtm-labs/dtm/client/dtmgrpc"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
@@ -102,11 +101,11 @@ func (uic *UserInfoUsecase) GetUserinfo(ctx context.Context, userId int64) (*dom
 // ModifyEmail 验证新邮箱的唯一性和专用验证码后换绑；并发冲突由唯一索引兜底。
 func (uic *UserInfoUsecase) ModifyEmail(ctx context.Context, userID int64, email string, inputCode string) (newEmail string, err error) {
 	if userID <= 0 {
-		return "", kerrors.BadRequest("INVALID_USER_ID", "用户ID不正确")
+		return "", errdef.WithMessage(errdef.ErrInvalidUserID, "用户ID不正确")
 	}
 	email, err = helper.NormalizeEmail(email)
 	if err != nil {
-		return "", err
+		return "", errdef.AccountValidationError(err)
 	}
 	if err := uic.infoRepo.CheckEmailConflict(ctx, email, userID); err != nil {
 		return "", err
@@ -127,10 +126,10 @@ func (uic *UserInfoUsecase) ModifyEmail(ctx context.Context, userID int64, email
 // ModifyPassword 保留旧密码验证流程，保存合规的新密码后使已有登录态失效。
 func (uic *UserInfoUsecase) ModifyPassword(ctx context.Context, userId int64, oldPassword, newPassword string) error {
 	if userId <= 0 {
-		return kerrors.BadRequest("INVALID_USER_ID", "用户ID不正确")
+		return errdef.WithMessage(errdef.ErrInvalidUserID, "用户ID不正确")
 	}
 	if err := helper.ValidatePassword(newPassword); err != nil {
-		return err
+		return errdef.AccountValidationError(err)
 	}
 	info, err := uic.infoRepo.GetUserInfoByUserId(ctx, userId)
 	if err != nil {
@@ -172,10 +171,10 @@ func (uic *UserInfoUsecase) ModifyUserSignature(ctx context.Context, userId int6
 func (uic *UserInfoUsecase) ForgetPassword(ctx context.Context, email string, inputCode string, newPassword string) error {
 	email, err := helper.NormalizeEmail(email)
 	if err != nil {
-		return err
+		return errdef.AccountValidationError(err)
 	}
 	if err := helper.ValidatePassword(newPassword); err != nil {
-		return err
+		return errdef.AccountValidationError(err)
 	}
 	if err := uic.captcha.ConsumeCode(ctx, email, helper.EmailCodeReset, inputCode); err != nil {
 		return err
@@ -197,7 +196,7 @@ func (uic *UserInfoUsecase) ForgetPassword(ctx context.Context, email string, in
 // invalidatePasswordSession 明确报告密码已改变但会话清理失败，不能误报密码未修改或整体成功。
 func (uic *UserInfoUsecase) invalidatePasswordSession(ctx context.Context, userID int64) error {
 	if err := uic.infoRepo.InvalidateUserSession(ctx, userID); err != nil {
-		return kerrors.InternalServer("PASSWORD_SESSION_INVALIDATION_FAILED", "密码已更新，但登录态清理失败，请使用新密码重新登录并联系管理员处理旧会话").
+		return errdef.ErrPasswordSessionInvalidationFailed.
 			WithMetadata(map[string]string{"password_changed": "true", "session_revoked": "false"})
 	}
 	return nil

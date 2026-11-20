@@ -2,10 +2,10 @@ package user
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	followv1 "vw_gateway/api/v1/user/follow"
 	"vw_gateway/internal/biz/userbiz"
+	"vw_gateway/internal/pkg/ecode/errdef"
 )
 
 // FollowService 只确认可信操作人和协议参数，业务判断全部留在用户服务。
@@ -23,7 +23,7 @@ func NewFollowService(_ log.Logger, usecase *userbiz.FollowUsecase) *FollowServi
 func followActor(ctx context.Context) (int64, error) {
 	id, ok := ctx.Value(userIdKey).(int64)
 	if !ok || id <= 0 {
-		return 0, kerrors.Unauthorized("UNAUTHORIZED", "请先登录")
+		return 0, errdef.ErrUnauthorized
 	}
 	return id, nil
 }

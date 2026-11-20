@@ -95,7 +95,7 @@ func (uc *UserIdentityUsecase) handleRegisterInfo(ctx context.Context, registerI
 	// check register info
 	email, err := helper.NormalizeEmail(registerInfo.Email)
 	if err != nil {
-		return nil, err
+		return nil, errdef.AccountValidationError(err)
 	}
 	available, err := uc.infoRepo.CheckUsernameConflict(ctx, registerInfo.Username)
 	if err != nil {
@@ -105,7 +105,7 @@ func (uc *UserIdentityUsecase) handleRegisterInfo(ctx context.Context, registerI
 		return nil, err
 	}
 	if err := helper.ValidatePassword(registerInfo.Password); err != nil {
-		return nil, err
+		return nil, errdef.AccountValidationError(err)
 	}
 
 	switch {

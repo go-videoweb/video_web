@@ -1,8 +1,10 @@
 package helper
 
 import (
+	"context"
 	"errors"
 	kerr "github.com/go-kratos/kratos/v2/errors"
+	"github.com/go-kratos/kratos/v2/middleware"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"strconv"
@@ -11,6 +13,17 @@ import (
 
 // RPCBusinessCodeKey 标识随 gRPC ErrorInfo 传递的原始业务码。
 const RPCBusinessCodeKey = "business_code"
+
+// BusinessErrorMiddleware 在 RPC 返回前携带自定义业务码，供网关恢复响应中的 code。
+// 同时用于普通调用和流式调用，具体错误由各服务定义。
+func BusinessErrorMiddleware() middleware.Middleware {
+	return func(next middleware.Handler) middleware.Handler {
+		return func(ctx context.Context, req interface{}) (interface{}, error) {
+			resp, err := next(ctx, req)
+			return resp, WithRPCBusinessCode(err)
+		}
+	}
+}
 
 // WithRPCBusinessCode 将自定义 Kratos 数字码放入错误详情，供跨 gRPC 调用后恢复。
 // 输入：err 为服务返回的错误。复制业务错误后再写入元数据，以免修改共享错误定义。

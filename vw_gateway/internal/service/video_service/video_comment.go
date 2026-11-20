@@ -2,10 +2,10 @@ package video
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	api "vw_gateway/api/v1/video/video_comment"
 	"vw_gateway/internal/biz/videobiz"
+	"vw_gateway/internal/pkg/ecode/errdef"
 )
 
 type CommentService struct {
@@ -23,7 +23,7 @@ func NewVideoCommentService(usecase *videobiz.VideoCommentUsecase, logger log.Lo
 func interactionUserID(ctx context.Context) (int64, error) {
 	id, ok := ctx.Value(userIdKey).(int64)
 	if !ok || id <= 0 {
-		return 0, kerrors.Unauthorized("INVALID_USER_ID", "请先登录")
+		return 0, errdef.ErrInvalidUserIDUnauthorized
 	}
 	return id, nil
 }
@@ -66,7 +66,7 @@ func (s *CommentService) UpvoteComment(ctx context.Context, req *api.UpvoteComme
 		return nil, err
 	}
 	if req.Liked == nil {
-		return nil, kerrors.BadRequest("INVALID_COMMENT_LIKE", "必须提供 liked")
+		return nil, errdef.ErrInvalidCommentLike
 	}
 	return s.vcUsecase.UpvoteComment(ctx, id, req)
 }

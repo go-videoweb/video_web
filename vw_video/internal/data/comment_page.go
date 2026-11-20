@@ -9,7 +9,6 @@ import (
 	"vw_video/internal/data/dal/model"
 	"vw_video/internal/pkg/ecode/errdef"
 
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	drivermysql "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 )
@@ -130,7 +129,7 @@ func (v *videoCommentRepo) SetCommentLike(ctx context.Context, userID, videoID, 
 	q := getQuery(ctx).Comment
 	row, err := q.WithContext(ctx).Where(q.VideoID.Eq(videoID), q.CommentID.Eq(commentID)).First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, kerrors.NotFound("COMMENT_NOT_FOUND", "评论不存在")
+		return nil, errdef.WithMessage(errdef.ErrCommentNotFound, "评论不存在")
 	}
 	if err != nil {
 		return nil, err
@@ -149,7 +148,7 @@ func (v *videoCommentRepo) SetCommentLike(ctx context.Context, userID, videoID, 
 			return nil, err
 		}
 		if result.RowsAffected > 1 {
-			return nil, kerrors.Conflict("COMMENT_LIKE_CONFLICT", "点赞关系异常")
+			return nil, errdef.ErrCommentLikeConflict
 		}
 		changed = result.RowsAffected == 1
 	}
@@ -167,7 +166,7 @@ func (v *videoCommentRepo) SetCommentLike(ctx context.Context, userID, videoID, 
 			return nil, result.Error
 		}
 		if result.RowsAffected != 1 {
-			return nil, kerrors.Conflict("COMMENT_LIKE_CONFLICT", "评论已变化或点赞计数异常")
+			return nil, errdef.WithMessage(errdef.ErrCommentLikeConflict, "评论已变化或点赞计数异常")
 		}
 		row, err = q.WithContext(ctx).Where(q.CommentID.Eq(commentID), q.VideoID.Eq(videoID)).First()
 		if err != nil {

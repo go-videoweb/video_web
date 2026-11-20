@@ -6,9 +6,9 @@ import (
 	"mime/multipart"
 	api "vw_gateway/api/v1/user/userfile"
 	"vw_gateway/internal/biz/userbiz"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	rpc "vw_user/api/v1/userfile"
 
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -42,10 +42,10 @@ func (u *userFileRepo) GetAvatar(ctx context.Context, userID int64) (*api.Avatar
 		return nil, err
 	}
 	if response == nil || len(response.Content) == 0 || len(response.Content) > maxAvatarBytes {
-		return nil, kerrors.InternalServer("INVALID_AVATAR_RESPONSE", "用户服务返回的头像无效")
+		return nil, errdef.ErrInvalidAvatarResponse
 	}
 	if response.ContentType != "image/jpeg" && response.ContentType != "image/png" {
-		return nil, kerrors.InternalServer("INVALID_AVATAR_RESPONSE", "用户服务返回的头像类型无效")
+		return nil, errdef.WithMessage(errdef.ErrInvalidAvatarResponse, "用户服务返回的头像类型无效")
 	}
 	return &api.AvatarResp{Content: response.Content, ContentType: response.ContentType}, nil
 }
@@ -75,7 +75,7 @@ func (u *userFileRepo) UpdateAvatar(ctx context.Context, userID int64, header *m
 		if n > 0 {
 			total += n
 			if total > maxAvatarBytes {
-				return kerrors.New(413, "AVATAR_TOO_LARGE", "头像不能超过 5 MiB")
+				return errdef.ErrAvatarTooLarge
 			}
 			if err := stream.Send(&rpc.UpdateAvatarReq{Data: &rpc.UpdateAvatarReq_FileContent{FileContent: buffer[:n]}}); err != nil {
 				return avatarSendError(stream, err)

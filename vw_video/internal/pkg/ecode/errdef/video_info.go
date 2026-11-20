@@ -33,8 +33,8 @@ var (
 )
 
 var (
-	ErrPublishedVideoNotFound     = kerr.NotFound("VIDEO_NOT_FOUND", "视频不存在")
-	ErrVideoTitleRequired         = kerr.BadRequest("VIDEO_TITLE_REQUIRED", "请填写视频标题")
+	ErrPublishedVideoNotFound     = kerr.New(ecode.PublishedVideoNotFound, "VIDEO_NOT_FOUND", "视频不存在")
+	ErrVideoTitleRequired         = kerr.New(ecode.VideoTitleRequired, "VIDEO_TITLE_REQUIRED", "请填写视频标题")
 	ErrInvalidVideoUploadIDs      = kerr.New(ecode.VIDEOINFO_InvalidUploadIDs, "INVALID_VIDEO_UPLOAD_IDS", "视频和发布者 ID 必须为正数")
 	ErrInvalidVideoUploadStream   = kerr.New(ecode.VIDEOINFO_InvalidUploadStream, "INVALID_VIDEO_UPLOAD_STREAM", "上传时须先发送一次文件元信息，再发送文件数据")
 	ErrInvalidVideoFileName       = kerr.New(ecode.VIDEOINFO_InvalidFileName, "INVALID_VIDEO_FILE_NAME", "原片文件名无效")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"vw_video/internal/pkg/ecode/errdef"
 
 	kerrors "github.com/go-kratos/kratos/v2/errors"
 	interactv1 "vw_video/api/v1/interact"
@@ -88,7 +89,7 @@ func TestLegacyBarrageSagaRejected(t *testing.T) {
 		func() error { return interact.SetUserBarrageStatusRevert(ctx, 7, 9, nil) },
 	} {
 		err := call()
-		if err == nil || kerrors.FromError(err).Code != 501 || kerrors.FromError(err).Reason != "INTERACTION_NOT_SUPPORTED" {
+		if err == nil || kerrors.FromError(err).Code != errdef.ErrInteractionNotSupported.Code || kerrors.FromError(err).Reason != "INTERACTION_NOT_SUPPORTED" {
 			t.Fatalf("未启用功能返回值错误：%v", err)
 		}
 	}

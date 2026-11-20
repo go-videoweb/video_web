@@ -17,6 +17,7 @@ import (
 	"vw_gateway/internal/biz/videobiz"
 	"vw_gateway/internal/conf"
 	"vw_gateway/internal/data/videodata"
+	"vw_gateway/internal/pkg/ecode"
 	"vw_gateway/internal/pkg/middlewares/auth"
 	video "vw_gateway/internal/service/video_service"
 	videorpc "vw_video/api/v1/interact"
@@ -64,8 +65,8 @@ func TestVideoShareHTTP(t *testing.T) {
 		{name: "匿名请求"},
 		{name: "公网 IP", signed: true, origin: "http://203.0.113.8:8080/", wantURL: "http://203.0.113.8:8080/watch/9007199254740993"},
 		{name: "域名", signed: true, origin: "https://video.example.com", wantURL: "https://video.example.com/watch/9007199254740993"},
-		{name: "未配置", signed: true, errorCode: http.StatusInternalServerError},
-		{name: "配置误填 API 路径", signed: true, origin: "http://203.0.113.8:8080/api/v1", errorCode: http.StatusInternalServerError},
+		{name: "未配置", signed: true, errorCode: ecode.InvalidPublicSiteOrigin},
+		{name: "配置误填 API 路径", signed: true, origin: "http://203.0.113.8:8080/api/v1", errorCode: ecode.InvalidPublicSiteOrigin},
 		{name: "视频不存在", signed: true, origin: "https://video.example.com", downstreamErr: kerrors.NotFound("VIDEO_NOT_FOUND", "视频不存在"), errorCode: http.StatusNotFound},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

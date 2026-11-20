@@ -5,8 +5,8 @@ import (
 	"time"
 	commentv1 "vw_video/api/v1/comment"
 	"vw_video/internal/data/dal/model"
+	"vw_video/internal/pkg/ecode/errdef"
 
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -36,7 +36,7 @@ type CommentCursor struct {
 
 // NewCommentQuery 校验游标与查询一致，主评论默认倒序、回复默认正序。
 func NewCommentQuery(videoID, rootID, userID int64, sortBy, order string, cursor *commentv1.CommentCursor) (*CommentQuery, error) {
-	invalid := kerrors.BadRequest("INVALID_COMMENT_QUERY", "评论范围、排序或游标无效")
+	invalid := errdef.ErrInvalidCommentQuery
 	if videoID <= 0 || userID <= 0 {
 		return nil, invalid
 	}
