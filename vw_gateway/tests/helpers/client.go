@@ -177,7 +177,7 @@ func (c *APIClient) resolveURL(requestPath string) (string, error) {
 	}
 	base, err := url.Parse(c.baseURL)
 	if err != nil || (base.Scheme != "http" && base.Scheme != "https") || base.Host == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" {
-		return "", fmt.Errorf("API 测试客户端 BaseURL 无效: %q", c.baseURL)
+		return "", fmt.Errorf("API 测试客户端 BaseURL 无效，请检查地址配置")
 	}
 	relative, err := url.Parse(requestPath)
 	if err != nil || relative.User != nil || relative.Fragment != "" {

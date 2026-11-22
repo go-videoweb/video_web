@@ -1,6 +1,9 @@
 package helpers
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestLoadConfig_Defaults 验证未设置可选变量时使用默认超时和响应体限制。
 func TestLoadConfig_Defaults(t *testing.T) {
@@ -31,5 +34,11 @@ func TestValidateRemoteConfig(t *testing.T) {
 	invalid.BaseURL = "127.0.0.1:8001"
 	if err := invalid.ValidateRemoteConfig(); err == nil {
 		t.Fatal("invalid URL should fail")
+	}
+	for _, address := range []string{"ftp://example.test", "http://user:secret@example.test", "http://example.test?token=secret", "http://example.test#fragment"} {
+		invalid.BaseURL = address
+		if err := invalid.ValidateRemoteConfig(); err == nil || strings.Contains(err.Error(), "secret") {
+			t.Error("接受了非法测试地址或泄露凭据")
+		}
 	}
 }
