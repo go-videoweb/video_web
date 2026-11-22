@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/go-kratos/kratos/v2/middleware/logging"
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
+	"util/helper"
 	commentv1 "vw_video/api/v1/comment"
 	interactv1 "vw_video/api/v1/interact"
 	infov1 "vw_video/api/v1/videoinfo"
@@ -23,10 +24,12 @@ func NewGRPCServer(
 	logger log.Logger) *grpc.Server {
 	var opts = []grpc.ServerOption{
 		grpc.Middleware(
+			helper.BusinessErrorMiddleware(),
 			recovery.Recovery(),
 			tracing.Server(),
 			logging.Server(logger),
 		),
+		grpc.StreamMiddleware(helper.BusinessErrorMiddleware()),
 	}
 	if c.Grpc.Network != "" {
 		opts = append(opts, grpc.Network(c.Grpc.Network))

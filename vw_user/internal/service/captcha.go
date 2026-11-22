@@ -21,7 +21,7 @@ func NewCaptchaService(logger log.Logger, cu *biz.CaptchaUsecase) *CaptchaServic
 }
 
 func (cs *CaptchaService) DeleteCodeFromCache(ctx context.Context, req *captv1.DeleteCodeFromCacheReq) (*captv1.DeleteCodeFromCacheResp, error) {
-	err := cs.cu.DeleteCodeFromCache(ctx, req.Email)
+	err := cs.cu.DeleteCodeFromCache(ctx, req.Email, req.Purpose)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func (cs *CaptchaService) DeleteCodeFromCache(ctx context.Context, req *captv1.D
 }
 
 func (cs *CaptchaService) SetCodeToCache(ctx context.Context, req *captv1.SetCodeToCacheReq) (*captv1.SetCodeToCacheResp, error) {
-	err := cs.cu.SetCodeToCache(ctx, req.Email, req.CaptchaCode, req.Expiration.AsDuration())
+	err := cs.cu.SetCodeToCache(ctx, req.Email, req.CaptchaCode, req.Purpose, req.ClientIp, req.Expiration.AsDuration())
 
 	if err != nil {
 		return nil, err

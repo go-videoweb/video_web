@@ -1,27 +1,30 @@
 package ffmpeg
 
 import (
+	"context"
 	"os"
 	"path"
 	"path/filepath"
 	"util/helper/file"
 )
 
-// OtherToMP4 converts other video format to mp4 format using ffmpeg
-func OtherToMP4(input string, output string) error {
+// OtherToMP4 使用 ffmpeg 将输入转为 MP4，ctx 控制进程的取消和超时。
+func OtherToMP4(ctx context.Context, input string, output string) error {
 	ffmpegOperator := NewFFmpeg()
 	ffmpegOperator.
 		AddGlobalArgs("-y").
 		AddInputInfo(input).AddOutputInfo(output).
 		SetAudioCodec(output, "aac").
 		SetVideoCodec(output, "copy")
-	return ffmpegOperator.Run()
+	return ffmpegOperator.Run(ctx)
 }
 
-// MakeDASH creates a DASH stream from an input file and saves it to an output folder.
-// The input file should be .mp4 format. If the input file is not.mp4 format, it will be converted to.mp4 format first.
-// If the fileName is not provided, the output file will be named "output.mpd" automatically.
-func MakeDASH(inputFilePath string, outputFolderPath string, mpdFileName string) error {
+// MakeDASH 在输出目录生成 DASH 资源；非 MP4 输入会先转换，两步共用同一个 ctx。
+// mpdFileName 为空时使用 output.mpd；失败时不保证输出目录中没有部分产物。
+func MakeDASH(ctx context.Context, inputFilePath string, outputFolderPath string, mpdFileName string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if mpdFileName == "" {
 		mpdFileName = "output.mpd"
 	}
@@ -35,7 +38,7 @@ func MakeDASH(inputFilePath string, outputFolderPath string, mpdFileName string)
 		defer func() {
 			_ = os.Remove(inputFilePath)
 		}()
-		err := OtherToMP4(originInputFilePath, inputFilePath)
+		err := OtherToMP4(ctx, originInputFilePath, inputFilePath)
 		if err != nil {
 			return err
 		}
@@ -55,5 +58,5 @@ func MakeDASH(inputFilePath string, outputFolderPath string, mpdFileName string)
 		AddInputInfo(inputFilePath).
 		AddOutputInfo(outputFilePath).
 		SetCopyCodec(outputFilePath).ShowCommand()
-	return ffmpegOperator.Run()
+	return ffmpegOperator.Run(ctx)
 }

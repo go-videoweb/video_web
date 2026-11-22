@@ -7,11 +7,7 @@ import (
 	"github.com/dtm-labs/dtm/client/dtmgrpc"
 	_ "github.com/dtm-labs/dtmdriver-kratos"
 	"github.com/go-kratos/kratos/v2/log"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc/codes"
-	"strconv"
-	"util/dbutil/mgutil"
 	"util/dbutil/mysqlutil"
 	"util/helper"
 	interactv1 "vw_video/api/v1/interact"
@@ -19,33 +15,51 @@ import (
 	"vw_video/internal/pkg/ecode/errdef"
 )
 
+// InteractRepo 定义视频互动、个人状态读取及 DTM SQL 分支使用的仓储边界。
 type InteractRepo interface {
 	/* Used for dtm */
 	GetSqlTx() *sql.Tx
-	GetMongoClient() *mongo.Client
-	GetDB() (db string)
 
 	/* MySQL */
 	GetPublisherIdByVideoId(ctx context.Context, videoID int64) (int64, error)
 	AddVideoUpvote(ctx context.Context, tx *sql.Tx, videoID int64) error
 	DecrementVideoUpvote(ctx context.Context, tx *sql.Tx, videoID int64) error
 
-	AddVideoCntFavorite(ctx context.Context, tx *sql.Tx, videoID int64) error
-	DecrementVideoCntFavorite(ctx context.Context, tx *sql.Tx, videoID int64) error
-	AddUserFavoriteVideo(ctx context.Context, tx *sql.Tx, favoritesID, videoID int64) error
-	DeleteUserFavoriteVideo(ctx context.Context, tx *sql.Tx, favoritesID int64, videoID int64) error
+	// GetFavoriteMetadata 查询用户域元信息，由用例校验归属。
+	GetFavoriteMetadata(ctx context.Context, favoriteID int64) (*FavoriteMetadata, error)
+	// GetFavoriteRelation 普通读取关系，无记录返回 nil，不添加显式行锁。
+	GetFavoriteRelation(ctx context.Context, userID, videoID int64) (*model.FavoriteVideo, error)
+	// CreateFavoriteRelation 保存用例生成的 ID，不忽略唯一键冲突。
+	CreateFavoriteRelation(ctx context.Context, relation *model.FavoriteVideo) error
+	// DeleteFavoriteRelation 精确删除指定代关系，实际删除必须为一行。
+	DeleteFavoriteRelation(ctx context.Context, relation *model.FavoriteVideo) error
+	// UpdateFavoriteCount 调整收藏数和热度，乐观更新失败返回可识别的版本冲突。
+	UpdateFavoriteCount(ctx context.Context, videoID, delta int64) error
+	// SetFavoriteStatus 局部 upsert 收藏状态，不覆盖其他个人数据。
+	SetFavoriteStatus(ctx context.Context, userID, videoID int64, favorite bool) error
 
 	UpdateVideoShells(ctx context.Context, tx *sql.Tx, videoID int64, countShells int32) error
-	ShareVideo(ctx context.Context, videoID int64) string
+	// EnsureShareStatus 确保个人状态行存在，保留已有互动字段。
+	EnsureShareStatus(ctx context.Context, userID, videoID int64) error
+	// MarkVideoShared 返回本次是否从未分享更新为已分享。
+	MarkVideoShared(ctx context.Context, userID, videoID int64) (bool, error)
+	// IncrementVideoShare 增加有效视频的分享计数和热度。
+	IncrementVideoShare(ctx context.Context, videoID int64) error
 	AddVideoCntBarrage(ctx context.Context, videoID int64) error
 	AddBarrage(ctx context.Context, into *interactv1.VideoSendBarrageReq) error
+	GetBarragePage(ctx context.Context, query *BarrageQuery) ([]*model.Barrage, error)
+	GetBarrageLikes(ctx context.Context, userID, videoID int64, ids []int64) (map[int64]bool, error)
+	SetBarrageLike(ctx context.Context, userID, videoID, barrageID int64, liked bool) (*interactv1.SetBarrageLikeResp, error)
 	AddVideoBarrageUpvote(ctx context.Context, tx *sql.Tx, barrageID int64) error
 	DecrementVideoBarrageUpvote(ctx context.Context, tx *sql.Tx, barrageID int64) error
 
-	/* MongoDB */
+	/* 个人互动状态 */
+	// GetUserVideoStatus 返回既有 RPC 位掩码及已投贝壳数量，收藏位来源于有效关系。
 	GetUserVideoStatus(ctx context.Context, userID, videoID int64) (status int64, shellsCount int32, err error)
+	// GetUserBarrageStatus 从有效关系返回个人点赞位，不创建记录。
 	GetUserBarrageStatus(ctx context.Context, userID int64, barrageID int64) (int64, error)
-	SetUserVideoStatus(ctx context.Context, userID, videoID int64, status int64) error
+	// ApplyUserVideoStatus 在传入的 SQL 屏障事务内校验旧值并更新目标字段，不自行提交。
+	ApplyUserVideoStatus(ctx context.Context, tx *sql.Tx, userID, videoID int64, patch *VideoStatusPatch) error
 }
 
 type InteractUsecase struct {
@@ -87,47 +101,6 @@ func (u *InteractUsecase) UpvoteVideo(ctx context.Context, videoID int64, upvote
 	return nil
 }
 
-func (u *InteractUsecase) FavoriteVideo(ctx context.Context, videoID, favoriteID int64, favorite int32) error {
-	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-
-	err = barrier.Call(u.repo.GetSqlTx(), func(tx *sql.Tx) error {
-		var err error
-
-		// 1. update video's favorite count.
-		// 2. update user-favorite relationship.
-		if favorite == 1 {
-			err = u.repo.AddVideoCntFavorite(ctx, tx, videoID)
-			if err != nil {
-				return err
-			}
-
-			err = u.repo.AddUserFavoriteVideo(ctx, tx, favoriteID, videoID)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = u.repo.DecrementVideoCntFavorite(ctx, tx, videoID)
-			if err != nil {
-				return err
-			}
-
-			err = u.repo.DeleteUserFavoriteVideo(ctx, tx, favoriteID, videoID)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-	return nil
-}
-
 func (u *InteractUsecase) UpdateVideoShells(ctx context.Context, videoID int64, countShells int32) error {
 	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
 	if err != nil {
@@ -149,42 +122,18 @@ func (u *InteractUsecase) UpdateVideoShells(ctx context.Context, videoID int64, 
 	return nil
 }
 
-func (u *InteractUsecase) ShareVideo(ctx context.Context, videoID int64) (string, error) {
-	return "/api/v1/video/" + strconv.FormatInt(videoID, 10) + "/info", nil
-}
-
+// SendBarrage 校验整数秒位置，在本地事务内保存弹幕及视频弹幕计数。
 func (u *InteractUsecase) SendBarrage(ctx context.Context, info *interactv1.VideoSendBarrageReq) error {
-	//tx := u.repo.GetSqlTx()
-	//barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
-	//if err != nil {
-	//	return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	//}
-	//err = barrier.Call(tx, func(tx *sql.Tx) error {
-	//	// 1. insert barrage into barrages table
-	//	err := u.repo.AddBarrage(ctx, tx, info)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	// 2. add video's cnt_barrage
-	//	err = u.repo.AddVideoCntBarrage(ctx, tx, info.VideoId)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	return nil
-	//})
-	//if err != nil {
-	//	return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	//}
-	//return nil
+	if err := validateBarrageSend(info); err != nil {
+		return err
+	}
 	err := u.tx.WithTx(ctx, func(ctx context.Context) error {
-		// 1. insert barrage into barrages table
+		// 弹幕和视频计数必须使用同一个回调上下文提交。
 		err := u.repo.AddBarrage(ctx, info)
 		if err != nil {
 			return err
 		}
 
-		// 2. add video's cnt_barrage
 		err = u.repo.AddVideoCntBarrage(ctx, info.VideoId)
 		if err != nil {
 			return err
@@ -197,28 +146,13 @@ func (u *InteractUsecase) SendBarrage(ctx context.Context, info *interactv1.Vide
 	return nil
 }
 
+// UpvoteBarrage 拒绝旧 Saga 计数分支；新点赞统一使用 SetBarrageLike 本地事务。
 func (u *InteractUsecase) UpvoteBarrage(ctx context.Context, barrageID int64, upvote int32) error {
-	tx := u.repo.GetSqlTx()
-	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-
-	err = barrier.Call(tx, func(tx *sql.Tx) error {
-		// upvote == 1 , which indicates that the user wants to upvote the barrage,
-		// otherwise, the user wants to cancel the upvote.
-		if upvote == 1 {
-			return u.repo.AddVideoBarrageUpvote(ctx, tx, barrageID)
-		} else {
-			return u.repo.DecrementVideoBarrageUpvote(ctx, tx, barrageID)
-		}
-	})
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-	return nil
+	return ErrInteractionNotSupported
 }
 
+// GetUserVideoStatus 查询用户与视频的个人互动状态，不初始化状态记录。
+// 输入：userID、videoID 须为正数；输出：RPC 位掩码和已投贝壳数量，查询失败返回 -1/-1 及原错误。
 func (u *InteractUsecase) GetUserVideoStatus(ctx context.Context, userID, videoID int64) (int64, int32, error) {
 	status, shellsCount, err := u.repo.GetUserVideoStatus(ctx, userID, videoID)
 	if err != nil {
@@ -226,75 +160,42 @@ func (u *InteractUsecase) GetUserVideoStatus(ctx context.Context, userID, videoI
 	}
 	return status, shellsCount, nil
 }
+
+// GetUserBarrageStatus 从有效点赞关系读取个人状态，不初始化记录。
 func (u *InteractUsecase) GetUserBarrageStatus(ctx context.Context, userID, barrageID int64) (int64, error) {
-	status, err := u.repo.GetUserBarrageStatus(ctx, userID, barrageID)
-	if err != nil {
-		return -1, err
+	if userID <= 0 || barrageID <= 0 {
+		return 0, ErrInvalidInteractionIdentity
 	}
-	return status, nil
+	return u.repo.GetUserBarrageStatus(ctx, userID, barrageID)
 }
 
+// SetUserVideoStatus 在 SQL 子事务屏障内更新本次涉及的字段。
+// 输入：ctx 须包含 DTM 分支元数据，身份参数与 req 一致；req 提供原状态和目标操作。
+// 输出：参数错误直接拒绝，事务失败返回 Saga 分支失败；成功不改变其他状态或观看时间。
 func (u *InteractUsecase) SetUserVideoStatus(ctx context.Context, userID, videoID int64, req *interactv1.SetUserVideoStatusReq) error {
-	status := req.OriginStatus
-	statuses := req.Statuses
-	setStatus(&status, UpvoteStatus, statuses.IsUpvoted)
-	setStatus(&status, FavoriteStatus, statuses.IsFavorited)
-	setStatus(&status, ShareStatus, statuses.IsShared)
-	setStatus(&status, ThrowShellStatus, statuses.IsThrownShells)
-	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-
-	err = barrier.MongoCall(u.repo.GetMongoClient(), func(sc mongo.SessionContext) error {
-		// 1. init mongoDB collection
-		cli := sc.Client()
-		db, collection := u.repo.GetDB(), uv_status
-		coll := mgutil.NewCollection(cli, db, collection)
-
-		// 2. generate filter and update data
-		filter := mgutil.NewBsonM("user_id", userID, "video_id", videoID)
-		data := &model.UserVideoStatus{
-			Status:      status,
-			ShellsCount: int64(req.ShellsCount),
-		}
-		opts := mgutil.NewUpdateOptions().SetUpsert(true)
-		err = mgutil.UpdateOne(sc, coll, filter, data.GetUpsertData(), opts)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-	return nil
+	return u.applyUserVideoStatus(ctx, userID, videoID, req, false)
 }
+
+// SetUserVideoStatusRevert 只补偿本次字段，不覆盖观看时间或其他互动。
+// 输入：使用原正向请求和 DTM 补偿分支上下文；输出：成功或分支错误，空补偿由屏障过滤。
 func (u *InteractUsecase) SetUserVideoStatusRevert(ctx context.Context, userID, videoID int64, req *interactv1.SetUserVideoStatusReq) error {
-	status := req.OriginStatus
+	return u.applyUserVideoStatus(ctx, userID, videoID, req, true)
+}
+
+// applyUserVideoStatus 将局部状态变更交给 SQL 屏障，业务写入复用屏障提供的事务。
+// 输入：revert 控制是否交换本次字段的旧值和新值；请求及分支元数据须有效。
+// 输出：验证或执行错误；验证失败不创建事务，重复/空补偿/悬挂请求由屏障处理。
+func (u *InteractUsecase) applyUserVideoStatus(ctx context.Context, userID, videoID int64, req *interactv1.SetUserVideoStatusReq, revert bool) error {
+	patch, err := videoStatusPatch(req, revert)
+	if err != nil {
+		return err
+	}
 	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
 	if err != nil {
 		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
 	}
-
-	err = barrier.MongoCall(u.repo.GetMongoClient(), func(sc mongo.SessionContext) error {
-		// 1. init mongoDB collection
-		cli := sc.Client()
-		db, collection := u.repo.GetDB(), uv_status
-		coll := mgutil.NewCollection(cli, db, collection)
-
-		// 2. generate filter, update data and `upsert` options
-		filter := mgutil.NewBsonM("user_id", userID, "video_id", videoID)
-		data := &model.UserVideoStatus{
-			Status:      status,
-			ShellsCount: int64(req.ShellsCount),
-		}
-		opts := mgutil.NewUpdateOptions().SetUpsert(true)
-		err = mgutil.UpdateOne(sc, coll, filter, data.GetUpsertData(), opts)
-		if err != nil {
-			return err
-		}
-		return nil
+	err = barrier.Call(u.repo.GetSqlTx(), func(tx *sql.Tx) error {
+		return u.repo.ApplyUserVideoStatus(ctx, tx, userID, videoID, patch)
 	})
 	if err != nil {
 		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
@@ -302,67 +203,14 @@ func (u *InteractUsecase) SetUserVideoStatusRevert(ctx context.Context, userID, 
 	return nil
 }
 
-func (u *InteractUsecase) SetUserBarrageStatus(ctx context.Context, userID int64, barrageID int64, req *interactv1.SetUserBarrageStatusReq) error {
-	status := req.OriginStatus
-	statuses := req.Statuses
-	setStatus(&status, UpvoteStatus, statuses.IsUpvoted)
-	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-
-	err = barrier.MongoCall(u.repo.GetMongoClient(), func(sc mongo.SessionContext) error {
-		// 1. init mongoDB collection
-		cli := sc.Client()
-		db, collection := u.repo.GetDB(), ub_status
-		coll := mgutil.NewCollection(cli, db, collection)
-
-		// 2. generate filter and update data
-		filter := mgutil.NewBsonM("user_id", userID, "barrage_id", barrageID)
-		data := &model.UserBarrageStatus{
-			Status: status,
-		}
-		opts := mgutil.NewUpdateOptions().SetUpsert(true)
-		err = mgutil.UpdateOne(sc, coll, filter, data.GetUpsertData(), opts)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-	return nil
+// SetUserBarrageStatus 拒绝旧独立状态分支，防止绕过关系与计数的本地事务。
+func (u *InteractUsecase) SetUserBarrageStatus(ctx context.Context, userID, barrageID int64, req *interactv1.SetUserBarrageStatusReq) error {
+	return ErrInteractionNotSupported
 }
-func (u *InteractUsecase) SetUserBarrageStatusRevert(ctx context.Context, userID int64, barrageID int64, req *interactv1.SetUserBarrageStatusReq) error {
-	status := req.OriginStatus
-	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
 
-	err = barrier.MongoCall(u.repo.GetMongoClient(), func(sc mongo.SessionContext) error {
-		// 1. init mongoDB collection
-		cli := sc.Client()
-		db, collection := u.repo.GetDB(), ub_status
-		coll := mgutil.NewCollection(cli, db, collection)
-
-		// 2. generate filter, update data and `upsert` options
-		filter := mgutil.NewBsonM("user_id", userID, "barrage_id", barrageID)
-		data := &model.UserBarrageStatus{
-			Status: status,
-		}
-		opts := mgutil.NewUpdateOptions().SetUpsert(true)
-		err = mgutil.UpdateOne(sc, coll, filter, bson.D{{"$set", data}}, opts)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-	return nil
+// SetUserBarrageStatusRevert 拒绝旧独立补偿分支，不反向切换新点赞关系。
+func (u *InteractUsecase) SetUserBarrageStatusRevert(ctx context.Context, userID, barrageID int64, req *interactv1.SetUserBarrageStatusReq) error {
+	return ErrInteractionNotSupported
 }
 
 func setStatus(originStatus *int64, status int64, statusSwitch int32) {

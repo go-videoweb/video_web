@@ -2,19 +2,8 @@ package biz
 
 import (
 	"context"
-	"database/sql"
 	stderr "errors"
 	"fmt"
-	"github.com/dtm-labs/dtm/client/dtmcli"
-	"github.com/dtm-labs/dtm/client/dtmgrpc"
-	"github.com/go-kratos/kratos/v2/log"
-	"go.mongodb.org/mongo-driver/mongo"
-	grpc "google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"gorm.io/gorm"
 	"io"
 	"os"
 	"path/filepath"
@@ -22,9 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	utilCtx "util/context"
 	"util/dbutil/mysqlutil"
-	"util/ffmpeg"
 	"util/getid"
 	"util/helper"
 	"util/helper/file"
@@ -32,29 +19,59 @@ import (
 	"vw_video/cmd/gorm_gen/methods"
 	"vw_video/internal/data/dal/model"
 	"vw_video/internal/pkg/ecode/errdef"
+
+	"github.com/go-kratos/kratos/v2/log"
+	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"gorm.io/gorm"
 )
 
-type VideoInfoRepo interface {
-	/* Used for dtm */
-	GetSqlTx() *sql.Tx
-	GetMongoClient() *mongo.Client
-	GetDBAndCollection() (db, collection string)
+const (
+	videoUploadWaitingCover = "waiting_cover"
+	videoUploadWaitingVideo = "waiting_video"
+	videoUploadUploading    = "uploading"
+	videoUploadProcessing   = "processing"
+	// VideoUploadCompleted 表示媒体信息和 DASH 已处理完毕，可以公开读取。
+	VideoUploadCompleted = "completed"
+	videoUploadFailed    = "failed"
 
+	videoProcessingTimeout  = 30 * time.Minute
+	videoUploadWriteTimeout = 3 * time.Second
+)
+
+// VideoInfoRepo 定义公共视频信息、上传状态、个人状态和最近观看时间的仓储能力。
+type VideoInfoRepo interface {
 	GetVideoInfoById(ctx context.Context, videoId int64) (*model.Video, error)
+	// GetPublishedVideoByID 只读取已完成且有效的视频。
+	GetPublishedVideoByID(ctx context.Context, videoId int64) (*model.Video, error)
 	GetVideoListByClass(ctx context.Context, class []string, pageNum int32, pageSize int32) ([]*model.Video, error)
-	GetVideoFilePathById(ctx context.Context, videoId int64) (string, error)
 	AddVideoCntView(ctx context.Context, videoId int64) error
 	SetCoverPath(ctx context.Context, videoId int64, coverPath string) error
+	// CreateBasicVideoInfo 插入一条视频元信息，沿用 ctx 中的事务。
 	CreateBasicVideoInfo(ctx context.Context, video *model.Video) error
-	UpdateVideoDurationSizeInfo(ctx context.Context, videoId int64, duration string, size int64) error
+	// GetVideoIDByPublisherAndTitle 查找同一发布者已有的同名有效投稿。
+	GetVideoIDByPublisherAndTitle(ctx context.Context, publisherID int64, title string) (int64, error)
+	// CreateVideoUploadStatus 插入一条上传状态，沿用 ctx 中的事务。
+	CreateVideoUploadStatus(ctx context.Context, uploadStatus *model.VideoUploadStatus) error
+	// GetVideoUploadStatus 按视频 ID 读取上传状态，缺少记录时返回 gorm.ErrRecordNotFound。
+	GetVideoUploadStatus(ctx context.Context, videoId int64) (*model.VideoUploadStatus, error)
+	// UpdateVideoUploadStatus 仅更新处于指定阶段的记录，返回是否命中。
+	UpdateVideoUploadStatus(ctx context.Context, videoId int64, from, to, errorMessage string, updatedTime time.Time) (bool, error)
+	// UpdateVideoMediaInfo 保存处理完成的原片路径、时长及大小。
+	UpdateVideoMediaInfo(ctx context.Context, videoId int64, videoFilePath, duration string, size int64) error
 	GetPublisherIdByVideoId(CTX context.Context, videoId int64) (publisherId int64, err error)
-	UpdateVideoFilePath(ctx context.Context, videoId int64, videoFilePath string) error
 	GetBarragesByVideoId(ctx context.Context, videoId int64) ([]*model.Barrage, error)
-	UpdateVideoCntShare(ctx context.Context, tx *sql.Tx, videoID int64) error
-	UpdateVideoCntShareCompensation(ctx context.Context, tx *sql.Tx, videoID int64) error
+	// GetUserVideoStatus 只读个人互动字段，无记录返回默认位掩码；收藏归属另行查询。
 	GetUserVideoStatus(ctx context.Context, videoId int64, userId int64) (int64, error)
-	SetUserVideoStatus(ctx context.Context, videoId int64, userId int64, status int64) error
-	UpdateUserVideoHistory(ctx context.Context, videoId int64, userId int64, history *model.VideoSummary) error
+	// GetUserFavorite 从有效关系读取收藏夹及关系 ID，无记录时两个 ID 均为零。
+	GetUserFavorite(ctx context.Context, userId, videoId int64) (int64, int64, error)
+	// GetFavoriteVideos 在权限校验后分页读取有效视频，返回相同筛选范围的总数。
+	GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) ([]*FavoriteVideo, int64, error)
+	// UpdateUserVideoHistory 在上下文事务内更新最近观看时间，不覆盖互动或收藏状态。
+	UpdateUserVideoHistory(ctx context.Context, videoId int64, userId int64) error
 }
 
 type VideoInfoUsecase struct {
@@ -71,22 +88,19 @@ func NewVideoInfoUsecase(repo VideoInfoRepo, tx mysqlutil.Transaction, logger lo
 	}
 }
 
-// GetVideoInfoById 获取视频公共详情和弹幕，并按身份处理个人数据。
+// GetVideoInfoById 获取视频公共详情，并按身份处理个人数据；弹幕改用分段读取接口。
 // 输入：ctx 为请求上下文；videoId 为目标视频 ID；userId 为 0 表示游客，正数须由可信调用方验证。
-// 输出：游客返回公共详情和弹幕，不包含个人互动状态；登录用户额外返回个人互动状态。
+// 输出：游客返回公共详情，不包含个人互动状态；登录用户额外返回个人互动状态。
 // userId 为负数时返回 InvalidArgument，且不访问仓储；查询或更新失败时返回 nil 和包装后的业务错误。
-// 游客和登录用户均沿用增加播放量和热度的行为，只有登录用户写入观看历史。
+// 游客和登录用户均沿用增加播放量和热度的行为，只有登录用户更新最近观看时间，不保存摘要副本。
 func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userId int64) (*videoinfov1.GetVideoInfoResp, error) {
 	if userId < 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id must not be negative")
 	}
 	var ret = new(videoinfov1.GetVideoInfoResp)
 	err := uc.tx.WithTx(ctx, func(ctx context.Context) error {
-		videoDetail, err := uc.repo.GetVideoInfoById(ctx, videoId)
+		videoDetail, err := uc.getPublishedVideo(ctx, videoId)
 		if err != nil {
-			if stderr.Is(err, gorm.ErrRecordNotFound) {
-				return errdef.ErrVideoNotFound
-			}
 			return err
 		}
 
@@ -112,32 +126,27 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 			CreatedTime: timestamppb.New(videoDetail.CreatedAt),
 		}
 
-		barrages, err := uc.repo.GetBarragesByVideoId(ctx, videoId)
-		if err != nil {
-			return err
-		}
-
-		ret.Barrages = make([]*videoinfov1.GetVideoInfoResp_BarrageInfo, 0)
-		for _, barrage := range barrages {
-			ret.Barrages = append(ret.Barrages, &videoinfov1.GetVideoInfoResp_BarrageInfo{
-				BarrageId: barrage.BarrageID,
-				Color:     barrage.Color,
-				Content:   barrage.Content,
-				Time:      strings.Join([]string{barrage.Hour, barrage.Minute, barrage.Second}, ":"),
-			})
-		}
-
 		// 游客不访问个人状态仓储，避免读取或初始化 user_id=0 的互动记录。
 		if userId > 0 {
 			status, err := uc.repo.GetUserVideoStatus(ctx, videoId, userId)
 			if err != nil {
 				return err
 			}
+			favoriteID, recordID, err := uc.repo.GetUserFavorite(ctx, userId, videoId)
+			if err != nil {
+				return err
+			}
+			isFavorited := int32(-1)
+			if favoriteID > 0 {
+				isFavorited = 1
+			}
 			ret.UserVideoStatus = &videoinfov1.GetVideoInfoResp_UserVideoStatus{
-				IsFavorited:    checkIsFavorited(status),
-				IsShared:       checkIsShared(status),
-				IsUpvoted:      checkIsUpvoted(status),
-				IsThrownShells: checkIsThrownShell(status),
+				IsFavorited:      isFavorited,
+				FavoriteId:       favoriteID,
+				FavoriteRecordId: recordID,
+				IsShared:         checkIsShared(status),
+				IsUpvoted:        checkIsUpvoted(status),
+				IsThrownShells:   checkIsThrownShell(status),
 			}
 		}
 
@@ -151,20 +160,15 @@ func (uc *VideoInfoUsecase) GetVideoInfoById(ctx context.Context, videoId, userI
 		if userId == 0 {
 			return nil
 		}
-		err = uc.repo.UpdateUserVideoHistory(ctx, videoId, userId, &model.VideoSummary{
-			VideoId:       videoDetail.VideoID,
-			CntBarrages:   videoDetail.CntBarrages,
-			CntViewed:     videoDetail.CntViewed,
-			Title:         videoDetail.Title,
-			Duration:      videoDetail.Duration,
-			CoverPath:     videoDetail.CoverPath,
-			PublisherName: videoDetail.PublisherName,
-		})
+		err = uc.repo.UpdateUserVideoHistory(ctx, videoId, userId)
 		if err != nil {
 			return err
 		}
 		return nil
 	})
+	if stderr.Is(err, errdef.ErrPublishedVideoNotFound) {
+		return nil, err
+	}
 	if err != nil {
 		return nil, helper.HandleError(errdef.ErrGetVideoInfoFailed, err)
 	}
@@ -179,7 +183,15 @@ func (uc *VideoInfoUsecase) GetVideoListByClass(ctx context.Context, class []str
 	return videoList, nil
 }
 
+// UploadVideoInfo 按发布者和标题创建投稿，重复提交返回原视频 ID 并保留原状态。
+// 新投稿的元信息和初始状态在同一事务提交。重复键在事务回滚后回读已提交的记录。
 func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *videoinfov1.VideoMetaInfo) (int64, error) {
+	if info.GetPublisherId() <= 0 {
+		return 0, errdef.ErrInvalidVideoUploadIDs
+	}
+	if strings.TrimSpace(info.GetTitle()) == "" {
+		return 0, errdef.ErrVideoTitleRequired
+	}
 	videoInfo := &model.Video{
 		VideoID:       getid.GetID(),
 		Title:         info.Title,
@@ -190,150 +202,143 @@ func (uc *VideoInfoUsecase) UploadVideoInfo(ctx context.Context, info *videoinfo
 		PublisherName: info.PublisherName,
 		Duration:      info.Duration,
 	}
-	err := uc.repo.CreateBasicVideoInfo(ctx, videoInfo)
+	var insertErr error
+	err := uc.tx.WithTx(ctx, func(txCtx context.Context) error {
+		insertErr = uc.repo.CreateBasicVideoInfo(txCtx, videoInfo)
+		if insertErr != nil {
+			return insertErr
+		}
+		// updated_time 不是 GORM 的默认更新时间列，显式写入初始值。
+		now := time.Now()
+		return uc.repo.CreateVideoUploadStatus(txCtx, &model.VideoUploadStatus{
+			VideoID:     videoInfo.VideoID,
+			CreatedAt:   now,
+			UpdatedTime: now,
+			Status:      videoUploadWaitingCover,
+		})
+	})
+	if stderr.Is(insertErr, gorm.ErrDuplicatedKey) && stderr.Is(err, gorm.ErrDuplicatedKey) {
+		videoID, lookupErr := uc.repo.GetVideoIDByPublisherAndTitle(ctx, videoInfo.PublisherID, videoInfo.Title)
+		if lookupErr == nil {
+			return videoID, nil
+		}
+		return 0, helper.HandleError(errdef.ErrUploadVideoInfoFailed, lookupErr)
+	}
 	if err != nil {
 		return 0, helper.HandleError(errdef.ErrUploadVideoInfoFailed, err)
 	}
 	return videoInfo.VideoID, nil
 }
 
+// UploadVideoFile 校验发布者并接收原片，落盘后启动后台 DASH 任务并发送回执。
+// 接收失败时清理本次原片，后台任务启动后由任务管理文件和最终状态。
 func (uc *VideoInfoUsecase) UploadVideoFile(stream grpc.ClientStreamingServer[videoinfov1.UploadVideoFileReq, emptypb.Empty]) error {
 	uc.logger.Info("receiving the video file")
-	var (
-		retErr        error
-		videoId       int64
-		videoFilePath string
-		videoFile     *os.File
-	)
+	req, err := stream.Recv()
+	if err == io.EOF {
+		return errdef.ErrEmptyVideoUploadFile
+	}
+	if err != nil {
+		return helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
+	}
+	meta := req.GetVideoMetadata()
+	if meta == nil {
+		return errdef.ErrInvalidVideoUploadStream
+	}
+	videoId, publisherId := meta.VideoId, meta.PublisherId
+	ctx := stream.Context()
+	if err := uc.checkVideoUploadOwner(ctx, videoId, publisherId); err != nil {
+		return err
+	}
+	filename := meta.VideoFileName
+	if !filepath.IsLocal(filename) || strings.ContainsAny(filename, "/\\:") ||
+		strings.TrimRight(filename, ". ") != filename {
+		return errdef.ErrInvalidVideoFileName
+	}
+	if err := uc.beginVideoFileUpload(ctx, videoId); err != nil {
+		return err
+	}
 
+	videoFilePath := filepath.Join(
+		resourcePath,
+		strconv.FormatInt(publisherId, 10),
+		videoPath,
+		strconv.FormatInt(videoId, 10),
+		filename,
+	)
+	if err := uc.receiveVideoFile(stream, videoId, videoFilePath); err != nil {
+		return err
+	}
+	// 即使回执传输失败，已经落盘的原片仍由后台任务继续处理。
+	go uc.processVideoFile(videoId, videoFilePath)
+	return stream.SendAndClose(&emptypb.Empty{})
+}
+
+// receiveVideoFile 在占用 uploading 阶段后接收原片，并在关闭文件后推进到 processing。
+// 接收或状态更新失败时记录失败状态，并仅清理本次创建的原片。
+func (uc *VideoInfoUsecase) receiveVideoFile(stream grpc.ClientStreamingServer[videoinfov1.UploadVideoFileReq, emptypb.Empty], videoId int64, videoFilePath string) (retErr error) {
+	videoFile, err := file.CreateFile(videoFilePath, os.ModePerm)
 	defer func() {
+		if retErr == nil {
+			return
+		}
 		if videoFile != nil {
 			_ = videoFile.Close()
-			if retErr != nil {
-				err := os.RemoveAll(filepath.Dir(videoFilePath))
-				// TODO: use message queue to retry later
-				if err != nil {
-
-				}
-			}
+		}
+		if uc.failVideoUpload(videoId, videoUploadUploading, "接收原片失败", retErr) && videoFile != nil {
+			_ = os.Remove(videoFilePath)
 		}
 	}()
+	if err != nil {
+		return helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
+	}
 
+	hasData := false
 	for {
 		req, err := stream.Recv()
-		if err == io.EOF { // 传输完成
-			uc.logger.Infof("receive the video file %s complete.", videoFilePath)
+		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			retErr = helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
-			return retErr
+			return helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
 		}
-
-		switch reqData := req.VideoFile.(type) {
-		// 1. Handle the metadata of the video file
-		// 1.1 Receive the metadata of the video file
-		case *videoinfov1.UploadVideoFileReq_VideoMetadata:
-			videoId = reqData.VideoMetadata.VideoId
-			publisherId := reqData.VideoMetadata.PublisherId
-
-			// 1.2 Create video file, which path is computed by the video id and publisher(user) id.
-			videoFilePath = filepath.Join(
-				resourcePath,
-				strconv.FormatInt(publisherId, 10),
-				videoPath,
-				strconv.FormatInt(videoId, 10),
-				reqData.VideoMetadata.VideoFileName)
-			videoFile, err = file.CreateFile(videoFilePath, os.ModePerm)
-			if err != nil {
-				retErr = helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
-				return retErr
-			}
-			uc.logger.Info("create video file success")
-		case *videoinfov1.UploadVideoFileReq_VideoFileData:
-			// 2. Handle the data of the video cover file
-			fileContent := reqData.VideoFileData
-			_, err = videoFile.Write(fileContent)
-			if err != nil {
-				retErr = helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
-				return retErr
-			}
+		data, ok := req.GetVideoFile().(*videoinfov1.UploadVideoFileReq_VideoFileData)
+		if !ok {
+			return errdef.ErrInvalidVideoUploadStream
 		}
+		if _, err := videoFile.Write(data.VideoFileData); err != nil {
+			return helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
+		}
+		hasData = hasData || len(data.VideoFileData) > 0
 	}
-	err := stream.SendAndClose(&emptypb.Empty{})
-	if err != nil {
-		retErr = helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
-		return retErr
+	if !hasData {
+		return errdef.ErrEmptyVideoUploadFile
 	}
-
-	// 3. Handle the video file: make DASH segments files.
-	// 3.1 Make DASH directory, which path is computed by the video file path.
-	_ = os.MkdirAll(filepath.Dir(videoFilePath)+"/"+dashPath, os.ModePerm)
-
-	// 3.2 Make DASH segments files.
-	err = ffmpeg.MakeDASH(videoFilePath, filepath.Dir(videoFilePath)+"/"+dashPath, dashName)
-	if err != nil {
-		retErr = helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
-		return retErr
+	if err := videoFile.Close(); err != nil {
+		return helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
 	}
-	uc.logger.Info("make DASH segments files success.")
-
-	// 4. Update the video info record
-	// 4.1 Get the duration of the video file.
-	ctx, cancel := utilCtx.WithTimeout(context.Background(), 3*time.Second)
+	writeCtx, cancel := context.WithTimeout(context.Background(), videoUploadWriteTimeout)
 	defer cancel()
-
-	err = uc.tx.WithTx(ctx, func(ctx context.Context) error {
-		duration, err := ffmpeg.GetVideoDuration(videoFilePath)
-		if err != nil {
-			return err
-		}
-		durationStr, _ := helper.SecondToTime(duration)
-
-		// 4.2 Get the size of the video file.
-		size, err := file.GetFileSize(videoFilePath)
-		if err != nil {
-			return err
-		}
-
-		// 4.3 Set the video size and duration information of the video info record.
-		ctx, cancel := utilCtx.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		err = uc.repo.UpdateVideoDurationSizeInfo(ctx, videoId, durationStr, size)
-		if err != nil {
-			return err
-		}
-
-		// 4.4 Set video_path of the video info record.
-		err = uc.repo.UpdateVideoFilePath(ctx, videoId, videoFilePath)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		retErr = helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
-		return retErr
+	if err := uc.changeVideoUploadStatus(writeCtx, videoId, videoUploadUploading, videoUploadProcessing, ""); err != nil {
+		return helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
 	}
-
-	uc.logger.Info("update video size and duration information success.")
-	uc.logger.Info("upload video file success.")
 	return nil
 }
 
+// UploadVideoCover 接收封面，在一个事务中保存路径并推进上传状态，提交成功后发送回执。
 func (uc *VideoInfoUsecase) UploadVideoCover(stream grpc.ClientStreamingServer[videoinfov1.UploadVideoCoverReq, emptypb.Empty]) error {
 	var (
-		retErr        error
-		coverFilePath string
-		videoId       int64
-		coverFile     *os.File
+		videoId   int64
+		coverFile *os.File
+		hasData   bool
+		committed bool
 	)
 
 	defer func() {
 		if coverFile != nil {
 			_ = coverFile.Close()
-			if retErr != nil {
-				_ = os.Remove(coverFilePath)
+			if !committed {
+				_ = os.Remove(coverFile.Name())
 			}
 		}
 	}()
@@ -344,68 +349,144 @@ func (uc *VideoInfoUsecase) UploadVideoCover(stream grpc.ClientStreamingServer[v
 			break
 		}
 		if err != nil {
-			retErr = helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
-			return retErr
+			return helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
 		}
 
 		switch reqData := req.CoverFile.(type) {
 		case *videoinfov1.UploadVideoCoverReq_CoverMetadata:
-			// 1. Handle the metadata of the video cover file
-			// 1.1 Receive the metadata of the video cover file
-			videoId = reqData.CoverMetadata.VideoId
-			publisherId := reqData.CoverMetadata.PublisherId
-
-			// 1.2 Create cover file, which path is computed by the video id and publisher(user) id.
-			coverFilePath = filepath.Join(
+			meta := reqData.CoverMetadata
+			if coverFile != nil || meta == nil {
+				return errdef.ErrInvalidVideoUploadStream
+			}
+			videoId = meta.VideoId
+			ctx := stream.Context()
+			if err = uc.checkVideoUploadOwner(ctx, videoId, meta.PublisherId); err != nil {
+				return err
+			}
+			uploadStatus, err := uc.repo.GetVideoUploadStatus(ctx, videoId)
+			if stderr.Is(err, gorm.ErrRecordNotFound) {
+				return errdef.ErrVideoCoverUploadStage
+			}
+			if err != nil {
+				return helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
+			}
+			if uploadStatus.Status != videoUploadWaitingCover {
+				return errdef.ErrVideoCoverUploadStage
+			}
+			ext := filepath.Ext(meta.CoverFileName)
+			switch ext {
+			case ".jpg", ".jpeg", ".png", ".jfif":
+			default:
+				return errdef.ErrInvalidVideoCoverFormat
+			}
+			coverDir := filepath.Join(
 				resourcePath,
-				strconv.FormatInt(publisherId, 10),
+				strconv.FormatInt(meta.PublisherId, 10),
 				videoPath,
 				strconv.FormatInt(videoId, 10),
-				coverName+filepath.Ext(reqData.CoverMetadata.CoverFileName))
-			coverFile, err = file.CreateFile(coverFilePath, os.ModePerm)
+				"covers")
+			if err = os.MkdirAll(coverDir, os.ModePerm); err != nil {
+				return helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
+			}
+			// 每次尝试使用独立文件。只有事务提交的路径可被下载，失败请求只删除自己的文件。
+			coverFile, err = os.CreateTemp(coverDir, coverName+"-*"+ext)
 			if err != nil {
-				retErr = helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
-				return retErr
+				return helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
 			}
 		case *videoinfov1.UploadVideoCoverReq_CoverFileData:
-			// 2. Handle the data of the video cover file
-			fileContent := reqData.CoverFileData
-			_, err = coverFile.Write(fileContent)
-			if err != nil {
-				retErr = helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
-				return retErr
+			if coverFile == nil {
+				return errdef.ErrInvalidVideoUploadStream
 			}
+			if _, err = coverFile.Write(reqData.CoverFileData); err != nil {
+				return helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
+			}
+			hasData = hasData || len(reqData.CoverFileData) > 0
+		default:
+			return errdef.ErrInvalidVideoUploadStream
 		}
 	}
-	err := stream.SendAndClose(&emptypb.Empty{})
-	if err != nil {
-		retErr = helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
-		return retErr
+	if !hasData {
+		return errdef.ErrEmptyVideoUploadFile
+	}
+	if err := coverFile.Close(); err != nil {
+		return helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
 	}
 
-	// 3. Set the cover path of the video info record.
-	absCoverPath, err := filepath.Abs(coverFilePath)
+	absCoverPath, err := filepath.Abs(coverFile.Name())
 	if err != nil {
-		retErr = helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
-		return retErr
+		return helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
 	}
-	ctx, cancel := utilCtx.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(stream.Context(), 3*time.Second)
 	defer cancel()
-	err = uc.repo.SetCoverPath(ctx, videoId, absCoverPath)
+	err = uc.tx.WithTx(ctx, func(txCtx context.Context) error {
+		// 再检查一次旧状态，防止两个通过流开始校验的请求都提交封面。
+		updated, err := uc.repo.UpdateVideoUploadStatus(txCtx, videoId, videoUploadWaitingCover, videoUploadWaitingVideo, "", time.Now())
+		if err != nil {
+			return err
+		}
+		if !updated {
+			return errdef.ErrVideoCoverUploadStage
+		}
+		return uc.repo.SetCoverPath(txCtx, videoId, absCoverPath)
+	})
 	if err != nil {
-		retErr = helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
-		return retErr
+		if stderr.Is(err, errdef.ErrVideoCoverUploadStage) {
+			return err
+		}
+		return helper.HandleError(errdef.ErrUploadVideoCoverFailed, err)
+	}
+	committed = true
+	return stream.SendAndClose(&emptypb.Empty{})
+}
+
+// checkVideoUploadOwner 校验视频 ID 和调用者身份，确认调用者为实际发布者。
+func (uc *VideoInfoUsecase) checkVideoUploadOwner(ctx context.Context, videoId, publisherId int64) error {
+	if videoId <= 0 || publisherId <= 0 {
+		return errdef.ErrInvalidVideoUploadIDs
+	}
+	ownerId, err := uc.repo.GetPublisherIdByVideoId(ctx, videoId)
+	if stderr.Is(err, gorm.ErrRecordNotFound) {
+		return errdef.ErrVideoNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if ownerId != publisherId {
+		return errdef.ErrVideoUploadForbidden
 	}
 	return nil
+}
+
+// beginVideoFileUpload 仅允许待传原片的请求占用上传状态，阻止并发请求写入同一视频目录。
+func (uc *VideoInfoUsecase) beginVideoFileUpload(ctx context.Context, videoId int64) error {
+	uploadStatus, err := uc.repo.GetVideoUploadStatus(ctx, videoId)
+	if stderr.Is(err, gorm.ErrRecordNotFound) {
+		return errdef.ErrVideoFileUploadStage
+	}
+	if err != nil {
+		return helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
+	}
+	switch uploadStatus.Status {
+	case videoUploadWaitingVideo:
+		err := uc.changeVideoUploadStatus(ctx, videoId, videoUploadWaitingVideo, videoUploadUploading, "")
+		if err != nil && !stderr.Is(err, errdef.ErrVideoFileUploadStage) {
+			return helper.HandleError(errdef.ErrUploadVideoFileFailed, err)
+		}
+		return err
+	case videoUploadWaitingCover:
+		return errdef.ErrVideoCoverRequired
+	default:
+		return errdef.ErrVideoFileUploadStage
+	}
 }
 
 // GetVideoFile 查询视频文件并发送下载流。
 // 输入：videoId 为目标视频；stream.Context() 传递请求取消和超时。
 // 输出：查询或传输错误；文件在流发送结束后关闭。
 func (uc *VideoInfoUsecase) GetVideoFile(videoId int64, stream grpc.ServerStreamingServer[videoinfov1.GetVideoFileResp]) error {
-	videoFilePath, err := uc.repo.GetVideoFilePathById(stream.Context(), videoId)
+	video, err := uc.getPublishedVideo(stream.Context(), videoId)
 	if err != nil {
-		return helper.HandleError(errdef.ErrGetVideoFileFailed, err)
+		return err
 	}
 	// 1. Send the video file name to the client.
 	//err = stream.Send(&videoinfov1.GetVideoFileResp{
@@ -464,7 +545,7 @@ func (uc *VideoInfoUsecase) GetVideoFile(videoId int64, stream grpc.ServerStream
 			},
 		}
 	}
-	err = sendFileStream(stream, videoFilePath, filenameMsgFn, fileDataMsgFn)
+	err = sendFileStream(stream, video.VideoPath, filenameMsgFn, fileDataMsgFn)
 	return err
 }
 
@@ -475,10 +556,11 @@ func (uc *VideoInfoUsecase) GetVideoMpd(videoId int64, stream grpc.ServerStreami
 	if videoId <= 0 {
 		return status.Error(codes.InvalidArgument, "video_id must be positive")
 	}
-	publisherId, err := uc.repo.GetPublisherIdByVideoId(stream.Context(), videoId)
+	video, err := uc.getPublishedVideo(stream.Context(), videoId)
 	if err != nil {
-		return helper.HandleError(errdef.ErrGetVideoMpdFailed, err)
+		return err
 	}
+	publisherId := video.PublisherID
 	if publisherId <= 0 {
 		return errdef.ErrVideoNotFound
 	}
@@ -526,10 +608,11 @@ func (uc *VideoInfoUsecase) GetVideoSegment(videoId int64, segmentName string, s
 	if videoId <= 0 || len(segmentName) > 255 || !filepath.IsLocal(segmentName) || !dashSegmentNamePattern.MatchString(segmentName) {
 		return status.Error(codes.InvalidArgument, "invalid video_id or DASH segment name")
 	}
-	publisherId, err := uc.repo.GetPublisherIdByVideoId(stream.Context(), videoId)
+	video, err := uc.getPublishedVideo(stream.Context(), videoId)
 	if err != nil {
-		return helper.HandleError(errdef.ErrGetVideoSegmentFailed, err)
+		return err
 	}
+	publisherId := video.PublisherID
 	if publisherId <= 0 {
 		return errdef.ErrVideoNotFound
 	}
@@ -572,28 +655,31 @@ func (uc *VideoInfoUsecase) GetVideoSegment(videoId int64, segmentName string, s
 	return nil
 }
 
-// GetVideoCover 从实际发布者的视频目录查找封面并发送下载流。
+// GetVideoCover 根据已提交的封面路径发送下载流，旧记录没有路径时沿用发布者目录查找。
 // 输入：videoId 必须为正数；stream.Context() 用于仓储查询和取消传递。
 // 输出：真实封面文件名及内容；参数、查询、查找或传输失败时返回错误。
 func (uc *VideoInfoUsecase) GetVideoCover(videoId int64, stream grpc.ServerStreamingServer[videoinfov1.GetVideoCoverResp]) error {
 	if videoId <= 0 {
 		return status.Error(codes.InvalidArgument, "video_id must be positive")
 	}
-	publisherId, err := uc.repo.GetPublisherIdByVideoId(stream.Context(), videoId)
+	video, err := uc.getPublishedVideo(stream.Context(), videoId)
 	if err != nil {
-		return helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
+		return err
 	}
-	if publisherId <= 0 {
+	if video.PublisherID <= 0 {
 		return errdef.ErrVideoNotFound
 	}
-	coverDirPath := filepath.Join(
-		resourcePath,
-		strconv.FormatInt(publisherId, 10),
-		videoPath,
-		strconv.FormatInt(videoId, 10))
-	coverFilePath, err := file.NewFileSearcher().Find(coverDirPath, coverName)
-	if err != nil {
-		return helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
+	coverFilePath := video.CoverPath
+	if coverFilePath == "" {
+		coverDirPath := filepath.Join(
+			resourcePath,
+			strconv.FormatInt(video.PublisherID, 10),
+			videoPath,
+			strconv.FormatInt(videoId, 10))
+		coverFilePath, err = file.NewFileSearcher().Find(coverDirPath, coverName)
+		if err != nil {
+			return helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
+		}
 	}
 
 	filenameMsgFn := func(filename string) *videoinfov1.GetVideoCoverResp {
@@ -623,27 +709,20 @@ func (uc *VideoInfoUsecase) GetVideoCover(videoId int64, stream grpc.ServerStrea
 }
 
 func (uc *VideoInfoUsecase) GetPublisherIdByVideoId(ctx context.Context, videoId int64) (int64, error) {
-	return uc.repo.GetPublisherIdByVideoId(ctx, videoId)
+	video, err := uc.getPublishedVideo(ctx, videoId)
+	if err != nil {
+		return 0, err
+	}
+	return video.PublisherID, nil
 }
 
-func (uc *VideoInfoUsecase) UpdateVideoCntShare(ctx context.Context, videoId int64, isCompensation bool) error {
-	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
+// getPublishedVideo 统一公开读取的不可见结果，供详情、资源流和发布者查询复用。
+func (uc *VideoInfoUsecase) getPublishedVideo(ctx context.Context, videoID int64) (*model.Video, error) {
+	video, err := uc.repo.GetPublishedVideoByID(ctx, videoID)
+	if stderr.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errdef.ErrPublishedVideoNotFound
 	}
-
-	err = barrier.Call(uc.repo.GetSqlTx(), func(tx *sql.Tx) error {
-		if isCompensation {
-			return uc.repo.UpdateVideoCntShareCompensation(ctx, tx, videoId)
-		} else {
-			return uc.repo.UpdateVideoCntShare(ctx, tx, videoId)
-		}
-	})
-	if err != nil {
-		return helper.HandleGrpcError(codes.Aborted, dtmcli.ResultFailure, err)
-	}
-
-	return nil
+	return video, err
 }
 
 // sendFileStream 以文件名、数据块的顺序发送本地普通文件。

@@ -16,14 +16,15 @@ import (
 )
 
 var (
-	Q             = new(Query)
-	Favorite      *favorite
-	FavoriteVideo *favoriteVideo
-	FollowList    *followList
-	User          *user
-	UserFan       *userFan
-	UserFollow    *userFollow
-	UserLevel     *userLevel
+	Q                 = new(Query)
+	Favorite          *favorite
+	FavoriteVideo     *favoriteVideo
+	FollowList        *followList
+	User              *user
+	UserFan           *userFan
+	UserFollow        *userFollow
+	UserLevel         *userLevel
+	UserSearchHistory *userSearchHistory
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -35,45 +36,49 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	UserFan = &Q.UserFan
 	UserFollow = &Q.UserFollow
 	UserLevel = &Q.UserLevel
+	UserSearchHistory = &Q.UserSearchHistory
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
-		db:            db,
-		Favorite:      newFavorite(db, opts...),
-		FavoriteVideo: newFavoriteVideo(db, opts...),
-		FollowList:    newFollowList(db, opts...),
-		User:          newUser(db, opts...),
-		UserFan:       newUserFan(db, opts...),
-		UserFollow:    newUserFollow(db, opts...),
-		UserLevel:     newUserLevel(db, opts...),
+		db:                db,
+		Favorite:          newFavorite(db, opts...),
+		FavoriteVideo:     newFavoriteVideo(db, opts...),
+		FollowList:        newFollowList(db, opts...),
+		User:              newUser(db, opts...),
+		UserFan:           newUserFan(db, opts...),
+		UserFollow:        newUserFollow(db, opts...),
+		UserLevel:         newUserLevel(db, opts...),
+		UserSearchHistory: newUserSearchHistory(db, opts...),
 	}
 }
 
 type Query struct {
 	db *gorm.DB
 
-	Favorite      favorite
-	FavoriteVideo favoriteVideo
-	FollowList    followList
-	User          user
-	UserFan       userFan
-	UserFollow    userFollow
-	UserLevel     userLevel
+	Favorite          favorite
+	FavoriteVideo     favoriteVideo
+	FollowList        followList
+	User              user
+	UserFan           userFan
+	UserFollow        userFollow
+	UserLevel         userLevel
+	UserSearchHistory userSearchHistory
 }
 
 func (q *Query) Available() bool { return q.db != nil }
 
 func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
-		db:            db,
-		Favorite:      q.Favorite.clone(db),
-		FavoriteVideo: q.FavoriteVideo.clone(db),
-		FollowList:    q.FollowList.clone(db),
-		User:          q.User.clone(db),
-		UserFan:       q.UserFan.clone(db),
-		UserFollow:    q.UserFollow.clone(db),
-		UserLevel:     q.UserLevel.clone(db),
+		db:                db,
+		Favorite:          q.Favorite.clone(db),
+		FavoriteVideo:     q.FavoriteVideo.clone(db),
+		FollowList:        q.FollowList.clone(db),
+		User:              q.User.clone(db),
+		UserFan:           q.UserFan.clone(db),
+		UserFollow:        q.UserFollow.clone(db),
+		UserLevel:         q.UserLevel.clone(db),
+		UserSearchHistory: q.UserSearchHistory.clone(db),
 	}
 }
 
@@ -87,36 +92,39 @@ func (q *Query) WriteDB() *Query {
 
 func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
-		db:            db,
-		Favorite:      q.Favorite.replaceDB(db),
-		FavoriteVideo: q.FavoriteVideo.replaceDB(db),
-		FollowList:    q.FollowList.replaceDB(db),
-		User:          q.User.replaceDB(db),
-		UserFan:       q.UserFan.replaceDB(db),
-		UserFollow:    q.UserFollow.replaceDB(db),
-		UserLevel:     q.UserLevel.replaceDB(db),
+		db:                db,
+		Favorite:          q.Favorite.replaceDB(db),
+		FavoriteVideo:     q.FavoriteVideo.replaceDB(db),
+		FollowList:        q.FollowList.replaceDB(db),
+		User:              q.User.replaceDB(db),
+		UserFan:           q.UserFan.replaceDB(db),
+		UserFollow:        q.UserFollow.replaceDB(db),
+		UserLevel:         q.UserLevel.replaceDB(db),
+		UserSearchHistory: q.UserSearchHistory.replaceDB(db),
 	}
 }
 
 type queryCtx struct {
-	Favorite      IFavoriteDo
-	FavoriteVideo IFavoriteVideoDo
-	FollowList    IFollowListDo
-	User          IUserDo
-	UserFan       IUserFanDo
-	UserFollow    IUserFollowDo
-	UserLevel     IUserLevelDo
+	Favorite          IFavoriteDo
+	FavoriteVideo     IFavoriteVideoDo
+	FollowList        IFollowListDo
+	User              IUserDo
+	UserFan           IUserFanDo
+	UserFollow        IUserFollowDo
+	UserLevel         IUserLevelDo
+	UserSearchHistory IUserSearchHistoryDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
-		Favorite:      q.Favorite.WithContext(ctx),
-		FavoriteVideo: q.FavoriteVideo.WithContext(ctx),
-		FollowList:    q.FollowList.WithContext(ctx),
-		User:          q.User.WithContext(ctx),
-		UserFan:       q.UserFan.WithContext(ctx),
-		UserFollow:    q.UserFollow.WithContext(ctx),
-		UserLevel:     q.UserLevel.WithContext(ctx),
+		Favorite:          q.Favorite.WithContext(ctx),
+		FavoriteVideo:     q.FavoriteVideo.WithContext(ctx),
+		FollowList:        q.FollowList.WithContext(ctx),
+		User:              q.User.WithContext(ctx),
+		UserFan:           q.UserFan.WithContext(ctx),
+		UserFollow:        q.UserFollow.WithContext(ctx),
+		UserLevel:         q.UserLevel.WithContext(ctx),
+		UserSearchHistory: q.UserSearchHistory.WithContext(ctx),
 	}
 }
 

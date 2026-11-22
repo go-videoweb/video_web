@@ -18,7 +18,7 @@ data:
     port: '3306'
     user: root
     password: <your mysql_password>
-    database: vw_video
+    database: videoweb
     max_idle: 10
     max_open: 100
   redis:
@@ -29,13 +29,6 @@ data:
     dial_timeout: 1s
     read_timeout: 1s
     write_timeout: 1s
-  mongo:
-    host: 127.0.0.1
-    port: '27017'
-    db: vw_user
-    password: <your mongo_password>
-    max_open_conns: 100
-    conn_timeout: 1s
 registry:
   consul:
     address: 127.0.0.1:8500

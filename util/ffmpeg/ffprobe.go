@@ -1,76 +1,25 @@
 package ffmpeg
 
-import (
-	"fmt"
-	"strings"
-)
+import "strings"
 
-var _ FFProbeCommander = (*FFprobe)(nil) // 确保FFprobe实现接口
-
-type FFProbeCommander interface {
-	ffCommander[*FFprobe]
-	// ShowEntries displays the specified entries of the input file.
-	ShowEntries(inputFilePath string, entries ...string) *FFprobe
-	SetOutputFormat(inputFilePath string, outputFormat string) *FFprobe
+// FFprobe 配置一条媒体探测命令，通过 NewFFprobe 构造；配置期间不并发复用。
+type FFprobe struct {
+	*ffBase[*FFprobe]
 }
 
+// NewFFprobe 创建独立的 ffprobe 命令构造器。
 func NewFFprobe() *FFprobe {
 	ffprobeOperator := &FFprobe{}
-	ffprobeOperator.ffBase = newFFBase()
-	ffprobeOperator.ffBase.command = ffprobe
+	ffprobeOperator.ffBase = newFFBase(ffprobe, ffprobeOperator)
 	return ffprobeOperator
 }
 
-type FFprobe struct {
-	*ffBase
-}
-
-func (f *FFprobe) AddGlobalArgs(args ...string) *FFprobe {
-	f.ffBase.AddGlobalArgs(args...)
-	return f
-}
-
-func (f *FFprobe) AddInputInfo(inputFilePath string, args ...string) *FFprobe {
-	f.ffBase.AddInputInfo(inputFilePath, args...)
-	return f
-}
-
-func (f *FFprobe) AddOutputInfo(outputFilePath string, args ...string) *FFprobe {
-	f.ffBase.AddOutputInfo(outputFilePath, args...)
-	return f
-}
-
-func (f *FFprobe) SetAudioCodec(outputFilePath string, codec string) *FFprobe {
-	f.ffBase.SetAudioCodec(outputFilePath, codec)
-	return f
-}
-
-func (f *FFprobe) SetVideoCodec(outputFilePath string, codec string) *FFprobe {
-	f.ffBase.SetVideoCodec(outputFilePath, codec)
-	return f
-}
-
-func (f *FFprobe) SetLogLevel(level string) *FFprobe {
-	f.ffBase.SetLogLevel(level)
-	return f
-}
-
+// ShowEntries 指定要读取的媒体容器字段，如 duration。
 func (f *FFprobe) ShowEntries(inputFilePath string, entries ...string) *FFprobe {
-	args := []string{"-show_entries"}
-	entriesStr := strings.Join(entries, ",")
-	args = append(args, "format="+entriesStr)
-	f.AddInputInfo(inputFilePath, args...)
-	return f
+	return f.AddInputInfo(inputFilePath, "-show_entries", "format="+strings.Join(entries, ","))
 }
 
+// SetOutputFormat 配置探测结果的序列化格式，如 csv=p=0。
 func (f *FFprobe) SetOutputFormat(inputFilePath string, outputFormat string) *FFprobe {
-	args := []string{"-output_format"}
-	args = append(args, outputFormat)
-	f.ffBase.AddInputInfo(inputFilePath, args...)
-	return f
-}
-
-func (f *FFprobe) ShowCommand() *FFprobe {
-	fmt.Println(f.ffBase.command + " " + f.ffBase.BuildCommand())
-	return f
+	return f.AddInputInfo(inputFilePath, "-output_format", outputFormat)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-kratos/kratos/v2/log"
 	"vw_gateway/internal/biz/userbiz"
+	"vw_gateway/internal/domain"
 	infov1 "vw_user/api/v1/userinfo"
 )
 
@@ -19,9 +20,9 @@ func NewUserInfoRepo(data *Data, logger log.Logger) userbiz.UserinfoRepo {
 	}
 }
 
-func (repo *userinfoRepo) ForgetPassword(ctx context.Context, userId int64, email, inputCode, newPassword string) error {
+// ForgetPassword 只转发三个重置字段，保留用户服务的失败和部分成功 metadata。
+func (repo *userinfoRepo) ForgetPassword(ctx context.Context, email, inputCode, newPassword string) error {
 	_, err := repo.data.userInfoClient.ForgetPassword(ctx, &infov1.ForgetPasswordReq{
-		UserId:      userId,
 		Email:       email,
 		InputCode:   inputCode,
 		NewPassword: newPassword,
@@ -82,7 +83,7 @@ func (repo *userinfoRepo) Userinfo(ctx context.Context, userId int64) (UserInfo 
 		CntFans:    resp.UserInfo.CntFans,
 		CntFollows: resp.UserInfo.CntFollows,
 		CntVideos:  resp.UserInfo.CntVideos,
-		AvatarPath: resp.UserInfo.AvatarPath,
+		AvatarPath: domain.AvatarURL(userId),
 		Gender:     resp.UserInfo.Gender,
 		Birthday:   resp.UserInfo.Birthday.AsTime().Format("2006-01-02"),
 	}

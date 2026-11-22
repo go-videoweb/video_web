@@ -26,17 +26,27 @@ service Favorite {
             delete: "/api/v1/favorites/{favorites_id}",
         };
     }
+
+    // 获取当前登录用户的全部收藏夹，包含公开和私密收藏夹。
+    rpc GetFavoritesList(GetFavoritesListReq) returns (GetFavoritesListResp) {
+        option (google.api.http) = {
+            get: "/api/v1/favorites/list",
+        };
+    }
 }
 
 message CreateFavoritesReq {
     string favorites_name = 1;
     int32 is_private      = 2;
     string description    = 3;
+    // 保留兼容字段；实际创建者以网关鉴权上下文为准。
     int64 user_id         = 4;
 }
 message CreateFavoritesResp {
     int32 status_code = 1;
     string msg        = 2;
+    // 数据库保存成功后的收藏夹 ID。
+    int64 favorite_id = 3;
 }
 
 message ModifyFavoritesReq {
@@ -56,4 +66,21 @@ message DeleteFavoritesReq {
 message DeleteFavoritesResp {
     int32 status_code = 1;
     string msg        = 2;
+}
+
+
+message FavoriteDetail {
+    int64 favorite_id = 1;
+    string favorite_name = 2;
+    string description = 3;
+    // true 表示私密，对应数据库 is_private=-1；false 表示公开。
+    bool is_private = 4;
+}
+message GetFavoritesListResp {
+    int64 user_id = 1;
+    repeated FavoriteDetail favorite_list = 2;
+}
+message GetFavoritesListReq {
+    // 保留兼容字段；查询对象始终是当前登录用户。
+    int64 user_id = 1;
 }

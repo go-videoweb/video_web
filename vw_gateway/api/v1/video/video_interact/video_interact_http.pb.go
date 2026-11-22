@@ -19,6 +19,7 @@ var _ = binding.EncodeURL
 
 const _ = http.SupportPackageIsVersion1
 
+const OperationVideoInteractGetBarrages = "/gateway.api.v1.video.interact.VideoInteract/GetBarrages"
 const OperationVideoInteractVideoFavorite = "/gateway.api.v1.video.interact.VideoInteract/VideoFavorite"
 const OperationVideoInteractVideoSendBarrage = "/gateway.api.v1.video.interact.VideoInteract/VideoSendBarrage"
 const OperationVideoInteractVideoShare = "/gateway.api.v1.video.interact.VideoInteract/VideoShare"
@@ -27,6 +28,7 @@ const OperationVideoInteractVideoUpvote = "/gateway.api.v1.video.interact.VideoI
 const OperationVideoInteractVideoUpvoteBarrage = "/gateway.api.v1.video.interact.VideoInteract/VideoUpvoteBarrage"
 
 type VideoInteractHTTPServer interface {
+	GetBarrages(context.Context, *GetBarragesReq) (*GetBarragesResp, error)
 	VideoFavorite(context.Context, *VideoFavoriteReq) (*VideoFavoriteResp, error)
 	VideoSendBarrage(context.Context, *VideoSendBarrageReq) (*VideoSendBarrageResp, error)
 	VideoShare(context.Context, *VideoShareReq) (*VideoShareResp, error)
@@ -37,12 +39,35 @@ type VideoInteractHTTPServer interface {
 
 func RegisterVideoInteractHTTPServer(s *http.Server, srv VideoInteractHTTPServer) {
 	r := s.Route("/")
+	r.GET("/api/v1/video/{video_id}/barrages", _VideoInteract_GetBarrages0_HTTP_Handler(srv))
 	r.PUT("/api/v1/video/interaction/{video_id}/upvote", _VideoInteract_VideoUpvote0_HTTP_Handler(srv))
 	r.PUT("/api/v1/video/interaction/{video_id}/favorite", _VideoInteract_VideoFavorite0_HTTP_Handler(srv))
 	r.PUT("/api/v1/video/interaction/{video_id}/throwShells", _VideoInteract_VideoThrowShells0_HTTP_Handler(srv))
 	r.GET("/api/v1/video/interaction/{video_id}/share", _VideoInteract_VideoShare0_HTTP_Handler(srv))
 	r.POST("/api/v1/video/interaction/{video_id}/barrage/send", _VideoInteract_VideoSendBarrage0_HTTP_Handler(srv))
 	r.PUT("/api/v1/video/interaction/{video_id}/barrage/upvote", _VideoInteract_VideoUpvoteBarrage0_HTTP_Handler(srv))
+}
+
+func _VideoInteract_GetBarrages0_HTTP_Handler(srv VideoInteractHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetBarragesReq
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationVideoInteractGetBarrages)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetBarrages(ctx, req.(*GetBarragesReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetBarragesResp)
+		return ctx.Result(200, reply)
+	}
 }
 
 func _VideoInteract_VideoUpvote0_HTTP_Handler(srv VideoInteractHTTPServer) func(ctx http.Context) error {
@@ -193,6 +218,7 @@ func _VideoInteract_VideoUpvoteBarrage0_HTTP_Handler(srv VideoInteractHTTPServer
 }
 
 type VideoInteractHTTPClient interface {
+	GetBarrages(ctx context.Context, req *GetBarragesReq, opts ...http.CallOption) (rsp *GetBarragesResp, err error)
 	VideoFavorite(ctx context.Context, req *VideoFavoriteReq, opts ...http.CallOption) (rsp *VideoFavoriteResp, err error)
 	VideoSendBarrage(ctx context.Context, req *VideoSendBarrageReq, opts ...http.CallOption) (rsp *VideoSendBarrageResp, err error)
 	VideoShare(ctx context.Context, req *VideoShareReq, opts ...http.CallOption) (rsp *VideoShareResp, err error)
@@ -207,6 +233,19 @@ type VideoInteractHTTPClientImpl struct {
 
 func NewVideoInteractHTTPClient(client *http.Client) VideoInteractHTTPClient {
 	return &VideoInteractHTTPClientImpl{client}
+}
+
+func (c *VideoInteractHTTPClientImpl) GetBarrages(ctx context.Context, in *GetBarragesReq, opts ...http.CallOption) (*GetBarragesResp, error) {
+	var out GetBarragesResp
+	pattern := "/api/v1/video/{video_id}/barrages"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationVideoInteractGetBarrages))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (c *VideoInteractHTTPClientImpl) VideoFavorite(ctx context.Context, in *VideoFavoriteReq, opts ...http.CallOption) (*VideoFavoriteResp, error) {

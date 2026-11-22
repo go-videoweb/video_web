@@ -6,11 +6,8 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/wire"
 	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"time"
 	utilCtx "util/context"
 	mysql2 "util/dbutil/mysqlutil"
 	"vw_user/internal/conf"
@@ -23,7 +20,6 @@ var ProviderSet = wire.NewSet(
 	NewData,
 	NewMySQL,
 	NewRedisClusterClient,
-	NewMongo,
 	NewUserRepo,
 	NewUserInfoRepo,
 	NewCaptRepo,
@@ -45,7 +41,6 @@ type transactionKey struct{}
 type Data struct {
 	mysql *gorm.DB
 	redis *redis.ClusterClient
-	mongo *mongo.Client
 }
 
 // NewTransaction return a util.Transaction interface.
@@ -57,7 +52,6 @@ func NewTransaction(d *Data) mysql2.Transaction {
 func NewData(
 	mysql *gorm.DB,
 	redisCluster *redis.ClusterClient,
-	mongo *mongo.Client,
 	logger log.Logger) (*Data, func(), error) {
 	cleanup := func() {
 		log.NewHelper(logger).Info("closing the data resources")
@@ -65,7 +59,6 @@ func NewData(
 	return &Data{
 		mysql: mysql,
 		redis: redisCluster,
-		mongo: mongo,
 	}, cleanup, nil
 }
 
@@ -113,39 +106,14 @@ func NewRedisClusterClient(c *conf.Data) *redis.ClusterClient {
 	}
 	return redisCluster
 }
-func NewMongo(c *conf.Data) *mongo.Client {
-	ctx, cancel := context.WithTimeout(utilCtx.NewBaseContext(), time.Duration(c.Mongo.ConnTimeout.Seconds)*time.Second)
-	defer cancel()
 
-	mongoCli, err := mongo.Connect(
-		ctx,
-		options.Client().ApplyURI(fmt.Sprintf("mongodb://%s:%s", c.Mongo.Host, c.Mongo.Port)).
-			SetMaxPoolSize(uint64(c.Mongo.MaxOpen)),
-	)
-	if err != nil {
-		panic(err)
-	}
-	if err := mongoCli.Ping(ctx, nil); err != nil {
-		panic(err)
-	}
-	return mongoCli
-}
-
-// WithTx starts and commits(or rollbacks) a transaction Automatically.
-// Closure function fn is defined at Biz layer, and it contains the transaction logic you want to execute.
+// WithTx 使用现有查询连接管理本地事务，回调必须使用收到的 ctx；嵌套调用沿用保存点。
+// 开启、业务和提交错误均返回；失败或 panic 回滚，不吞掉提交失败。
 func (d *Data) WithTx(ctx context.Context, fn func(context.Context) error) error {
-	var err error
-	ctx, commit := startTx(ctx)
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic: %v", r) // 确保 err 被赋值，事务正确回滚
-			commit(err)
-			panic(r) // 继续抛出 panic，防止业务逻辑被吞掉
-		}
-		commit(err)
-	}()
-	err = fn(ctx)
-	return err
+	db := getQuery(ctx).User.WithContext(ctx).UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
+	return db.Transaction(func(tx *gorm.DB) error {
+		return fn(context.WithValue(ctx, transactionKey{}, &query.QueryTx{Query: query.Use(tx)}))
+	})
 }
 
 // WithSqlTx is not implemented.

@@ -76,7 +76,7 @@ func wireApp(confServer *conf.Server, confData *conf.Data, registry *conf.Regist
 	videoInfoUsecase := videobiz.NewVideoInfoUsecase(videoInfoRepo, logger)
 	videoInfoService := video.NewVideoInfoService(videoInfoUsecase, logger)
 	interactRepo := videodata.NewInteractRepo(videodataData, logger)
-	interactUsecase := videobiz.NewInteractUsecase(interactRepo, logger)
+	interactUsecase := videobiz.NewInteractUsecase(interactRepo, service)
 	interactService := video.NewInteractService(interactUsecase, logger)
 	videoCommentRepo := videodata.NewVideoCommentRepo(videodataData, logger)
 	videoCommentUsecase := videobiz.NewVideoCommentUsecase(videoCommentRepo, logger)

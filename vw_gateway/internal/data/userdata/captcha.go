@@ -21,17 +21,20 @@ func NewCaptchaRepo(logger log.Logger, data *Data) userbiz.CaptchaRepo {
 		data:   data,
 	}
 }
-func (c *captchaRepo) DeleteCodeFromCache(ctx context.Context, email string) error {
+func (c *captchaRepo) DeleteCodeFromCache(ctx context.Context, email, purpose string) error {
 	_, err := c.data.captchaClient.DeleteCodeFromCache(ctx, &captv1.DeleteCodeFromCacheReq{
-		Email: email,
+		Email:   email,
+		Purpose: purpose,
 	})
 	return err
 }
 
-func (c *captchaRepo) SetCodeToCache(ctx context.Context, email, code string) error {
+func (c *captchaRepo) SetCodeToCache(ctx context.Context, email, code, purpose, clientIP string) error {
 	_, err := c.data.captchaClient.SetCodeToCache(ctx, &captv1.SetCodeToCacheReq{
 		Email:       email,
 		CaptchaCode: code,
+		Purpose:     purpose,
+		ClientIp:    clientIP,
 		Expiration:  durationpb.New(time.Duration(captcha.ExpirationTime)),
 	})
 	return err

@@ -1,20 +1,24 @@
 package main
 
 import (
-	"github.com/go-kratos/kratos/v2/config"
-	"github.com/go-kratos/kratos/v2/config/file"
-	"gorm.io/gen"
-	"gorm.io/gorm"
+	"fmt"
 	"vw_user/cmd/gorm_gen/methods"
 	"vw_user/internal/conf"
-	"vw_user/internal/data"
+
+	"github.com/go-kratos/kratos/v2/config"
+	"github.com/go-kratos/kratos/v2/config/file"
+	"gorm.io/driver/mysql"
+	"gorm.io/gen"
+	"gorm.io/gorm"
 )
 
+// main 从现有 MySQL schema 生成用户 DAL，不执行 DDL。
+//
 //go:generate go run gen_generator.go
 func main() {
 	db := getGormDB()
 	g := gen.NewGenerator(gen.Config{
-		OutPath: "../../internal/data/dal/query",
+		OutPath: "./internal/data/dal/query",
 
 		// WithDefaultQuery 生成默认查询结构体(作为全局变量使用), 即`Q`结构体和其字段(各表模型)
 		// WithoutContext 生成没有context调用限制的代码供查询
@@ -65,24 +69,27 @@ func main() {
 		gen.FieldType("exp", "uint32"),
 		gen.FieldType("next_exp", "uint32"),
 		gen.WithMethod(methods.UserLevel{}))
-	followList := g.GenerateModel("follow_list")
+	followList := g.GenerateModel("follow_list", gen.FieldType("is_default", "bool"))
 	userFollows := g.GenerateModel("user_follows")
-	userFollowed := g.GenerateModel("user_fans")
+	userFans := g.GenerateModel("user_fans")
+	userSearchHistory := g.GenerateModel("user_search_history")
 	favorites := g.GenerateModel("favorites")
 	favoriteVideo := g.GenerateModel("favorite_video")
 
 	g.ApplyBasic(
 		user, level,
-		followList, userFollows, userFollowed,
-		favorites, favoriteVideo)
+		followList, userFollows, userFans,
+		favorites, favoriteVideo, userSearchHistory)
 
 	g.Execute()
 
 }
+
+// getGormDB 独立初始化生成器连接，不导入业务 data 或旧 DAL，避免 schema 变化后无法生成。
 func getGormDB() *gorm.DB {
 	c := config.New(
 		config.WithSource(
-			file.NewSource("../../configs/config.yaml"),
+			file.NewSource("./configs/config.yaml"),
 		),
 	)
 	defer c.Close()
@@ -95,5 +102,11 @@ func getGormDB() *gorm.DB {
 	if err := c.Scan(&bc); err != nil {
 		panic(err)
 	}
-	return data.NewMySQL(bc.Data)
+	cfg := bc.Data.Mysql
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
+	return db
 }

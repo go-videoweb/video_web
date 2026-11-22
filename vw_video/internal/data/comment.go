@@ -2,13 +2,12 @@ package data
 
 import (
 	"context"
-	stderr "errors"
+	"errors"
 	"github.com/go-kratos/kratos/v2/log"
-	"go.mongodb.org/mongo-driver/mongo"
-	"gorm.io/gen/field"
+	"gorm.io/gorm"
 	"vw_video/internal/biz"
 	"vw_video/internal/data/dal/model"
-	"vw_video/internal/data/dal/query"
+	"vw_video/internal/pkg/ecode/errdef"
 )
 
 type videoCommentRepo struct {
@@ -16,216 +15,104 @@ type videoCommentRepo struct {
 	log  *log.Helper
 }
 
+// NewVideoCommentRepo 装配评论仓储，所有 SQL 经 getQuery 取得请求连接。
 func NewVideoCommentRepo(data *Data, logger log.Logger) biz.VideoCommentRepo {
-	return &videoCommentRepo{
-		data: data,
-		log:  log.NewHelper(logger),
-	}
+	return &videoCommentRepo{data: data, log: log.NewHelper(logger)}
 }
 
-const separator = "::"
-
-var orderMap map[string]field.Expr
-
-func initOrderMap() {
-	orderMap = map[string]field.Expr{
-		"created_at" + separator + "asc":  query.Comment.CreatedAt.Asc(),
-		"created_at" + separator + "desc": query.Comment.CreatedAt.Desc(),
-		"cnt_upvote" + separator + "desc": query.Comment.CntUpvote.Desc(),
-	}
-}
-
-func (v *videoCommentRepo) GetRootComment(ctx context.Context, videoId int64, sortBy, order string, pageNum, pageSize int32) ([]*model.Comment, error) {
-	comment := getQuery(ctx).Comment
-	commentDo := comment.WithContext(ctx)
-	ret, err := commentDo.
-		Where(comment.VideoID.Eq(videoId), comment.ParentID.Eq(-1)).
-		Order(orderMap[sortBy+separator+order]).
-		Offset(int((pageNum - 1) * pageSize)).Limit(int(pageSize)).
-		Find()
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
-func (v *videoCommentRepo) GetReplyComments(ctx context.Context, parentId int64, sortBy, order string, pageNum, pageSize int32) ([]*model.Comment, error) {
-	comment := getQuery(ctx).Comment
-	commentDo := comment.WithContext(ctx)
-	ret, err := commentDo.
-		Where(comment.ParentID.Eq(parentId)).
-		Order(orderMap[sortBy+separator+order]).
-		Offset(int((pageNum - 1) * pageSize)).
-		Limit(int(pageSize)).
-		Find()
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
-func (v *videoCommentRepo) GetRepliesByParentID(ctx context.Context, parentId int64, sortBy, order string, pageNum, pageSize int32) ([]*model.Comment, error) {
-	comment := getQuery(ctx).Comment
-	commentDo := comment.WithContext(ctx)
-
-	ret, err := commentDo.
-		Debug().
-		Where(comment.ParentID.Eq(parentId)).
-		Order(orderMap[sortBy+separator+order]).
-		Offset(int((pageNum - 1) * pageSize)).
-		Limit(int(pageSize)).
-		Find()
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
-func (v *videoCommentRepo) InsertComment(ctx context.Context, newComment *model.Comment) (int64, error) {
-	comment := getQuery(ctx).Comment
-	commentDo := comment.WithContext(ctx)
-	err := commentDo.Create(newComment)
-	if err != nil {
+// InsertComment 保存评论；主评论写入自身 root_id，与创建事务一起提交。
+func (v *videoCommentRepo) InsertComment(ctx context.Context, row *model.Comment) (int64, error) {
+	q := getQuery(ctx).Comment
+	if err := q.WithContext(ctx).Create(row); err != nil {
 		return 0, err
 	}
-
-	// If the comment is a root comment, its root_id is -1 now.
-	// We need to update root_id as the same as the comment_id.
-	if newComment.ParentID == -1 {
-		_, err = commentDo.Where(comment.CommentID.Eq(newComment.CommentID)).Updates(map[string]any{
-			"root_id": newComment.CommentID,
-		})
+	if row.ParentID == -1 {
+		result, err := q.WithContext(ctx).Where(q.CommentID.Eq(row.CommentID)).Updates(map[string]any{"root_id": row.CommentID})
 		if err != nil {
 			return 0, err
 		}
+		if result.RowsAffected != 1 {
+			return 0, errdef.ErrCommentRootChanged
+		}
 	}
-	return newComment.CommentID, nil
+	return row.CommentID, nil
 }
 
-func (v *videoCommentRepo) GetRootIDByParentID(ctx context.Context, videoId, parentId int64) (int64, error) {
-	// parent_id == -1 indicates that the comment is a root comment., so its root_id is -1.
-	if parentId == -1 {
+// GetRootIDByParentID 校验视频、直接回复对象及所属主评论均有效，不允许跨视频回复。
+// 输入：parentID=-1 表示主评论；输出：主评论创建前返回 -1，否则返回整楼根 ID。
+func (v *videoCommentRepo) GetRootIDByParentID(ctx context.Context, videoID, parentID int64) (int64, error) {
+	if err := requireVideo(ctx, videoID); err != nil {
+		return 0, err
+	}
+	if parentID == -1 {
 		return -1, nil
 	}
-
-	comment := getQuery(ctx).Comment
-	commentDo := comment.WithContext(ctx)
-	ret, err := commentDo.Select(comment.RootID).Where(comment.VideoID.Eq(videoId), comment.CommentID.Eq(parentId)).First()
+	q := getQuery(ctx).Comment
+	parent, err := q.WithContext(ctx).Where(q.VideoID.Eq(videoID), q.CommentID.Eq(parentID)).First()
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, errdef.WithMessage(errdef.ErrCommentNotFound, "回复对象不存在")
+	}
 	if err != nil {
 		return 0, err
 	}
-
-	return ret.RootID, nil
+	root, err := q.WithContext(ctx).Where(q.VideoID.Eq(videoID), q.CommentID.Eq(parent.RootID), q.ParentID.Eq(-1)).First()
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, errdef.ErrCommentNotFound
+	}
+	if err != nil {
+		return 0, err
+	}
+	if root.RootID != root.CommentID {
+		return 0, errdef.ErrInvalidCommentRoot
+	}
+	return root.CommentID, nil
 }
 
-func (v *videoCommentRepo) IncrementCommentCntReplies(ctx context.Context, commentId int64) error {
-	// This case indicated that the child comment is a root comment, so we don't need to increment the cnt_replies field.
-	if commentId < 0 {
-		return nil
-	}
-	comment := query.Comment
-	commentDo, commentModel, err := addCommentModel(ctx, commentId)
+// IncrementCommentCntReplies 原子增加整楼回复数，不再更新直接父回复的计数。
+func (v *videoCommentRepo) IncrementCommentCntReplies(ctx context.Context, rootID int64) error {
+	q := getQuery(ctx).Comment
+	result, err := q.WithContext(ctx).Where(q.CommentID.Eq(rootID), q.ParentID.Eq(-1)).Updates(map[string]any{"cnt_replies": gorm.Expr("cnt_replies + 1")})
 	if err != nil {
 		return err
 	}
-	_, err = commentDo.Where(comment.CommentID.Eq(commentId)).Updates(
-		&model.Comment{
-			CntReplies: commentModel.CntReplies + 1,
-		})
+	if result.RowsAffected != 1 {
+		return errdef.WithMessage(errdef.ErrCommentRootChanged, "主评论已变化")
+	}
 	return nil
 }
 
-func (v *videoCommentRepo) IncrementCommentCntUpvote(ctx context.Context, commentId int64) error {
-	comment := getQuery(ctx).Comment
-	commentDo, commentModel, err := addCommentModel(ctx, commentId)
-	if err != nil {
-		return err
-	}
-	_, err = commentDo.
-		Where(comment.CommentID.Eq(commentId)).
-		Updates(&model.Comment{
-			CntUpvote: commentModel.CntUpvote + 1,
-		})
-	return err
+// AddVideoHotAndCntCommentsByComment 在调用方事务内增加视频评论数和热度。
+func (v *videoCommentRepo) AddVideoHotAndCntCommentsByComment(ctx context.Context, videoID int64) error {
+	return incrementCommentVideoCount(ctx, videoID)
 }
 
-func (v *videoCommentRepo) DecrementCommentCntUpvote(ctx context.Context, commentId int64) error {
-	comment := getQuery(ctx).Comment
-	commentDo, commentModel, err := addCommentModel(ctx, commentId)
-	if err != nil {
-		return err
-	}
-	_, err = commentDo.
-		Where(comment.CommentID.Eq(commentId)).
-		Updates(map[string]any{
-			"cnt_upvote": commentModel.CntUpvote - 1,
-		})
-	return err
+// AddVideoHotAndCntCommentsByReply 在调用方事务内增加视频总评论数和回复热度。
+func (v *videoCommentRepo) AddVideoHotAndCntCommentsByReply(ctx context.Context, videoID int64) error {
+	return incrementCommentVideoCount(ctx, videoID)
 }
 
-func (v *videoCommentRepo) AddVideoHotAndCntCommentsByComment(ctx context.Context, videoId int64) error {
-	video := query.Video
-	videoDo, videoModel, err := addVideoModel(ctx, videoId)
-	if err != nil {
-		return err
-	}
-	_, err = videoDo.Where(video.VideoID.Eq(videoId)).Updates(
-		map[string]any{
-			"cnt_comments": videoModel.CntComments + 1,
-			"hot":          videoModel.Hot + HotEachReply,
-		})
-	return nil
-}
-
-func (v *videoCommentRepo) AddVideoHotAndCntCommentsByReply(ctx context.Context, videoId int64) error {
-	video := query.Video
-	videoDo, videoModel, err := addVideoModel(ctx, videoId)
-	if err != nil {
-		return err
-	}
-	_, err = videoDo.Where(video.VideoID.Eq(videoId)).Updates(
-		map[string]any{
-			"cnt_comments": videoModel.CntComments + 1,
-			"hot":          videoModel.Hot + HotEachReply,
-		})
-	return nil
-}
-
-func (v *videoCommentRepo) GetCommentInfo(ctx context.Context, commentId int64) (*model.Comment, error) {
-	comment := getQuery(ctx).Comment
-	commentDo := comment.WithContext(ctx)
-	c, err := commentDo.Where(comment.CommentID.Eq(commentId)).First()
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-func (v *videoCommentRepo) CommentSetUpvoted(ctx context.Context, commentId int64, userId int64) error {
-	return v.data.mongo.InsertOne(ctx, uc_status, &model.UserCommentUpvoted{
-		UserID:    userId,
-		CommentID: commentId,
+// incrementCommentVideoCount 使用原子表达式维护计数及版本，更新失败交给事务回滚。
+func incrementCommentVideoCount(ctx context.Context, videoID int64) error {
+	q := getQuery(ctx).Video
+	result, err := q.WithContext(ctx).Where(q.VideoID.Eq(videoID)).Updates(map[string]any{
+		"cnt_comments": gorm.Expr("cnt_comments + 1"),
+		"hot":          gorm.Expr("hot + ?", HotEachReply),
 	})
-}
-
-func (v *videoCommentRepo) CommentCancelUpvoted(ctx context.Context, commentId int64, userId int64) error {
-	return v.data.mongo.DeleteOne(ctx, &model.UserCommentUpvoted{
-		UserID:    userId,
-		CommentID: commentId,
-	})
-}
-
-func (v *videoCommentRepo) CheckIfUserUpvotedComment(ctx context.Context, commentId int64, userId int64) (bool, error) {
-	filter := &model.UserCommentUpvoted{
-		CommentID: commentId,
-		UserID:    userId,
-	}
-	_, err := v.data.mongo.FindOne(ctx, uc_status, filter)
 	if err != nil {
-		if stderr.Is(err, mongo.ErrNoDocuments) {
-			return false, nil
-		}
-		return false, err
+		return err
 	}
-	return true, nil
+	if result.RowsAffected != 1 {
+		return errdef.ErrVideoChanged
+	}
+	return nil
+}
+
+// GetCommentInfo 返回有效评论，软删除或不存在统一返回 404。
+func (v *videoCommentRepo) GetCommentInfo(ctx context.Context, commentID int64) (*model.Comment, error) {
+	q := getQuery(ctx).Comment
+	row, err := q.WithContext(ctx).Where(q.CommentID.Eq(commentID)).First()
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errdef.WithMessage(errdef.ErrCommentNotFound, "评论不存在")
+	}
+	return row, err
 }

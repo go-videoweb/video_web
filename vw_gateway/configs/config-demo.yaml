@@ -24,6 +24,7 @@ dtm:
   endpoint: 'grpc://localhost:36790'
 
 service:
+  public_site_origin: "http://127.0.0.1:5173" # 公网部署时填写浏览器访问前端的地址
   user:
     endpoint: discovery:///videoweb.user.service
   video:

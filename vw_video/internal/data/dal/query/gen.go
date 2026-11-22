@@ -16,12 +16,15 @@ import (
 )
 
 var (
-	Q             = new(Query)
-	Barrage       *barrage
-	Comment       *comment
-	FavoriteVideo *favoriteVideo
-	Video         *video
-	VideoClass    *videoClass
+	Q                 = new(Query)
+	Barrage           *barrage
+	Comment           *comment
+	FavoriteVideo     *favoriteVideo
+	UserBarrageLike   *userBarrageLike
+	UserCommentLike   *userCommentLike
+	UserVideoStatus   *userVideoStatus
+	Video             *video
+	VideoUploadStatus *videoUploadStatus
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -29,41 +32,53 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	Barrage = &Q.Barrage
 	Comment = &Q.Comment
 	FavoriteVideo = &Q.FavoriteVideo
+	UserBarrageLike = &Q.UserBarrageLike
+	UserCommentLike = &Q.UserCommentLike
+	UserVideoStatus = &Q.UserVideoStatus
 	Video = &Q.Video
-	VideoClass = &Q.VideoClass
+	VideoUploadStatus = &Q.VideoUploadStatus
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
-		db:            db,
-		Barrage:       newBarrage(db, opts...),
-		Comment:       newComment(db, opts...),
-		FavoriteVideo: newFavoriteVideo(db, opts...),
-		Video:         newVideo(db, opts...),
-		VideoClass:    newVideoClass(db, opts...),
+		db:                db,
+		Barrage:           newBarrage(db, opts...),
+		Comment:           newComment(db, opts...),
+		FavoriteVideo:     newFavoriteVideo(db, opts...),
+		UserBarrageLike:   newUserBarrageLike(db, opts...),
+		UserCommentLike:   newUserCommentLike(db, opts...),
+		UserVideoStatus:   newUserVideoStatus(db, opts...),
+		Video:             newVideo(db, opts...),
+		VideoUploadStatus: newVideoUploadStatus(db, opts...),
 	}
 }
 
 type Query struct {
 	db *gorm.DB
 
-	Barrage       barrage
-	Comment       comment
-	FavoriteVideo favoriteVideo
-	Video         video
-	VideoClass    videoClass
+	Barrage           barrage
+	Comment           comment
+	FavoriteVideo     favoriteVideo
+	UserBarrageLike   userBarrageLike
+	UserCommentLike   userCommentLike
+	UserVideoStatus   userVideoStatus
+	Video             video
+	VideoUploadStatus videoUploadStatus
 }
 
 func (q *Query) Available() bool { return q.db != nil }
 
 func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
-		db:            db,
-		Barrage:       q.Barrage.clone(db),
-		Comment:       q.Comment.clone(db),
-		FavoriteVideo: q.FavoriteVideo.clone(db),
-		Video:         q.Video.clone(db),
-		VideoClass:    q.VideoClass.clone(db),
+		db:                db,
+		Barrage:           q.Barrage.clone(db),
+		Comment:           q.Comment.clone(db),
+		FavoriteVideo:     q.FavoriteVideo.clone(db),
+		UserBarrageLike:   q.UserBarrageLike.clone(db),
+		UserCommentLike:   q.UserCommentLike.clone(db),
+		UserVideoStatus:   q.UserVideoStatus.clone(db),
+		Video:             q.Video.clone(db),
+		VideoUploadStatus: q.VideoUploadStatus.clone(db),
 	}
 }
 
@@ -77,30 +92,39 @@ func (q *Query) WriteDB() *Query {
 
 func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
-		db:            db,
-		Barrage:       q.Barrage.replaceDB(db),
-		Comment:       q.Comment.replaceDB(db),
-		FavoriteVideo: q.FavoriteVideo.replaceDB(db),
-		Video:         q.Video.replaceDB(db),
-		VideoClass:    q.VideoClass.replaceDB(db),
+		db:                db,
+		Barrage:           q.Barrage.replaceDB(db),
+		Comment:           q.Comment.replaceDB(db),
+		FavoriteVideo:     q.FavoriteVideo.replaceDB(db),
+		UserBarrageLike:   q.UserBarrageLike.replaceDB(db),
+		UserCommentLike:   q.UserCommentLike.replaceDB(db),
+		UserVideoStatus:   q.UserVideoStatus.replaceDB(db),
+		Video:             q.Video.replaceDB(db),
+		VideoUploadStatus: q.VideoUploadStatus.replaceDB(db),
 	}
 }
 
 type queryCtx struct {
-	Barrage       IBarrageDo
-	Comment       ICommentDo
-	FavoriteVideo IFavoriteVideoDo
-	Video         IVideoDo
-	VideoClass    IVideoClassDo
+	Barrage           IBarrageDo
+	Comment           ICommentDo
+	FavoriteVideo     IFavoriteVideoDo
+	UserBarrageLike   IUserBarrageLikeDo
+	UserCommentLike   IUserCommentLikeDo
+	UserVideoStatus   IUserVideoStatusDo
+	Video             IVideoDo
+	VideoUploadStatus IVideoUploadStatusDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
-		Barrage:       q.Barrage.WithContext(ctx),
-		Comment:       q.Comment.WithContext(ctx),
-		FavoriteVideo: q.FavoriteVideo.WithContext(ctx),
-		Video:         q.Video.WithContext(ctx),
-		VideoClass:    q.VideoClass.WithContext(ctx),
+		Barrage:           q.Barrage.WithContext(ctx),
+		Comment:           q.Comment.WithContext(ctx),
+		FavoriteVideo:     q.FavoriteVideo.WithContext(ctx),
+		UserBarrageLike:   q.UserBarrageLike.WithContext(ctx),
+		UserCommentLike:   q.UserCommentLike.WithContext(ctx),
+		UserVideoStatus:   q.UserVideoStatus.WithContext(ctx),
+		Video:             q.Video.WithContext(ctx),
+		VideoUploadStatus: q.VideoUploadStatus.WithContext(ctx),
 	}
 }
 

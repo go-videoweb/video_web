@@ -26,7 +26,7 @@ func NewUserIdentityService(identity *userbiz.UserIdentityUsecase, logger log.Lo
 func (uid *IdentityService) Register(ctx context.Context, req *idv1.RegisterRequest) (*idv1.RegisterResp, error) {
 	birthday, err := time.Parse("2006-01-02", req.Birthday)
 
-	atoken, rtoken, err := uid.identity.Register(ctx, &userbiz.RegisterInfo{
+	userID, atoken, rtoken, err := uid.identity.Register(ctx, &userbiz.RegisterInfo{
 		Username:       req.Username,
 		Password:       req.Password,
 		RepeatPassword: req.RepeatPassword,
@@ -44,6 +44,7 @@ func (uid *IdentityService) Register(ctx context.Context, req *idv1.RegisterRequ
 		StatusCode: 200,
 		Msg:        "register successfully",
 		Data: &idv1.RegisterResp_Data{
+			UserId:       userID,
 			AccessToken:  atoken,
 			RefreshToken: rtoken,
 		},

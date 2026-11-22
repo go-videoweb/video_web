@@ -1,7 +1,7 @@
 package file
 
 import (
-	kerr "github.com/go-kratos/kratos/v2/errors"
+	"errors"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -15,8 +15,10 @@ const (
 )
 
 var (
-	errUploadFileTooLarge = kerr.New(0, "上传文件过大, 超过了10M", "上传文件不能超过10M")
-	errUploadFileType     = kerr.New(0, "上传文件类型错误", "不支持该文件格式")
+	// ErrUploadFileTooLarge 表示文件超过允许的大小。
+	ErrUploadFileTooLarge = errors.New("上传文件不能超过10M")
+	// ErrUploadFileType 表示文件扩展名不在支持范围内。
+	ErrUploadFileType = errors.New("不支持该文件格式")
 )
 
 // picExtCheck 验证图片后缀名
@@ -46,10 +48,10 @@ func init() {
 func CheckIfPictureValid(fh *multipart.FileHeader) error {
 	ext := filepath.Ext(fh.Filename)
 	if !checkPicExt(ext) {
-		return errUploadFileType
+		return ErrUploadFileType
 	}
 	if fh.Size > picMaxWidth {
-		return errUploadFileTooLarge
+		return ErrUploadFileTooLarge
 	}
 	return nil
 }
@@ -58,7 +60,7 @@ func CheckIfPictureValid(fh *multipart.FileHeader) error {
 func CheckIfVideoValid(fh *multipart.FileHeader) error {
 	ext := filepath.Ext(fh.Filename)
 	if !checkVideoExt(ext) {
-		return errUploadFileType
+		return ErrUploadFileType
 	}
 	return nil
 }

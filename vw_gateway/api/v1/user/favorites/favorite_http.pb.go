@@ -21,11 +21,14 @@ const _ = http.SupportPackageIsVersion1
 
 const OperationFavoriteCreateFavorites = "/gateway.api.v1.user.favorites.Favorite/CreateFavorites"
 const OperationFavoriteDeleteFavorites = "/gateway.api.v1.user.favorites.Favorite/DeleteFavorites"
+const OperationFavoriteGetFavoritesList = "/gateway.api.v1.user.favorites.Favorite/GetFavoritesList"
 const OperationFavoriteModifyFavorites = "/gateway.api.v1.user.favorites.Favorite/ModifyFavorites"
 
 type FavoriteHTTPServer interface {
 	CreateFavorites(context.Context, *CreateFavoritesReq) (*CreateFavoritesResp, error)
 	DeleteFavorites(context.Context, *DeleteFavoritesReq) (*DeleteFavoritesResp, error)
+	// GetFavoritesList 获取当前登录用户的全部收藏夹，包含公开和私密收藏夹。
+	GetFavoritesList(context.Context, *GetFavoritesListReq) (*GetFavoritesListResp, error)
 	ModifyFavorites(context.Context, *ModifyFavoritesReq) (*ModifyFavoritesResp, error)
 }
 
@@ -34,6 +37,7 @@ func RegisterFavoriteHTTPServer(s *http.Server, srv FavoriteHTTPServer) {
 	r.POST("/api/v1/favorites", _Favorite_CreateFavorites0_HTTP_Handler(srv))
 	r.PATCH("/api/v1/favorites/{favorites_id}", _Favorite_ModifyFavorites0_HTTP_Handler(srv))
 	r.DELETE("/api/v1/favorites/{favorites_id}", _Favorite_DeleteFavorites0_HTTP_Handler(srv))
+	r.GET("/api/v1/favorites/list", _Favorite_GetFavoritesList0_HTTP_Handler(srv))
 }
 
 func _Favorite_CreateFavorites0_HTTP_Handler(srv FavoriteHTTPServer) func(ctx http.Context) error {
@@ -105,9 +109,29 @@ func _Favorite_DeleteFavorites0_HTTP_Handler(srv FavoriteHTTPServer) func(ctx ht
 	}
 }
 
+func _Favorite_GetFavoritesList0_HTTP_Handler(srv FavoriteHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetFavoritesListReq
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationFavoriteGetFavoritesList)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetFavoritesList(ctx, req.(*GetFavoritesListReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetFavoritesListResp)
+		return ctx.Result(200, reply)
+	}
+}
+
 type FavoriteHTTPClient interface {
 	CreateFavorites(ctx context.Context, req *CreateFavoritesReq, opts ...http.CallOption) (rsp *CreateFavoritesResp, err error)
 	DeleteFavorites(ctx context.Context, req *DeleteFavoritesReq, opts ...http.CallOption) (rsp *DeleteFavoritesResp, err error)
+	GetFavoritesList(ctx context.Context, req *GetFavoritesListReq, opts ...http.CallOption) (rsp *GetFavoritesListResp, err error)
 	ModifyFavorites(ctx context.Context, req *ModifyFavoritesReq, opts ...http.CallOption) (rsp *ModifyFavoritesResp, err error)
 }
 
@@ -139,6 +163,19 @@ func (c *FavoriteHTTPClientImpl) DeleteFavorites(ctx context.Context, in *Delete
 	opts = append(opts, http.Operation(OperationFavoriteDeleteFavorites))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "DELETE", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *FavoriteHTTPClientImpl) GetFavoritesList(ctx context.Context, in *GetFavoritesListReq, opts ...http.CallOption) (*GetFavoritesListResp, error) {
+	var out GetFavoritesListResp
+	pattern := "/api/v1/favorites/list"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationFavoriteGetFavoritesList))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

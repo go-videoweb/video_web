@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// TestServiceConfigFields 验证现用服务配置编号不变，退役评论服务的字段名和编号仍被保留。
+// TestServiceConfigFields 验证现用服务配置编号不变，退役评论服务字段和保留声明均已移除。
 func TestServiceConfigFields(t *testing.T) {
 	descriptor := (&Service{}).ProtoReflect().Descriptor()
 	fields := descriptor.Fields()
@@ -20,8 +20,11 @@ func TestServiceConfigFields(t *testing.T) {
 			t.Errorf("field %d must remain %s", number, name)
 		}
 	}
-	if !descriptor.ReservedRanges().Has(3) || !descriptor.ReservedNames().Has("comment") {
-		t.Fatal("retired comment field number and name must remain reserved")
+	if fields.ByNumber(3) != nil || fields.ByName("comment") != nil {
+		t.Fatal("retired comment service field must remain absent")
+	}
+	if descriptor.ReservedRanges().Len() != 0 || descriptor.ReservedNames().Len() != 0 {
+		t.Fatal("service config must not contain reserved declarations")
 	}
 }
 

@@ -10,6 +10,12 @@ service Favorite {
     rpc ModifyFavorites(ModifyFavoritesReq) returns (ModifyFavoritesResp) {}
 
     rpc DeleteFavorites(DeleteFavoritesReq) returns (DeleteFavoritesResp) {}
+
+    // 按网关验证的用户 ID 返回其全部收藏夹。
+    rpc GetFavoritesList(GetFavoritesListReq) returns (GetFavoritesListResp) {}
+
+    // 供可信服务读取元信息；调用方根据操作人执行读写权限校验。
+    rpc GetFavoriteInfo(GetFavoriteInfoReq) returns (GetFavoriteInfoResp) {}
 }
 
 message CreateFavoritesReq {
@@ -21,6 +27,8 @@ message CreateFavoritesReq {
 message CreateFavoritesResp {
     int32 status_code = 1;
     string msg        = 2;
+    // 数据库保存成功后的收藏夹 ID。
+    int64 favorite_id = 3;
 }
 
 message ModifyFavoritesReq {
@@ -28,6 +36,8 @@ message ModifyFavoritesReq {
     optional string favorites_name = 2;
     optional int32 is_private      = 3;
     optional string description    = 4;
+    // 网关鉴权确认的操作人，必须为收藏夹所有者。
+    int64 user_id = 5;
 }
 message ModifyFavoritesResp {
     int32 status_code = 1;
@@ -36,8 +46,34 @@ message ModifyFavoritesResp {
 
 message DeleteFavoritesReq {
     int64 favorites_id = 1;
+    // 网关鉴权确认的操作人，必须为收藏夹所有者。
+    int64 user_id = 2;
 }
 message DeleteFavoritesResp {
     int32 status_code = 1;
     string msg        = 2;
+}
+
+message FavoriteDetail {
+    int64 favorite_id = 1;
+    string favorite_name = 2;
+    string description = 3;
+    // true 表示私密，对应数据库 is_private=-1；false 表示公开。
+    bool is_private = 4;
+}
+message GetFavoritesListResp {
+    repeated FavoriteDetail favorite_list = 1;
+}
+message GetFavoritesListReq {
+    int64 user_id = 1;
+}
+
+message GetFavoriteInfoReq {
+    int64 favorite_id = 1;
+}
+
+message GetFavoriteInfoResp {
+    int64 favorite_id = 1;
+    int64 user_id = 2;
+    bool is_private = 3;
 }

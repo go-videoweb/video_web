@@ -19,21 +19,202 @@ var _ = binding.EncodeURL
 
 const _ = http.SupportPackageIsVersion1
 
+const OperationFollowCreateFollowList = "/gateway.api.v1.user.follow.Follow/CreateFollowList"
+const OperationFollowDeleteFollowLists = "/gateway.api.v1.user.follow.Follow/DeleteFollowLists"
 const OperationFollowFollowUser = "/gateway.api.v1.user.follow.Follow/FollowUser"
+const OperationFollowGetFollowLists = "/gateway.api.v1.user.follow.Follow/GetFollowLists"
+const OperationFollowGetFollowRelation = "/gateway.api.v1.user.follow.Follow/GetFollowRelation"
 const OperationFollowGetFolloweeInfo = "/gateway.api.v1.user.follow.Follow/GetFolloweeInfo"
+const OperationFollowModifyFollowList = "/gateway.api.v1.user.follow.Follow/ModifyFollowList"
+const OperationFollowMoveFollowee = "/gateway.api.v1.user.follow.Follow/MoveFollowee"
+const OperationFollowSetDefaultFollowList = "/gateway.api.v1.user.follow.Follow/SetDefaultFollowList"
 const OperationFollowUnfollowUser = "/gateway.api.v1.user.follow.Follow/UnfollowUser"
 
 type FollowHTTPServer interface {
+	CreateFollowList(context.Context, *CreateFollowListReq) (*CreateFollowListResp, error)
+	DeleteFollowLists(context.Context, *DeleteFollowListsReq) (*FollowListMutationResp, error)
 	FollowUser(context.Context, *FollowUserReq) (*FollowUserResp, error)
+	GetFollowLists(context.Context, *GetFollowListsReq) (*GetFollowListsResp, error)
+	GetFollowRelation(context.Context, *GetFollowRelationReq) (*GetFollowRelationResp, error)
 	GetFolloweeInfo(context.Context, *GetFolloweeInfoReq) (*GetFolloweeInfoResp, error)
+	ModifyFollowList(context.Context, *ModifyFollowListReq) (*FollowListMutationResp, error)
+	MoveFollowee(context.Context, *MoveFolloweeReq) (*FollowListMutationResp, error)
+	SetDefaultFollowList(context.Context, *SetDefaultFollowListReq) (*FollowListMutationResp, error)
 	UnfollowUser(context.Context, *UnfollowUserReq) (*UnfollowUserResp, error)
 }
 
 func RegisterFollowHTTPServer(s *http.Server, srv FollowHTTPServer) {
 	r := s.Route("/")
+	r.POST("/api/v1/follow-lists", _Follow_CreateFollowList0_HTTP_Handler(srv))
+	r.POST("/api/v1/follow-lists/batch-delete", _Follow_DeleteFollowLists0_HTTP_Handler(srv))
+	r.GET("/api/v1/follow-lists", _Follow_GetFollowLists0_HTTP_Handler(srv))
+	r.PATCH("/api/v1/follow-lists/{follow_list_id}", _Follow_ModifyFollowList0_HTTP_Handler(srv))
+	r.PUT("/api/v1/follow-lists/{follow_list_id}/default", _Follow_SetDefaultFollowList0_HTTP_Handler(srv))
+	r.GET("/api/v1/follow/relations/{target_user_id}", _Follow_GetFollowRelation0_HTTP_Handler(srv))
+	r.PUT("/api/v1/follow/relations/{target_user_id}/list", _Follow_MoveFollowee0_HTTP_Handler(srv))
 	r.POST("/api/v1/{user_id}/follow", _Follow_FollowUser0_HTTP_Handler(srv))
 	r.PUT("/api/v1/{user_id}/follow", _Follow_UnfollowUser0_HTTP_Handler(srv))
 	r.GET("/api/v1/{user_id}/followList", _Follow_GetFolloweeInfo0_HTTP_Handler(srv))
+}
+
+func _Follow_CreateFollowList0_HTTP_Handler(srv FollowHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in CreateFollowListReq
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationFollowCreateFollowList)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.CreateFollowList(ctx, req.(*CreateFollowListReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*CreateFollowListResp)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Follow_DeleteFollowLists0_HTTP_Handler(srv FollowHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in DeleteFollowListsReq
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationFollowDeleteFollowLists)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.DeleteFollowLists(ctx, req.(*DeleteFollowListsReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*FollowListMutationResp)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Follow_GetFollowLists0_HTTP_Handler(srv FollowHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetFollowListsReq
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationFollowGetFollowLists)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetFollowLists(ctx, req.(*GetFollowListsReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetFollowListsResp)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Follow_ModifyFollowList0_HTTP_Handler(srv FollowHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in ModifyFollowListReq
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationFollowModifyFollowList)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.ModifyFollowList(ctx, req.(*ModifyFollowListReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*FollowListMutationResp)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Follow_SetDefaultFollowList0_HTTP_Handler(srv FollowHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in SetDefaultFollowListReq
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationFollowSetDefaultFollowList)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.SetDefaultFollowList(ctx, req.(*SetDefaultFollowListReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*FollowListMutationResp)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Follow_GetFollowRelation0_HTTP_Handler(srv FollowHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetFollowRelationReq
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationFollowGetFollowRelation)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetFollowRelation(ctx, req.(*GetFollowRelationReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetFollowRelationResp)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Follow_MoveFollowee0_HTTP_Handler(srv FollowHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in MoveFolloweeReq
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationFollowMoveFollowee)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.MoveFollowee(ctx, req.(*MoveFolloweeReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*FollowListMutationResp)
+		return ctx.Result(200, reply)
+	}
 }
 
 func _Follow_FollowUser0_HTTP_Handler(srv FollowHTTPServer) func(ctx http.Context) error {
@@ -109,8 +290,15 @@ func _Follow_GetFolloweeInfo0_HTTP_Handler(srv FollowHTTPServer) func(ctx http.C
 }
 
 type FollowHTTPClient interface {
+	CreateFollowList(ctx context.Context, req *CreateFollowListReq, opts ...http.CallOption) (rsp *CreateFollowListResp, err error)
+	DeleteFollowLists(ctx context.Context, req *DeleteFollowListsReq, opts ...http.CallOption) (rsp *FollowListMutationResp, err error)
 	FollowUser(ctx context.Context, req *FollowUserReq, opts ...http.CallOption) (rsp *FollowUserResp, err error)
+	GetFollowLists(ctx context.Context, req *GetFollowListsReq, opts ...http.CallOption) (rsp *GetFollowListsResp, err error)
+	GetFollowRelation(ctx context.Context, req *GetFollowRelationReq, opts ...http.CallOption) (rsp *GetFollowRelationResp, err error)
 	GetFolloweeInfo(ctx context.Context, req *GetFolloweeInfoReq, opts ...http.CallOption) (rsp *GetFolloweeInfoResp, err error)
+	ModifyFollowList(ctx context.Context, req *ModifyFollowListReq, opts ...http.CallOption) (rsp *FollowListMutationResp, err error)
+	MoveFollowee(ctx context.Context, req *MoveFolloweeReq, opts ...http.CallOption) (rsp *FollowListMutationResp, err error)
+	SetDefaultFollowList(ctx context.Context, req *SetDefaultFollowListReq, opts ...http.CallOption) (rsp *FollowListMutationResp, err error)
 	UnfollowUser(ctx context.Context, req *UnfollowUserReq, opts ...http.CallOption) (rsp *UnfollowUserResp, err error)
 }
 
@@ -120,6 +308,32 @@ type FollowHTTPClientImpl struct {
 
 func NewFollowHTTPClient(client *http.Client) FollowHTTPClient {
 	return &FollowHTTPClientImpl{client}
+}
+
+func (c *FollowHTTPClientImpl) CreateFollowList(ctx context.Context, in *CreateFollowListReq, opts ...http.CallOption) (*CreateFollowListResp, error) {
+	var out CreateFollowListResp
+	pattern := "/api/v1/follow-lists"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationFollowCreateFollowList))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *FollowHTTPClientImpl) DeleteFollowLists(ctx context.Context, in *DeleteFollowListsReq, opts ...http.CallOption) (*FollowListMutationResp, error) {
+	var out FollowListMutationResp
+	pattern := "/api/v1/follow-lists/batch-delete"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationFollowDeleteFollowLists))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (c *FollowHTTPClientImpl) FollowUser(ctx context.Context, in *FollowUserReq, opts ...http.CallOption) (*FollowUserResp, error) {
@@ -135,6 +349,32 @@ func (c *FollowHTTPClientImpl) FollowUser(ctx context.Context, in *FollowUserReq
 	return &out, nil
 }
 
+func (c *FollowHTTPClientImpl) GetFollowLists(ctx context.Context, in *GetFollowListsReq, opts ...http.CallOption) (*GetFollowListsResp, error) {
+	var out GetFollowListsResp
+	pattern := "/api/v1/follow-lists"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationFollowGetFollowLists))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *FollowHTTPClientImpl) GetFollowRelation(ctx context.Context, in *GetFollowRelationReq, opts ...http.CallOption) (*GetFollowRelationResp, error) {
+	var out GetFollowRelationResp
+	pattern := "/api/v1/follow/relations/{target_user_id}"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationFollowGetFollowRelation))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *FollowHTTPClientImpl) GetFolloweeInfo(ctx context.Context, in *GetFolloweeInfoReq, opts ...http.CallOption) (*GetFolloweeInfoResp, error) {
 	var out GetFolloweeInfoResp
 	pattern := "/api/v1/{user_id}/followList"
@@ -142,6 +382,45 @@ func (c *FollowHTTPClientImpl) GetFolloweeInfo(ctx context.Context, in *GetFollo
 	opts = append(opts, http.Operation(OperationFollowGetFolloweeInfo))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *FollowHTTPClientImpl) ModifyFollowList(ctx context.Context, in *ModifyFollowListReq, opts ...http.CallOption) (*FollowListMutationResp, error) {
+	var out FollowListMutationResp
+	pattern := "/api/v1/follow-lists/{follow_list_id}"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationFollowModifyFollowList))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "PATCH", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *FollowHTTPClientImpl) MoveFollowee(ctx context.Context, in *MoveFolloweeReq, opts ...http.CallOption) (*FollowListMutationResp, error) {
+	var out FollowListMutationResp
+	pattern := "/api/v1/follow/relations/{target_user_id}/list"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationFollowMoveFollowee))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "PUT", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *FollowHTTPClientImpl) SetDefaultFollowList(ctx context.Context, in *SetDefaultFollowListReq, opts ...http.CallOption) (*FollowListMutationResp, error) {
+	var out FollowListMutationResp
+	pattern := "/api/v1/follow-lists/{follow_list_id}/default"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationFollowSetDefaultFollowList))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "PUT", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -32,12 +32,13 @@ func newComment(db *gorm.DB, opts ...gen.DOOption) comment {
 	_comment.DeletedAt = field.NewField(tableName, "deleted_at")
 	_comment.CommentID = field.NewInt64(tableName, "comment_id")
 	_comment.PublisherID = field.NewInt64(tableName, "publisher_id")
-	_comment.VideoID = field.NewInt64(tableName, "video_id")
-	_comment.RootID = field.NewInt64(tableName, "root_id")
 	_comment.ParentID = field.NewInt64(tableName, "parent_id")
+	_comment.VideoID = field.NewInt64(tableName, "video_id")
 	_comment.Content = field.NewString(tableName, "content")
 	_comment.CntUpvote = field.NewUint64(tableName, "cnt_upvote")
+	_comment.Dislikes = field.NewInt64(tableName, "dislikes")
 	_comment.IPLocation = field.NewString(tableName, "ip_location")
+	_comment.RootID = field.NewInt64(tableName, "root_id")
 	_comment.CntReplies = field.NewInt64(tableName, "cnt_replies")
 	_comment.Version = field.NewField(tableName, "version")
 
@@ -46,24 +47,24 @@ func newComment(db *gorm.DB, opts ...gen.DOOption) comment {
 	return _comment
 }
 
-// comment 评论主表
 type comment struct {
 	commentDo
 
 	ALL         field.Asterisk
-	CreatedAt   field.Time   // 创建时间
-	UpdatedAt   field.Time   // 更新时间
-	DeletedAt   field.Field  // 删除时间
-	CommentID   field.Int64  // 评论id
-	PublisherID field.Int64  // 评论发布者id
-	VideoID     field.Int64  // 评论所属视频ID
-	RootID      field.Int64  // 根评论id
-	ParentID    field.Int64  // 父评论ID，如果不存在父评论，则为-1
-	Content     field.String // 评论内容
-	CntUpvote   field.Uint64 // 评论获赞数
-	IPLocation  field.String // 评论者ip归属地
-	CntReplies  field.Int64  // 该评论下回复个数
-	Version     field.Field  //  版本号
+	CreatedAt   field.Time
+	UpdatedAt   field.Time
+	DeletedAt   field.Field
+	CommentID   field.Int64
+	PublisherID field.Int64
+	ParentID    field.Int64
+	VideoID     field.Int64
+	Content     field.String
+	CntUpvote   field.Uint64
+	Dislikes    field.Int64
+	IPLocation  field.String
+	RootID      field.Int64
+	CntReplies  field.Int64
+	Version     field.Field
 
 	fieldMap map[string]field.Expr
 }
@@ -85,12 +86,13 @@ func (c *comment) updateTableName(table string) *comment {
 	c.DeletedAt = field.NewField(table, "deleted_at")
 	c.CommentID = field.NewInt64(table, "comment_id")
 	c.PublisherID = field.NewInt64(table, "publisher_id")
-	c.VideoID = field.NewInt64(table, "video_id")
-	c.RootID = field.NewInt64(table, "root_id")
 	c.ParentID = field.NewInt64(table, "parent_id")
+	c.VideoID = field.NewInt64(table, "video_id")
 	c.Content = field.NewString(table, "content")
 	c.CntUpvote = field.NewUint64(table, "cnt_upvote")
+	c.Dislikes = field.NewInt64(table, "dislikes")
 	c.IPLocation = field.NewString(table, "ip_location")
+	c.RootID = field.NewInt64(table, "root_id")
 	c.CntReplies = field.NewInt64(table, "cnt_replies")
 	c.Version = field.NewField(table, "version")
 
@@ -109,18 +111,19 @@ func (c *comment) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (c *comment) fillFieldMap() {
-	c.fieldMap = make(map[string]field.Expr, 13)
+	c.fieldMap = make(map[string]field.Expr, 14)
 	c.fieldMap["created_at"] = c.CreatedAt
 	c.fieldMap["updated_at"] = c.UpdatedAt
 	c.fieldMap["deleted_at"] = c.DeletedAt
 	c.fieldMap["comment_id"] = c.CommentID
 	c.fieldMap["publisher_id"] = c.PublisherID
-	c.fieldMap["video_id"] = c.VideoID
-	c.fieldMap["root_id"] = c.RootID
 	c.fieldMap["parent_id"] = c.ParentID
+	c.fieldMap["video_id"] = c.VideoID
 	c.fieldMap["content"] = c.Content
 	c.fieldMap["cnt_upvote"] = c.CntUpvote
+	c.fieldMap["dislikes"] = c.Dislikes
 	c.fieldMap["ip_location"] = c.IPLocation
+	c.fieldMap["root_id"] = c.RootID
 	c.fieldMap["cnt_replies"] = c.CntReplies
 	c.fieldMap["version"] = c.Version
 }

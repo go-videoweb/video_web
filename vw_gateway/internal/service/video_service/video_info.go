@@ -2,11 +2,13 @@ package video
 
 import (
 	"context"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/go-kratos/kratos/v2/transport"
 	videoinfov1 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/biz/videobiz"
 	"vw_gateway/internal/domain"
+	"vw_gateway/internal/pkg/ecode/errdef"
+	"vw_gateway/internal/pkg/ecode/errdef/uerr"
 )
 
 type InfoService struct {
@@ -26,7 +28,7 @@ func NewVideoInfoService(videoInfo *videobiz.VideoInfoUsecase, logger log.Logger
 // 输入：ctx 的 user_id 为鉴权确认的 int64 用户 ID；req 提供视频 ID，不从请求参数接受用户身份。
 // 输出：成功时返回视频详情响应；下游获取失败时返回 nil 和原错误。
 // 身份缺失、类型不符或非正数时传入 user_id=0，由下游跳过个人互动状态和观看历史操作。
-// 当前网关响应仅映射视频详情，不透传下游的个人互动状态。
+// 个人状态仅向已验证的登录访问者返回，游客始终不返回下游个人状态。
 func (info *InfoService) GetVideoInfo(ctx context.Context, req *videoinfov1.GetVideoInfoReq) (*videoinfov1.GetVideoInfoResp, error) {
 	userId, ok := ctx.Value(userIdKey).(int64)
 	if !ok || userId <= 0 {
@@ -36,9 +38,64 @@ func (info *InfoService) GetVideoInfo(ctx context.Context, req *videoinfov1.GetV
 	if err != nil {
 		return nil, err
 	}
-	return &videoinfov1.GetVideoInfoResp{
+	resp := &videoinfov1.GetVideoInfoResp{
 		VideoDetail: domainToVideoMetaInfo(detail),
+	}
+	if state := detail.UserVideoStatus; userId > 0 && state != nil {
+		resp.UserVideoStatus = &videoinfov1.UserVideoStatus{
+			IsUpvoted: state.IsUpvoted, IsFavorited: state.IsFavorited,
+			IsShared: state.IsShared, IsThrownShells: state.IsThrownShells, FavoriteId: state.FavoriteId,
+			FavoriteRecordId: state.FavoriteRecordId,
+		}
+	}
+	return resp, nil
+}
+
+// GetVideoUploadStatus 使用鉴权身份查询投稿进度，要求 HTTP 客户端每次读取最新结果。
+func (info *InfoService) GetVideoUploadStatus(ctx context.Context, req *videoinfov1.GetVideoUploadStatusReq) (*videoinfov1.GetVideoUploadStatusResp, error) {
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	result, err := info.videoInfo.GetVideoUploadStatus(ctx, req.GetVideoId(), userId)
+	if err != nil {
+		return nil, err
+	}
+	if tr, ok := transport.FromServerContext(ctx); ok {
+		tr.ReplyHeader().Set("Cache-Control", "no-store")
+	}
+	return &videoinfov1.GetVideoUploadStatusResp{
+		Status: result.GetStatus(), UpdatedTime: result.GetUpdatedTime(), UploadErrorMsg: result.GetUploadErrorMsg(),
 	}, nil
+}
+
+// GetFavoriteVideos 使用鉴权身份读取收藏夹分页内容，身份缺失时不调用下游。
+// 摘要字段和收藏时间分别映射，保留视频发布时间；空页返回空数组和下游总数。
+func (info *InfoService) GetFavoriteVideos(ctx context.Context, req *videoinfov1.GetFavoriteVideosReq) (*videoinfov1.GetFavoriteVideosResp, error) {
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	result, err := info.videoInfo.GetFavoriteVideos(ctx, userId, req.FavoritesId, req.PageNum, req.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	resp := &videoinfov1.GetFavoriteVideosResp{
+		Total: result.Total, PageNum: result.PageNum, PageSize: result.PageSize,
+		Videos: make([]*videoinfov1.FavoriteVideoItem, len(result.Videos)),
+	}
+	for i, item := range result.Videos {
+		v := item.Video
+		resp.Videos[i] = &videoinfov1.FavoriteVideoItem{
+			CollectedAt: item.CollectedAt,
+			Video: &videoinfov1.VideoSummary{
+				VideoId: v.VideoId, Title: v.Title, Description: v.Description, Duration: v.Duration,
+				PublisherName: v.PublisherName, CoverPath: v.CoverPath, VideoPath: v.VideoPath,
+				CntBarrages: v.CntBarrages, CntViewed: v.CntViewed, CreatedTime: v.CreatedTime,
+			},
+		}
+	}
+	return resp, nil
 }
 
 func (info *InfoService) GetVideoList(ctx context.Context, req *videoinfov1.GetVideoListReq) (*videoinfov1.GetVideoListResp, error) {
@@ -55,8 +112,18 @@ func (info *InfoService) GetVideoList(ctx context.Context, req *videoinfov1.GetV
 	return ret, nil
 }
 
+// UploadVideoInfo 用鉴权身份创建或找回同名投稿，并返回视频 ID。
 func (info *InfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.UploadVideoInfoReq) (*videoinfov1.UploadVideoInfoResp, error) {
-	videoID, err := info.videoInfo.UploadVideoInfo(ctx, videoMetaInfoToDomain(req.VideoInfo))
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	if req.GetVideoInfo() == nil {
+		return nil, errdef.ErrVideoInfoRequired
+	}
+	detail := videoMetaInfoToDomain(req.GetVideoInfo())
+	detail.PublisherId = userId
+	videoID, err := info.videoInfo.UploadVideoInfo(ctx, detail)
 	if err != nil {
 		return nil, err
 	}
@@ -68,8 +135,13 @@ func (info *InfoService) UploadVideoInfo(ctx context.Context, req *videoinfov1.U
 		}}, nil
 }
 
+// UploadVideoCover 将鉴权身份和视频 ID 传给视频服务，由视频服务校验归属。
 func (info *InfoService) UploadVideoCover(ctx context.Context, req *videoinfov1.UploadVideoCoverReq) (*videoinfov1.UploadVideoCoverResp, error) {
-	err := info.videoInfo.UploadVideoCover(ctx, req.UserId, req.VideoId)
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	err := info.videoInfo.UploadVideoCover(ctx, userId, req.VideoId)
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +152,13 @@ func (info *InfoService) UploadVideoCover(ctx context.Context, req *videoinfov1.
 		}}, nil
 }
 
+// UploadVideoFile 将鉴权身份和视频 ID 传给视频服务，由视频服务校验上传条件。
 func (info *InfoService) UploadVideoFile(ctx context.Context, req *videoinfov1.UploadVideoFileReq) (*videoinfov1.UploadVideoFileResp, error) {
-	err := info.videoInfo.UploadVideoFile(ctx, req.UserId, req.VideoId)
+	userId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || userId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	err := info.videoInfo.UploadVideoFile(ctx, userId, req.VideoId)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +190,7 @@ func (info *InfoService) GetMpd(ctx context.Context, req *videoinfov1.ProvideMpd
 // 输出：分片文件响应；旧 segment_path 非空时返回参数错误，不调用下游。
 func (info *InfoService) GetSegments(ctx context.Context, req *videoinfov1.ProvideSegmentsReq) (*videoinfov1.FileResp, error) {
 	if req.SegmentPath != "" {
-		return nil, kerrors.BadRequest("SEGMENT_PATH_UNSUPPORTED", "use video_id and segment_name instead of segment_path")
+		return nil, errdef.ErrSegmentPathUnsupported
 	}
 	resp, err := info.videoInfo.GetSegment(ctx, req.VideoId, req.SegmentName)
 	if err != nil {

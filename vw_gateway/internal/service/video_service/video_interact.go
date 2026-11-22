@@ -3,9 +3,12 @@ package video
 import (
 	"context"
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/go-kratos/kratos/v2/transport"
 	"net/http"
 	interactv1 "vw_gateway/api/v1/video/video_interact"
 	"vw_gateway/internal/biz/videobiz"
+	"vw_gateway/internal/pkg/ecode/errdef"
+	"vw_gateway/internal/pkg/ecode/errdef/uerr"
 )
 
 type InteractService struct {
@@ -21,41 +24,41 @@ func NewInteractService(interactUsecase *videobiz.InteractUsecase, logger log.Lo
 	}
 }
 
+// VideoFavorite 仅从鉴权上下文提取身份并转交请求，不推断操作或查询用户视频状态。
 func (s *InteractService) VideoFavorite(ctx context.Context, req *interactv1.VideoFavoriteReq) (*interactv1.VideoFavoriteResp, error) {
-	curUserId := ctx.Value(userIdKey).(int64)
-	isFavorited, err := s.interactUsecase.Favorite(ctx, curUserId, req.VideoId, req.FavoriteId)
-	if err != nil {
-		return nil, err
+	curUserId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || curUserId <= 0 {
+		return nil, errdef.ErrInvalidUserIDUnauthorized
 	}
-
-	var msg string
-	// isFavorited is true means user has favorited this video before, so this is a cancel favorite request
-	if isFavorited {
-		msg = "取消收藏成功"
-	} else {
-		msg = "收藏成功"
-	}
-	return &interactv1.VideoFavoriteResp{
-		StatusCode: http.StatusOK,
-		Message:    msg,
-	}, nil
+	return s.interactUsecase.Favorite(ctx, curUserId, req)
 }
 
+// VideoUpvoteBarrage 使用鉴权身份及明确目标状态调用下游。
 func (s *InteractService) VideoUpvoteBarrage(ctx context.Context, req *interactv1.VideoUpvoteBarrageReq) (*interactv1.VideoUpvoteBarrageResp, error) {
-	curUserId := ctx.Value(userIdKey).(int64)
-	err := s.interactUsecase.UpvoteBarrage(ctx, curUserId, req.BarrageId)
+	userID, err := interactionUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &interactv1.VideoUpvoteBarrageResp{
-		StatusCode: http.StatusOK,
-		Message:    "点赞弹幕成功",
-	}, nil
+	if req.Liked == nil {
+		return nil, errdef.ErrInvalidBarrageLike
+	}
+	return s.interactUsecase.UpvoteBarrage(ctx, userID, req)
+}
 
+// GetBarrages 读取登录用户的分段弹幕，不改变现有游客访问策略。
+func (s *InteractService) GetBarrages(ctx context.Context, req *interactv1.GetBarragesReq) (*interactv1.GetBarragesResp, error) {
+	userID, err := interactionUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.interactUsecase.GetBarrages(ctx, userID, req)
 }
 
 func (s *InteractService) VideoSendBarrage(ctx context.Context, req *interactv1.VideoSendBarrageReq) (*interactv1.VideoSendBarrageResp, error) {
-	curUserId := ctx.Value(userIdKey).(int64)
+	curUserId, identityErr := interactionUserID(ctx)
+	if identityErr != nil {
+		return nil, identityErr
+	}
 	err := s.interactUsecase.SendBarrage(ctx, curUserId, req)
 	if err != nil {
 		return nil, err
@@ -66,11 +69,18 @@ func (s *InteractService) VideoSendBarrage(ctx context.Context, req *interactv1.
 	}, nil
 }
 
+// VideoShare 从鉴权上下文取得用户身份，记录分享后返回公开观看页链接。
 func (s *InteractService) VideoShare(ctx context.Context, req *interactv1.VideoShareReq) (*interactv1.VideoShareResp, error) {
-	curUserId := ctx.Value(userIdKey).(int64)
-	url, err := s.interactUsecase.Share(ctx, curUserId, req.VideoId)
+	curUserId, ok := ctx.Value(userIdKey).(int64)
+	if !ok || curUserId <= 0 {
+		return nil, uerr.ErrTokenInvalid
+	}
+	url, err := s.interactUsecase.Share(ctx, curUserId, req.GetVideoId())
 	if err != nil {
 		return nil, err
+	}
+	if tr, ok := transport.FromServerContext(ctx); ok {
+		tr.ReplyHeader().Set("Cache-Control", "no-store")
 	}
 	return &interactv1.VideoShareResp{
 		Url:        url,

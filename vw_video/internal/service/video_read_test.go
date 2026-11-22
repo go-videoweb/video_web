@@ -30,15 +30,20 @@ func (r *readRepo) GetVideoListByClass(_ context.Context, classes []string, page
 	}
 	return []*model.Video{r.row}, r.err
 }
-func (r *readRepo) GetVideoInfoById(context.Context, int64) (*model.Video, error) {
+func (r *readRepo) GetPublishedVideoByID(context.Context, int64) (*model.Video, error) {
 	return r.row, r.err
 }
 func (*readRepo) GetBarragesByVideoId(context.Context, int64) ([]*model.Barrage, error) {
 	return nil, nil
 }
 func (*readRepo) GetUserVideoStatus(context.Context, int64, int64) (int64, error) { return 0, nil }
-func (*readRepo) AddVideoCntView(context.Context, int64) error                    { return nil }
-func (*readRepo) UpdateUserVideoHistory(context.Context, int64, int64, *model.VideoSummary) error {
+func (*readRepo) GetUserFavorite(context.Context, int64, int64) (int64, int64, error) {
+	return 0, 0, nil
+}
+func (*readRepo) AddVideoCntView(context.Context, int64) error { return nil }
+
+// UpdateUserVideoHistory 为读取协议测试提供无副作用的历史写入替身。
+func (*readRepo) UpdateUserVideoHistory(context.Context, int64, int64) error {
 	return nil
 }
 

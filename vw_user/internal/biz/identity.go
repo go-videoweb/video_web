@@ -2,23 +2,16 @@ package biz
 
 import (
 	"context"
-	"errors"
-	"github.com/go-kratos/kratos/v2/log"
-	"github.com/redis/go-redis/v9"
-	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
-	"os"
-	"path/filepath"
-	"strconv"
 	"time"
 	"unicode/utf8"
 	"util/getid"
 	"util/helper"
-	"util/helper/file"
 	idv1 "vw_user/api/v1/identity"
 	"vw_user/internal/data/dal/model"
-	"vw_user/internal/data/dal/query"
 	"vw_user/internal/pkg/ecode/errdef"
+
+	"github.com/go-kratos/kratos/v2/log"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserIdentityRepo interface {
@@ -30,7 +23,6 @@ type UserIdentityRepo interface {
 }
 
 type RegisterInfo struct {
-	UserID         *int64
 	Username       string
 	Password       string
 	RepeatPassword string
@@ -39,7 +31,6 @@ type RegisterInfo struct {
 	Email          string
 	Signature      string
 	Birthday       time.Time
-	AvatarFilePath *string
 }
 
 type UserIdentityUsecase struct {
@@ -64,30 +55,8 @@ func (uc *UserIdentityUsecase) Register(ctx context.Context, registerInfo *Regis
 		return 0, false, err
 	}
 
-	// * set default avatar for user, if he/she don't upload avatar.
-	var avatarFilePath string
-	if registerInfo.AvatarFilePath == nil {
-		userDir := filepath.Join(resourcePath, strconv.FormatInt(*registerInfo.UserID, 10))
-		err = file.CreateDir(userDir, os.ModePerm)
-		if err != nil {
-			return 0, false, helper.HandleError(errdef.ErrCreateUserDirFailed, err)
-		}
-
-		defer func() {
-			/* this defer is used to remove the userbiz dir
-			if there is any error Behind this logic*/
-			if err != nil {
-				_ = os.RemoveAll(userDir)
-			}
-		}()
-
-		avatarFilePath = filepath.Join(userDir, defaultAvatarName)
-		err = file.WriteToNewFile(avatarFilePath, defaultAvatarPath)
-		if err != nil {
-			return 0, false, helper.HandleError(errdef.ErrCreateUserDirFailed, err)
-		}
-		newUser.AvatarPath = avatarFilePath
-	}
+	// 默认头像共用只读资源；首次更新时才为用户创建目录，不在注册时复制或接收头像。
+	newUser.AvatarPath = defaultAvatarPath
 
 	// create new user's records
 	// TODO: 将 CreatRecordsForRegister 逻辑进行拆分，并在这里组装成一个事务
@@ -120,29 +89,27 @@ func (uc *UserIdentityUsecase) Logout(ctx context.Context, userId string) error 
 }
 
 // handleRegisterInfo check the register information
-// create a new userbiz model and fill its dynamic fields (such as encrypted password, e.g.)
-// and return the userbiz model, if there is no error.
+// create a new user model and fill its dynamic fields (such as encrypted password, e.g.)
+// and return the user model, if there is no error.
 func (uc *UserIdentityUsecase) handleRegisterInfo(ctx context.Context, registerInfo *RegisterInfo) (*model.User, error) {
 	// check register info
-	userdo := query.User
-	count, err := userdo.Where(userdo.Username.Eq(registerInfo.Username)).Count()
+	email, err := helper.NormalizeEmail(registerInfo.Email)
 	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, helper.HandleError(errdef.INTERNAL_ERROR, err)
-		}
+		return nil, errdef.AccountValidationError(err)
 	}
-
-	verifyCode, err := uc.captcha.GetCodeFromCache(ctx, registerInfo.Email)
+	available, err := uc.infoRepo.CheckUsernameConflict(ctx, registerInfo.Username)
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			return nil, helper.HandleError(errdef.ErrVerifyCodeExpired)
-		} else {
-			return nil, helper.HandleError(errdef.INTERNAL_ERROR, err)
-		}
+		return nil, err
+	}
+	if err := uc.infoRepo.CheckEmailConflict(ctx, email, 0); err != nil {
+		return nil, err
+	}
+	if err := helper.ValidatePassword(registerInfo.Password); err != nil {
+		return nil, errdef.AccountValidationError(err)
 	}
 
 	switch {
-	case count > 0: //已有同名用户
+	case !available: //已有同名用户
 		return nil, errdef.ErrUserAlreadyExist
 	case len(registerInfo.Password) < 6: //密码长度小于6位
 		return nil, errdef.ErrPasswordTooShort
@@ -150,8 +117,9 @@ func (uc *UserIdentityUsecase) handleRegisterInfo(ctx context.Context, registerI
 		return nil, errdef.ErrPasswordNotMatch
 	case utf8.RuneCountInString(registerInfo.Signature) > 25:
 		return nil, errdef.ErrSignatureTooLong
-	case registerInfo.InputCode != verifyCode:
-		return nil, errdef.ErrVerifyCodeNotMatch
+	}
+	if err := uc.captcha.ConsumeCode(ctx, email, helper.EmailCodeRegister, registerInfo.InputCode); err != nil {
+		return nil, err
 	}
 
 	// encrypt password
@@ -160,18 +128,13 @@ func (uc *UserIdentityUsecase) handleRegisterInfo(ctx context.Context, registerI
 		return nil, errdef.ErrEncryptPasswordFailed
 	}
 
-	// create new userbiz model
-	// -> this `if` block checks if the userbiz upload avatar file while registering.
-	// -> if the userbiz upload avatar file, the UserID will be set by the client.
-	if *registerInfo.UserID <= 0 {
-		*registerInfo.UserID = getid.GetID()
-	}
+	// 用户 ID 只在注册业务中生成；头像更新只面向已经创建的用户。
 	newUser := &model.User{
-		UserID:    *registerInfo.UserID,
+		UserID:    getid.GetID(),
 		Username:  registerInfo.Username,
 		Password:  string(hashedPassword),
 		Gender:    int(registerInfo.Gender),
-		Email:     registerInfo.Email,
+		Email:     email,
 		Signature: registerInfo.Signature,
 		Birthday:  registerInfo.Birthday,
 	}

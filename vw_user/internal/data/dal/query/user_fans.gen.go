@@ -38,13 +38,12 @@ func newUserFan(db *gorm.DB, opts ...gen.DOOption) userFan {
 	return _userFan
 }
 
-// userFan 用户粉丝表
 type userFan struct {
 	userFanDo
 
 	ALL        field.Asterisk
-	UserID     field.Int64
-	FollowerID field.Int64
+	UserID     field.Int64 // 被关注的用户
+	FollowerID field.Int64 // 关注发起者
 	DeletedAt  field.Field
 	UpdatedAt  field.Time
 	CreatedAt  field.Time

@@ -19,9 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Follow_FollowUser_FullMethodName       = "/user.v1.follow.Follow/FollowUser"
-	Follow_UnfollowUser_FullMethodName     = "/user.v1.follow.Follow/UnfollowUser"
-	Follow_GetFolloweesInfo_FullMethodName = "/user.v1.follow.Follow/GetFolloweesInfo"
+	Follow_FollowUser_FullMethodName           = "/user.v1.follow.Follow/FollowUser"
+	Follow_UnfollowUser_FullMethodName         = "/user.v1.follow.Follow/UnfollowUser"
+	Follow_GetFolloweesInfo_FullMethodName     = "/user.v1.follow.Follow/GetFolloweesInfo"
+	Follow_CreateFollowList_FullMethodName     = "/user.v1.follow.Follow/CreateFollowList"
+	Follow_DeleteFollowLists_FullMethodName    = "/user.v1.follow.Follow/DeleteFollowLists"
+	Follow_GetFollowLists_FullMethodName       = "/user.v1.follow.Follow/GetFollowLists"
+	Follow_ModifyFollowList_FullMethodName     = "/user.v1.follow.Follow/ModifyFollowList"
+	Follow_SetDefaultFollowList_FullMethodName = "/user.v1.follow.Follow/SetDefaultFollowList"
+	Follow_GetFollowRelation_FullMethodName    = "/user.v1.follow.Follow/GetFollowRelation"
+	Follow_MoveFollowee_FullMethodName         = "/user.v1.follow.Follow/MoveFollowee"
 )
 
 // FollowClient is the client API for Follow service.
@@ -31,6 +38,13 @@ type FollowClient interface {
 	FollowUser(ctx context.Context, in *FollowUserReq, opts ...grpc.CallOption) (*FollowUserResp, error)
 	UnfollowUser(ctx context.Context, in *UnfollowUserReq, opts ...grpc.CallOption) (*UnfollowUserResp, error)
 	GetFolloweesInfo(ctx context.Context, in *GetFolloweesInfoReq, opts ...grpc.CallOption) (*GetFolloweesInfoResp, error)
+	CreateFollowList(ctx context.Context, in *CreateFollowListReq, opts ...grpc.CallOption) (*CreateFollowListResp, error)
+	DeleteFollowLists(ctx context.Context, in *DeleteFollowListsReq, opts ...grpc.CallOption) (*FollowListMutationResp, error)
+	GetFollowLists(ctx context.Context, in *GetFollowListsReq, opts ...grpc.CallOption) (*GetFollowListsResp, error)
+	ModifyFollowList(ctx context.Context, in *ModifyFollowListReq, opts ...grpc.CallOption) (*FollowListMutationResp, error)
+	SetDefaultFollowList(ctx context.Context, in *SetDefaultFollowListReq, opts ...grpc.CallOption) (*FollowListMutationResp, error)
+	GetFollowRelation(ctx context.Context, in *GetFollowRelationReq, opts ...grpc.CallOption) (*GetFollowRelationResp, error)
+	MoveFollowee(ctx context.Context, in *MoveFolloweeReq, opts ...grpc.CallOption) (*FollowListMutationResp, error)
 }
 
 type followClient struct {
@@ -71,6 +85,76 @@ func (c *followClient) GetFolloweesInfo(ctx context.Context, in *GetFolloweesInf
 	return out, nil
 }
 
+func (c *followClient) CreateFollowList(ctx context.Context, in *CreateFollowListReq, opts ...grpc.CallOption) (*CreateFollowListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateFollowListResp)
+	err := c.cc.Invoke(ctx, Follow_CreateFollowList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *followClient) DeleteFollowLists(ctx context.Context, in *DeleteFollowListsReq, opts ...grpc.CallOption) (*FollowListMutationResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FollowListMutationResp)
+	err := c.cc.Invoke(ctx, Follow_DeleteFollowLists_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *followClient) GetFollowLists(ctx context.Context, in *GetFollowListsReq, opts ...grpc.CallOption) (*GetFollowListsResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFollowListsResp)
+	err := c.cc.Invoke(ctx, Follow_GetFollowLists_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *followClient) ModifyFollowList(ctx context.Context, in *ModifyFollowListReq, opts ...grpc.CallOption) (*FollowListMutationResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FollowListMutationResp)
+	err := c.cc.Invoke(ctx, Follow_ModifyFollowList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *followClient) SetDefaultFollowList(ctx context.Context, in *SetDefaultFollowListReq, opts ...grpc.CallOption) (*FollowListMutationResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FollowListMutationResp)
+	err := c.cc.Invoke(ctx, Follow_SetDefaultFollowList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *followClient) GetFollowRelation(ctx context.Context, in *GetFollowRelationReq, opts ...grpc.CallOption) (*GetFollowRelationResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFollowRelationResp)
+	err := c.cc.Invoke(ctx, Follow_GetFollowRelation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *followClient) MoveFollowee(ctx context.Context, in *MoveFolloweeReq, opts ...grpc.CallOption) (*FollowListMutationResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FollowListMutationResp)
+	err := c.cc.Invoke(ctx, Follow_MoveFollowee_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FollowServer is the server API for Follow service.
 // All implementations must embed UnimplementedFollowServer
 // for forward compatibility.
@@ -78,6 +162,13 @@ type FollowServer interface {
 	FollowUser(context.Context, *FollowUserReq) (*FollowUserResp, error)
 	UnfollowUser(context.Context, *UnfollowUserReq) (*UnfollowUserResp, error)
 	GetFolloweesInfo(context.Context, *GetFolloweesInfoReq) (*GetFolloweesInfoResp, error)
+	CreateFollowList(context.Context, *CreateFollowListReq) (*CreateFollowListResp, error)
+	DeleteFollowLists(context.Context, *DeleteFollowListsReq) (*FollowListMutationResp, error)
+	GetFollowLists(context.Context, *GetFollowListsReq) (*GetFollowListsResp, error)
+	ModifyFollowList(context.Context, *ModifyFollowListReq) (*FollowListMutationResp, error)
+	SetDefaultFollowList(context.Context, *SetDefaultFollowListReq) (*FollowListMutationResp, error)
+	GetFollowRelation(context.Context, *GetFollowRelationReq) (*GetFollowRelationResp, error)
+	MoveFollowee(context.Context, *MoveFolloweeReq) (*FollowListMutationResp, error)
 	mustEmbedUnimplementedFollowServer()
 }
 
@@ -96,6 +187,27 @@ func (UnimplementedFollowServer) UnfollowUser(context.Context, *UnfollowUserReq)
 }
 func (UnimplementedFollowServer) GetFolloweesInfo(context.Context, *GetFolloweesInfoReq) (*GetFolloweesInfoResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetFolloweesInfo not implemented")
+}
+func (UnimplementedFollowServer) CreateFollowList(context.Context, *CreateFollowListReq) (*CreateFollowListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateFollowList not implemented")
+}
+func (UnimplementedFollowServer) DeleteFollowLists(context.Context, *DeleteFollowListsReq) (*FollowListMutationResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteFollowLists not implemented")
+}
+func (UnimplementedFollowServer) GetFollowLists(context.Context, *GetFollowListsReq) (*GetFollowListsResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFollowLists not implemented")
+}
+func (UnimplementedFollowServer) ModifyFollowList(context.Context, *ModifyFollowListReq) (*FollowListMutationResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ModifyFollowList not implemented")
+}
+func (UnimplementedFollowServer) SetDefaultFollowList(context.Context, *SetDefaultFollowListReq) (*FollowListMutationResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetDefaultFollowList not implemented")
+}
+func (UnimplementedFollowServer) GetFollowRelation(context.Context, *GetFollowRelationReq) (*GetFollowRelationResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFollowRelation not implemented")
+}
+func (UnimplementedFollowServer) MoveFollowee(context.Context, *MoveFolloweeReq) (*FollowListMutationResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MoveFollowee not implemented")
 }
 func (UnimplementedFollowServer) mustEmbedUnimplementedFollowServer() {}
 func (UnimplementedFollowServer) testEmbeddedByValue()                {}
@@ -172,6 +284,132 @@ func _Follow_GetFolloweesInfo_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Follow_CreateFollowList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateFollowListReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FollowServer).CreateFollowList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Follow_CreateFollowList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FollowServer).CreateFollowList(ctx, req.(*CreateFollowListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Follow_DeleteFollowLists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFollowListsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FollowServer).DeleteFollowLists(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Follow_DeleteFollowLists_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FollowServer).DeleteFollowLists(ctx, req.(*DeleteFollowListsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Follow_GetFollowLists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFollowListsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FollowServer).GetFollowLists(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Follow_GetFollowLists_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FollowServer).GetFollowLists(ctx, req.(*GetFollowListsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Follow_ModifyFollowList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ModifyFollowListReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FollowServer).ModifyFollowList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Follow_ModifyFollowList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FollowServer).ModifyFollowList(ctx, req.(*ModifyFollowListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Follow_SetDefaultFollowList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetDefaultFollowListReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FollowServer).SetDefaultFollowList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Follow_SetDefaultFollowList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FollowServer).SetDefaultFollowList(ctx, req.(*SetDefaultFollowListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Follow_GetFollowRelation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFollowRelationReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FollowServer).GetFollowRelation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Follow_GetFollowRelation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FollowServer).GetFollowRelation(ctx, req.(*GetFollowRelationReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Follow_MoveFollowee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MoveFolloweeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FollowServer).MoveFollowee(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Follow_MoveFollowee_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FollowServer).MoveFollowee(ctx, req.(*MoveFolloweeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Follow_ServiceDesc is the grpc.ServiceDesc for Follow service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +428,34 @@ var Follow_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetFolloweesInfo",
 			Handler:    _Follow_GetFolloweesInfo_Handler,
+		},
+		{
+			MethodName: "CreateFollowList",
+			Handler:    _Follow_CreateFollowList_Handler,
+		},
+		{
+			MethodName: "DeleteFollowLists",
+			Handler:    _Follow_DeleteFollowLists_Handler,
+		},
+		{
+			MethodName: "GetFollowLists",
+			Handler:    _Follow_GetFollowLists_Handler,
+		},
+		{
+			MethodName: "ModifyFollowList",
+			Handler:    _Follow_ModifyFollowList_Handler,
+		},
+		{
+			MethodName: "SetDefaultFollowList",
+			Handler:    _Follow_SetDefaultFollowList_Handler,
+		},
+		{
+			MethodName: "GetFollowRelation",
+			Handler:    _Follow_GetFollowRelation_Handler,
+		},
+		{
+			MethodName: "MoveFollowee",
+			Handler:    _Follow_MoveFollowee_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

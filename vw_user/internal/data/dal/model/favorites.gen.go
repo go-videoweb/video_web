@@ -4,15 +4,21 @@
 
 package model
 
+import (
+	"time"
+)
+
 const TableNameFavorite = "favorites"
 
-// Favorite 用户收藏夹表
+// Favorite mapped from table <favorites>
 type Favorite struct {
-	FavoritesID   int64  `gorm:"column:favorites_id;type:bigint unsigned;primaryKey" json:"favorites_id"`
-	UserID        int64  `gorm:"column:user_id;type:bigint unsigned;not null;uniqueIndex:favorites_user_id_favorites_name_uindex,priority:1" json:"user_id"`
-	FavoritesName string `gorm:"column:favorites_name;type:varchar(50);not null;uniqueIndex:favorites_user_id_favorites_name_uindex,priority:2" json:"favorites_name"`
-	Description   string `gorm:"column:description;type:text" json:"description"`
-	IsPrivate     int64  `gorm:"column:is_private;type:int;default:1;comment:表示该收藏夹是否私密，1表示公开，-1表示私密" json:"is_private"` // 表示该收藏夹是否私密，1表示公开，-1表示私密
+	CreatedAt     time.Time `gorm:"column:created_at;type:datetime(3)" json:"created_at"`
+	UpdatedAt     time.Time `gorm:"column:updated_at;type:datetime(3)" json:"updated_at"`
+	FavoritesID   int64     `gorm:"column:favorites_id;type:bigint;primaryKey;autoIncrement:true" json:"favorites_id"`
+	UserID        int64     `gorm:"column:user_id;type:bigint;not null;uniqueIndex:favorites_user_id_favorites_name_uindex,priority:1;index:idx_uid,priority:1" json:"user_id"`
+	FavoritesName string    `gorm:"column:favorites_name;type:varchar(50);not null;uniqueIndex:favorites_user_id_favorites_name_uindex,priority:2" json:"favorites_name"`
+	Description   string    `gorm:"column:description;type:text" json:"description"`
+	IsPrivate     int64     `gorm:"column:is_private;type:tinyint;not null;default:1" json:"is_private"`
 }
 
 // TableName Favorite's table name

@@ -34,9 +34,10 @@ message GetImageCaptchaResp {
 
 message GetCodeCaptchaReq {
     string email = 1;  // user email
+    // 必填：register、change_email 或 reset_password。
+    string purpose = 2;
 }
 message GetCodeCaptchaResp {
     int32 status_code = 1;
     string msg        = 2;
-    string code       = 3;
 }

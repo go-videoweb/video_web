@@ -6,12 +6,12 @@ package model
 
 const TableNameUserLevel = "user_level"
 
-// UserLevel mapped from table <user_level>
+// UserLevel 用户等级表
 type UserLevel struct {
-	UserID  int64  `gorm:"column:user_id;type:bigint unsigned;primaryKey" json:"user_id"`
-	NextExp uint32 `gorm:"column:next_exp;type:int unsigned;not null;default:50;comment:升级到下一级所需总经验" json:"next_exp"` // 升级到下一级所需总经验
-	Exp     uint32 `gorm:"column:exp;type:int unsigned;comment:当前已获得的经验值" json:"exp"`                                 // 当前已获得的经验值
 	Level   uint32 `gorm:"column:level;type:int unsigned;not null" json:"level"`
+	Exp     uint32 `gorm:"column:exp;type:int unsigned;not null" json:"exp"`
+	NextExp uint32 `gorm:"column:next_exp;type:int unsigned;not null;default:50" json:"next_exp"`
+	UserID  int64  `gorm:"column:user_id;type:bigint;primaryKey" json:"user_id"`
 }
 
 func (level *UserLevel) AddExp(exp uint32) {

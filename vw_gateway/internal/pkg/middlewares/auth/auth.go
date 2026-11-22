@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	kerr "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/middleware"
@@ -119,8 +121,14 @@ func (t *RefreshTokenClaims) getTokenString(secret string) (tokenString string, 
 // 输出：成功时返回两个 token 和 nil；任一签发失败时返回两个空字符串和错误。
 // 本函数不验证用户身份，也不写入登录态缓存，由调用方完成身份确认和缓存操作。
 func (jwtAuthorizer *JWTAuth) CreateToken(userID int64, username string, isAdmin bool) (accessToken, refreshToken string, err error) {
+	// 同秒重新登录也必须获得不同会话凭据，避免新缓存使改密前的旧 token 再次有效。
+	var sessionID [16]byte
+	if _, err := rand.Read(sessionID[:]); err != nil {
+		return "", "", uerr.ErrCreateTokenFailed
+	}
 	atokenClaims := NewAccessTokenClaims()
 	atokenClaims.padding(userID, username, isAdmin, jwtAuthorizer.AccessExpireTime)
+	atokenClaims.ID = hex.EncodeToString(sessionID[:])
 	accessToken, err = atokenClaims.getTokenString(jwtAuthorizer.Secret)
 	if err != nil {
 		return "", "", helper.HandleError(uerr.ErrCreateTokenFailed, err)
@@ -128,6 +136,7 @@ func (jwtAuthorizer *JWTAuth) CreateToken(userID int64, username string, isAdmin
 
 	rtokenClaims := NewRefreshTokenClaims()
 	rtokenClaims.padding(jwtAuthorizer.RefreshExpireTime)
+	rtokenClaims.ID = atokenClaims.ID
 	refreshToken, err = rtokenClaims.getTokenString(jwtAuthorizer.Secret)
 	if err != nil {
 		return "", "", helper.HandleError(uerr.ErrCreateTokenFailed, err)

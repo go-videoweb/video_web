@@ -55,7 +55,10 @@ func (info *UserInfoService) ModifyEmail(ctx context.Context, req *infov1.Modify
 }
 
 func (info *UserInfoService) ModifyPassword(ctx context.Context, req *infov1.ModifyPasswordReq) (*emptypb.Empty, error) {
-	return nil, info.info.ModifyPassword(ctx, req.UserId, req.OldPassword, req.NewPassword)
+	if err := info.info.ModifyPassword(ctx, req.UserId, req.OldPassword, req.NewPassword); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
 func (info *UserInfoService) ModifyUserSignature(ctx context.Context, req *infov1.ModifySignatureReq) (*infov1.ModifySignatureResp, error) {
@@ -70,7 +73,10 @@ func (info *UserInfoService) ModifyUserSignature(ctx context.Context, req *infov
 }
 
 func (info *UserInfoService) ForgetPassword(ctx context.Context, req *infov1.ForgetPasswordReq) (*emptypb.Empty, error) {
-	return nil, info.info.ForgetPassword(ctx, req.UserId, req.Email, req.InputCode, req.NewPassword)
+	if err := info.info.ForgetPassword(ctx, req.Email, req.InputCode, req.NewPassword); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
 func (info *UserInfoService) ModifyUsername(ctx context.Context, req *infov1.ModifyUsernameReq) (*infov1.ModifyUsernameResp, error) {

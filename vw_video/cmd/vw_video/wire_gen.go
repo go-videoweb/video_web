@@ -26,10 +26,10 @@ import (
 func wireApp(confServer *conf.Server, confData *conf.Data, registry *conf.Registry, confService *conf.Service, logger log.Logger) (*kratos.App, func(), error) {
 	db := data.NewMySQL(confData)
 	clusterClient := data.NewRedisClusterClient(confData)
-	mongoDB := data.NewMongo(confData)
 	discovery := data.NewDiscovery(registry)
 	userinfoClient := data.NewUserinfoClient(discovery, confService)
-	dataData, cleanup, err := data.NewData(db, clusterClient, mongoDB, userinfoClient, logger)
+	favoriteClient := data.NewFavoriteClient(discovery, confService)
+	dataData, cleanup, err := data.NewData(db, clusterClient, userinfoClient, favoriteClient, logger)
 	if err != nil {
 		return nil, nil, err
 	}

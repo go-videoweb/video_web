@@ -7,6 +7,7 @@ import (
 	"util/resolver"
 	interactv1 "vw_gateway/api/v1/video/video_interact"
 	"vw_gateway/internal/biz/videobiz"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	userinfoGRPC "vw_user/api/v1/userinfo"
 	interactGRPC "vw_video/api/v1/interact"
 	videoinfoGRPC "vw_video/api/v1/videoinfo"
@@ -24,53 +25,19 @@ func NewInteractRepo(data *Data, logger log.Logger) videobiz.InteractRepo {
 	}
 }
 
-func (i *interactRepo) FavoriteVideo(ctx context.Context, userId, favoriteId, videoId int64) (bool, error) {
-	// 1. Get the current status of the user-video
-	origin, err := i.data.videoInteractClient.GetUserVideoStatus(ctx, &interactGRPC.GetUserVideoStatusReq{
-		VideoId: videoId,
-		UserId:  userId,
+// FavoriteVideo 通过一次视频 RPC 转发收藏操作，不调用用户服务、不读取状态、不提交 Saga。
+// 输入：鉴权身份及 HTTP 请求；输出：视频服务提交后的结果，RPC 失败原样返回。
+func (i *interactRepo) FavoriteVideo(ctx context.Context, userId int64, req *interactv1.VideoFavoriteReq) (*interactv1.VideoFavoriteResp, error) {
+	resp, err := i.data.videoInteractClient.SetVideoFavorite(ctx, &interactGRPC.SetVideoFavoriteReq{
+		UserId: userId, VideoId: req.GetVideoId(), FavoriteId: req.GetFavoriteId(), Favorite: req.GetFavorite(), FavoriteRecordId: req.GetFavoriteRecordId(),
 	})
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-
-	gid, saga := newSaga(ctx, i.data.dtmServerAddr)
-	i.logger.Infof("[FavoriteVideo] gid: %s", gid)
-
-	// 2. Get the address of the video service. format --> ip:port
-	addr, err := resolver.GetRandomAddr(ctx, videoService)
-	if err != nil {
-		return false, err
+	if resp == nil {
+		return nil, errdef.WithMessage(errdef.ErrInvalidVideoResponse, "视频服务未返回收藏结果")
 	}
-
-	// 3.1 Add the first step of the saga, which is to favorite the video
-	isFavorited := checkIsFavorited(origin.Status)
-	wrapSagaAdd(
-		saga,
-		&sagaMember{
-			method:           addr + interactGRPC.VideoInteract_VideoFavorite_FullMethodName,
-			compensateMethod: addr + interactGRPC.VideoInteract_VideoFavoriteRevert_FullMethodName,
-			payload: &interactGRPC.VideoFavoriteReq{
-				VideoId:    videoId,
-				FavoriteId: favoriteId,
-				Favorite:   -isFavorited,
-			},
-		},
-		// 3.2 Update User-Video status
-		&sagaMember{
-			addr + interactGRPC.VideoInteract_SetUserVideoStatus_FullMethodName,
-			addr + interactGRPC.VideoInteract_SetUserVideoStatusRevert_FullMethodName,
-			&interactGRPC.SetUserVideoStatusReq{
-				VideoId:      videoId,
-				UserId:       userId,
-				OriginStatus: origin.Status,
-				Statuses: &interactGRPC.SetUserVideoStatusReq_Statuses{
-					IsFavorited: -isFavorited,
-				},
-			},
-		},
-	)
-	return isFavorited == 1, saga.Submit()
+	return &interactv1.VideoFavoriteResp{StatusCode: 200, Message: resp.Message, IsFavorited: resp.IsFavorited, FavoriteId: resp.FavoriteId, FavoriteRecordId: resp.FavoriteRecordId}, nil
 }
 
 func (i *interactRepo) UpvoteVideo(ctx context.Context, userId int64, videoId int64) (bool, error) {
@@ -139,131 +106,40 @@ func (i *interactRepo) UpvoteVideo(ctx context.Context, userId int64, videoId in
 	return isUpvoted == 1, saga.Submit()
 }
 
-func (i *interactRepo) UpvoteBarrage(ctx context.Context, userId int64, barrageId int64) error {
-	origin, err := i.data.videoInteractClient.GetUserBarrageStatus(ctx, &interactGRPC.GetUserBarrageStatusReq{
-		UserId:    userId,
-		BarrageId: barrageId,
-	})
+// UpvoteBarrage 单次调用视频本地事务，网关不维护点赞关系或计数。
+func (i *interactRepo) UpvoteBarrage(ctx context.Context, userId int64, req *interactv1.VideoUpvoteBarrageReq) (*interactv1.VideoUpvoteBarrageResp, error) {
+	resp, err := i.data.videoInteractClient.SetBarrageLike(ctx, &interactGRPC.SetBarrageLikeReq{UserId: userId, VideoId: req.VideoId, BarrageId: req.BarrageId, Liked: req.Liked})
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	videoAddr, err := resolver.GetRandomAddr(ctx, videoService)
-	if err != nil {
-		return err
+	if resp == nil {
+		return nil, errdef.WithMessage(errdef.ErrInvalidVideoResponse, "视频服务未返回点赞结果")
 	}
-
-	gid, saga := newSaga(ctx, i.data.dtmServerAddr)
-	i.logger.Infof("[UpvoteBarrage] gid: %s", gid)
-
-	isUpvoted := checkIsUpvoted(origin.Status)
-	wrapSagaAdd(
-		saga,
-		// 1. Add the first step of the saga, which is to upvote the video
-		&sagaMember{
-			method:           videoAddr + interactGRPC.VideoInteract_BarrageUpvote_FullMethodName,
-			compensateMethod: videoAddr + interactGRPC.VideoInteract_BarrageUpvoteRevert_FullMethodName,
-			payload: &interactGRPC.UpvoteBarrageReq{
-				BarrageId: barrageId,
-				UserId:    userId,
-				Upvote:    -isUpvoted, // reverse the status of Upvoted
-			},
-		},
-
-		// 2. Add the second step of the saga, which is to update the user-barrage status
-		&sagaMember{
-			method:           videoAddr + interactGRPC.VideoInteract_SetUserBarrageStatus_FullMethodName,
-			compensateMethod: videoAddr + interactGRPC.VideoInteract_SetUserBarrageStatusRevert_FullMethodName,
-			payload: &interactGRPC.SetUserBarrageStatusReq{
-				UserId:       userId,
-				BarrageId:    barrageId,
-				OriginStatus: origin.Status,
-				Statuses: &interactGRPC.SetUserBarrageStatusReq_Statuses{
-					IsUpvoted: -isUpvoted, // reverse the status of Upvoted
-				},
-			},
-		},
-	)
-	return saga.Submit()
+	return &interactv1.VideoUpvoteBarrageResp{StatusCode: 200, Message: "操作成功", IsUpvoted: resp.IsUpvoted, UpvoteCount: resp.UpvoteCount}, nil
 }
 
 func (i *interactRepo) SendBarrage(ctx context.Context, userId int64, req *interactv1.VideoSendBarrageReq) error {
 	_, err := i.data.videoInteractClient.VideoSendBarrage(ctx, &interactGRPC.VideoSendBarrageReq{
-		PublisherId: userId,
-		VideoId:     req.VideoId,
-		Content:     req.Content,
-		Time:        req.Time,
-		Color:       req.Color,
+		PublisherId:    userId,
+		VideoId:        req.VideoId,
+		Content:        req.Content,
+		PositionSecond: req.PositionSecond,
+		Color:          req.Color,
 	})
 	return err
 }
 
-func (i *interactRepo) ShareVideo(ctx context.Context, userId int64, videoId int64) (string, error) {
-	// 1. Get the current status of the user-video
-	origin, err := i.data.videoInteractClient.GetUserVideoStatus(ctx, &interactGRPC.GetUserVideoStatusReq{
-		VideoId: videoId,
-		UserId:  userId,
+// RecordVideoShare 将可信身份和视频 ID 交给视频服务，等待分享事务提交。
+func (i *interactRepo) RecordVideoShare(ctx context.Context, userId, videoId int64) error {
+	_, err := i.data.videoInteractClient.RecordVideoShare(ctx, &interactGRPC.RecordVideoShareReq{
+		UserId: userId, VideoId: videoId,
 	})
-	if err != nil {
-		return "", err
-	}
-
-	videoAddr, err := resolver.GetRandomAddr(ctx, videoService)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := i.data.videoInteractClient.VideoShare(ctx, &interactGRPC.VideoShareReq{
-		VideoId:  videoId,
-		IsShared: checkIsShared(origin.Status),
-	})
-	if err != nil {
-		return "", err
-	}
-	uri := resp.Uri
-
-	// TODO: 目前先写死返回的url，后续需要改成根据实际情况返回
-	url := "http://127.0.0.1:8080" + uri
-
-	isShared := checkIsShared(origin.Status)
-
-	// If isShared == -1, it means the video is not shared by this user before,
-	// so we need to add the saga to update the hot count and set the user-video status
-	if isShared == -1 {
-		gid, saga := newSaga(ctx, i.data.dtmServerAddr)
-		i.logger.Infof("[ShareVideo] gid: %s", gid)
-		wrapSagaAdd(
-			saga,
-			&sagaMember{
-				videoAddr + videoinfoGRPC.VideoInfo_AddVideoCntShared_FullMethodName,
-				videoAddr + videoinfoGRPC.VideoInfo_AddVideoCntSharedRevert_FullMethodName,
-				&videoinfoGRPC.AddVideoCntSharedReq{
-					VideoId:        videoId,
-					IsCompensation: false,
-				},
-			},
-			&sagaMember{
-				videoAddr + interactGRPC.VideoInteract_SetUserVideoStatus_FullMethodName,
-				videoAddr + interactGRPC.VideoInteract_SetUserVideoStatusRevert_FullMethodName,
-				&interactGRPC.SetUserVideoStatusReq{
-					UserId:       userId,
-					VideoId:      videoId,
-					OriginStatus: origin.Status,
-					Statuses: &interactGRPC.SetUserVideoStatusReq_Statuses{
-						IsShared: -isShared, // reverse the status of Shared
-					},
-				},
-			},
-		)
-		err = saga.Submit()
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return url, nil
+	return err
 }
 
+// ThrowShells 读取原个人状态后编排用户余额、视频计数和个人状态的 Saga。
+// 输入：用户/视频 ID 和本次投递数量；输出：查询、发现或 Saga 执行错误，累计数量超过 2 时拒绝。
+// 状态分支携带变更前数量供补偿使用；此方法不会直接写数据库，也不保证跨 GID 的并发串行化。
 func (i *interactRepo) ThrowShells(ctx context.Context, userId int64, videoId int64, count int32) error {
 	origin, err := i.data.videoInteractClient.GetUserVideoStatus(ctx, &interactGRPC.GetUserVideoStatusReq{
 		VideoId: videoId,
@@ -326,10 +202,11 @@ func (i *interactRepo) ThrowShells(ctx context.Context, userId int64, videoId in
 			method:           videoAddr + interactGRPC.VideoInteract_SetUserVideoStatus_FullMethodName,
 			compensateMethod: videoAddr + interactGRPC.VideoInteract_SetUserVideoStatusRevert_FullMethodName,
 			payload: &interactGRPC.SetUserVideoStatusReq{
-				VideoId:      videoId,
-				UserId:       userId,
-				OriginStatus: origin.Status,
-				ShellsCount:  origin.ShellsCount + count,
+				VideoId:           videoId,
+				UserId:            userId,
+				OriginStatus:      origin.Status,
+				ShellsCount:       origin.ShellsCount + count,
+				OriginShellsCount: origin.ShellsCount,
 				Statuses: &interactGRPC.SetUserVideoStatusReq_Statuses{
 					IsThrownShells: 1,
 				},

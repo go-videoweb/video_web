@@ -14,7 +14,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 	video "vw_video/api/v1/videoinfo"
+	"vw_video/internal/data/dal/model"
+	"vw_video/internal/pkg/ecode/errdef"
 )
 
 type dashRepo struct {
@@ -27,16 +30,11 @@ type dashRepo struct {
 	videoFile string
 }
 
-func (r *dashRepo) GetPublisherIdByVideoId(ctx context.Context, id int64) (int64, error) {
+// GetPublishedVideoByID 返回测试指定的视频或公开读取错误。
+func (r *dashRepo) GetPublishedVideoByID(ctx context.Context, id int64) (*model.Video, error) {
 	r.ctx, r.videoID = ctx, id
 	r.calls++
-	return r.publisher, r.err
-}
-
-func (r *dashRepo) GetVideoFilePathById(ctx context.Context, id int64) (string, error) {
-	r.ctx, r.videoID = ctx, id
-	r.calls++
-	return r.videoFile, r.err
+	return &model.Video{VideoID: id, PublisherID: r.publisher, VideoPath: r.videoFile}, r.err
 }
 
 type dashStream[T any] struct {
@@ -124,6 +122,36 @@ func TestDASHDownloads(t *testing.T) {
 	}
 	if repo.ctx != ctx || repo.videoID != 42 || repo.calls != 5 {
 		t.Fatal("request context or video ID not propagated")
+	}
+}
+
+// TestUnpublishedVideoCannotBeRead 验证尚未公开的视频即使已有资源文件，也不会返回详情或媒体流。
+func TestUnpublishedVideoCannotBeRead(t *testing.T) {
+	_, repo := newDASHFixture(t)
+	repo.err = gorm.ErrRecordNotFound
+	uc := NewVideoInfoUsecase(repo, optionalViewerTransaction{}, log.NewStdLogger(io.Discard))
+	ctx := context.Background()
+	detail, detailErr := uc.GetVideoInfoById(ctx, 42, 7)
+	if !errors.Is(detailErr, errdef.ErrPublishedVideoNotFound) || detail != nil {
+		t.Fatalf("未发布视频返回了详情：%v, %v", detail, detailErr)
+	}
+
+	mpd := &dashStream[video.GetVideoMpdResp]{ctx: ctx}
+	segment := &dashStream[video.GetVideoSegmentResp]{ctx: ctx}
+	cover := &dashStream[video.GetVideoCoverResp]{ctx: ctx}
+	original := &dashStream[video.GetVideoFileResp]{ctx: ctx}
+	for _, err := range []error{
+		uc.GetVideoMpd(42, mpd),
+		uc.GetVideoSegment(42, "init-stream0.m4s", segment),
+		uc.GetVideoCover(42, cover),
+		uc.GetVideoFile(42, original),
+	} {
+		if !errors.Is(err, errdef.ErrPublishedVideoNotFound) {
+			t.Fatalf("资源读取返回意外错误：%v", err)
+		}
+	}
+	if len(mpd.messages)+len(segment.messages)+len(cover.messages)+len(original.messages) != 0 {
+		t.Fatal("未发布视频发送了媒体内容")
 	}
 }
 

@@ -3,33 +3,41 @@ syntax = "proto3";
 package gateway.api.v1.user.file;
 
 import "google/api/annotations.proto";
-import "google/protobuf/empty.proto";
 
 option go_package = "vw_gateway/api/v1/user/userfile;filev1";
 
 service FileService {
-    rpc UploadAvatar(google.protobuf.Empty) returns (UploadAvatarResp) {
+    // 头像公开读取，响应编码器直接输出图片二进制，不返回服务器文件路径。
+    rpc GetAvatar(GetAvatarReq) returns (AvatarResp) {
         option (google.api.http) = {
-            post: "/api/v1/user/profile/avatar"
-            body: "*"
+            get: "/api/v1/users/{user_id}/avatar"
         };
     }
     rpc UpdateAvatar(UpdateAvatarReq) returns (UpdateAvatarResp) {
         option (google.api.http) = {
-            put: "/api/v1/{user_id}/profile/avatar"
+            put: "/api/v1/user/profile/avatar"
             body: "*"
         };
     }
 }
 
-message UploadAvatarResp {
-    string file_path = 1;
-}
-
-message UpdateAvatarReq {
+message GetAvatarReq {
+    // 需要查看头像的用户 ID，不是当前登录身份。
     int64 user_id = 1;
 }
+
+// AvatarResp 仅供网关编码器传递头像，HTTP 不会将此消息编码为 JSON。
+message AvatarResp {
+    // 完整头像文件内容，最大 5 MiB。
+    bytes content = 1;
+    // 从图片实际内容识别的 MIME 类型。
+    string content_type = 2;
+}
+// 更新目标只取鉴权 context；multipart 文件字段名为 avatar。
+message UpdateAvatarReq {}
 message UpdateAvatarResp {
     int32 status_code = 1;
     string message    = 2;
+    // 浏览器可访问的 API 相对地址，不是磁盘路径。
+    string avatar_url = 3;
 }

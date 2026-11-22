@@ -112,8 +112,19 @@ func assertMissingToken(t *testing.T, recorder *httptest.ResponseRecorder) {
 		Code   int32  `json:"code"`
 		Reason string `json:"reason"`
 	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil || body.Code != uerr.ErrTokenMissing.Code || body.Reason != uerr.ErrTokenMissing.Reason {
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); recorder.Code != http.StatusOK || err != nil || body.Code != uerr.ErrTokenMissing.Code || body.Reason != uerr.ErrTokenMissing.Reason {
 		t.Fatalf("protected route did not reject missing credentials: %s", recorder.Body.String())
+	}
+}
+
+// assertHTTPErrorCode 分别校验 API 的 HTTP 状态和响应体中的错误码。
+func assertHTTPErrorCode(t *testing.T, recorder *httptest.ResponseRecorder, wantCode int) {
+	t.Helper()
+	var body struct {
+		Code int `json:"code"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); recorder.Code != http.StatusOK || err != nil || body.Code != wantCode {
+		t.Fatalf("HTTP %d，预期错误码 %d：%s", recorder.Code, wantCode, recorder.Body.String())
 	}
 }
 

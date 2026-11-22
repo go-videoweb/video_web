@@ -18,9 +18,12 @@ func TestImageCaptcha(t *testing.T) {
 }
 
 func TestCodeCaptcha(t *testing.T) {
+	if os.Getenv("VIDEOWEB_SMTP_TEST") != "1" {
+		t.Skip("真实发信测试需先替换占位配置，并显式设置 VIDEOWEB_SMTP_TEST=1")
+	}
 	c := &conf.Email{
 		SmtpHost:       "<host> e.g. smtp.qq.com",
-		SmtpPort:       <Port>,
+		SmtpPort:       465,
 		SmtpUsername:   "<Email>",
 		SmtpPassword:   "<PASSWORD>",
 		SmtpServername: "smtp.qq.com",
@@ -30,6 +33,8 @@ func TestCodeCaptcha(t *testing.T) {
 		"caller", log.DefaultCaller,
 	)
 	e := captcha.NewEmail(c, logger)
-	err := e.SendCode(context.Background(), "10eltzey10@gmail.com", e.CreateVerificationCode())
+	code, err := e.CreateVerificationCode()
+	require.NoError(t, err)
+	err = e.SendCode(context.Background(), "10eltzey10@gmail.com", code)
 	require.NoError(t, err)
 }

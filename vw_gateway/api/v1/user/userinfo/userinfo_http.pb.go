@@ -41,7 +41,7 @@ func RegisterUserinfoHTTPServer(s *http.Server, srv UserinfoHTTPServer) {
 	r.POST("/api/v1/userinfo/{user_id}/modifyEmail", _Userinfo_ModifyEmail0_HTTP_Handler(srv))
 	r.POST("/api/v1/userinfo/{user_id}/modifyPassword", _Userinfo_ModifyPassword0_HTTP_Handler(srv))
 	r.POST("/api/v1/userinfo/{user_id}/modifySignature", _Userinfo_ModifyUserSignature0_HTTP_Handler(srv))
-	r.POST("/api/v1/userinfo/{user_id}/forgetPassword", _Userinfo_ForgetPassword0_HTTP_Handler(srv))
+	r.POST("/api/v1/userinfo/forgetPassword", _Userinfo_ForgetPassword0_HTTP_Handler(srv))
 	r.POST("/api/v1/userinfo/{user_id}/modifyUsername", _Userinfo_ModifyUsername0_HTTP_Handler(srv))
 }
 
@@ -151,9 +151,6 @@ func _Userinfo_ForgetPassword0_HTTP_Handler(srv UserinfoHTTPServer) func(ctx htt
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		if err := ctx.BindVars(&in); err != nil {
-			return err
-		}
 		http.SetOperation(ctx, OperationUserinfoForgetPassword)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.ForgetPassword(ctx, req.(*ForgetPasswordReq))
@@ -211,7 +208,7 @@ func NewUserinfoHTTPClient(client *http.Client) UserinfoHTTPClient {
 
 func (c *UserinfoHTTPClientImpl) ForgetPassword(ctx context.Context, in *ForgetPasswordReq, opts ...http.CallOption) (*ForgetPasswordResp, error) {
 	var out ForgetPasswordResp
-	pattern := "/api/v1/userinfo/{user_id}/forgetPassword"
+	pattern := "/api/v1/userinfo/forgetPassword"
 	path := binding.EncodeURL(pattern, in, false)
 	opts = append(opts, http.Operation(OperationUserinfoForgetPassword))
 	opts = append(opts, http.PathTemplate(pattern))

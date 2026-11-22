@@ -7,11 +7,11 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
 	"mime/multipart"
-	"net/http"
 	"util/helper"
 	"util/helper/file"
 	videoinfov1 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/domain"
+	"vw_gateway/internal/pkg/ecode/errdef"
 	"vw_gateway/internal/pkg/ecode/errdef/uerr"
 	"vw_gateway/internal/pkg/ecode/errdef/verr"
 	videoinfov2 "vw_video/api/v1/videoinfo"
@@ -20,33 +20,48 @@ import (
 type VideoInfoRepo interface {
 	GetVideoInfo(ctx context.Context, videoId, userId int64) (*domain.VideoDetail, error)
 	GetVideoList(ctx context.Context, class []string, num int32, size int32) ([]*videoinfov2.VideoSummary, error)
+	// GetFavoriteVideos 传递可信访问者身份，读取收藏夹视频分页结果。
+	GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) (*videoinfov2.GetFavoriteVideosResp, error)
 	GetVideoFile(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
 	GetVideoMpd(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
 	GetVideoSegment(ctx context.Context, videoId int64, segmentName string) (*videoinfov1.FileResp, error)
 	GetVideoCover(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error)
 	UploadVideoInfo(ctx context.Context, info *domain.VideoDetail) (int64, error)
 	UploadVideoCover(ctx context.Context, publisherId, videoId int64, fh *multipart.FileHeader) error
-	UploadVideoFile(publisherId int64, videoId int64, fh *multipart.FileHeader) error
+	UploadVideoFile(ctx context.Context, publisherId int64, videoId int64, fh *multipart.FileHeader) error
+	// GetVideoUploadStatus 使用已鉴权的用户 ID 向视频服务查询上传状态。
+	GetVideoUploadStatus(ctx context.Context, videoId, userId int64) (*videoinfov2.GetVideoUploadStatusResp, error)
 }
 
 type VideoInfoUsecase struct {
 	repo VideoInfoRepo
-	log  *log.Helper
 }
 
-func NewVideoInfoUsecase(repo VideoInfoRepo, logger log.Logger) *VideoInfoUsecase {
+func NewVideoInfoUsecase(repo VideoInfoRepo, _ log.Logger) *VideoInfoUsecase {
 	return &VideoInfoUsecase{
 		repo: repo,
-		log:  log.NewHelper(logger),
 	}
 }
 
 func (uc *VideoInfoUsecase) GetVideoDetail(ctx context.Context, videoId, userId int64) (*domain.VideoDetail, error) {
 	resp, err := uc.repo.GetVideoInfo(ctx, videoId, userId)
+	if errors.Reason(err) == "VIDEO_NOT_FOUND" {
+		return nil, err
+	}
 	if err != nil {
 		return nil, helper.HandleError(verr.ErrGetVideoListFailed, err)
 	}
 	return resp, nil
+}
+
+// GetFavoriteVideos 转发收藏夹分页查询，保留权限、参数和下游错误的原始语义。
+func (uc *VideoInfoUsecase) GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) (*videoinfov2.GetFavoriteVideosResp, error) {
+	return uc.repo.GetFavoriteVideos(ctx, userId, favoritesId, pageNum, pageSize)
+}
+
+// GetVideoUploadStatus 转发投稿状态查询，由视频服务校验发布者身份。
+func (uc *VideoInfoUsecase) GetVideoUploadStatus(ctx context.Context, videoId, userId int64) (*videoinfov2.GetVideoUploadStatusResp, error) {
+	return uc.repo.GetVideoUploadStatus(ctx, videoId, userId)
 }
 
 func (uc *VideoInfoUsecase) GetVideoList(ctx context.Context, class []string, num int32, size int32) ([]*domain.VideoSummary, error) {
@@ -83,7 +98,7 @@ func (uc *VideoInfoUsecase) UploadVideoCover(ctx context.Context, userId, videoI
 	httpReq, ok := khttp.RequestFromServerContext(ctx)
 	if !ok {
 		return helper.HandleError(
-			errors.New(http.StatusInternalServerError, "invalid context", "服务器内部错误"),
+			errdef.ErrInvalidRequestContext,
 			stderr.New("khttp.RequestFromServerContext(ctx) failed"))
 	}
 	fh, err := file.FormFile(httpReq, "cover")
@@ -98,12 +113,13 @@ func (uc *VideoInfoUsecase) UploadVideoCover(ctx context.Context, userId, videoI
 	return uc.repo.UploadVideoCover(ctx, userId, videoId, fh)
 }
 
+// UploadVideoFile 等待视频服务确认原片落盘，并透传上传失败。
 func (uc *VideoInfoUsecase) UploadVideoFile(ctx context.Context, userId, videoId int64) error {
 	// Parse form data and get video file
 	httpReq, ok := khttp.RequestFromServerContext(ctx)
 	if !ok {
 		return helper.HandleError(
-			errors.New(http.StatusInternalServerError, "invalid context", "服务器内部错误"),
+			errdef.ErrInvalidRequestContext,
 			stderr.New("khttp.RequestFromServerContext(ctx) failed"))
 	}
 	fh, err := file.FormFile(httpReq, "file")
@@ -116,15 +132,7 @@ func (uc *VideoInfoUsecase) UploadVideoFile(ctx context.Context, userId, videoId
 		return helper.HandleError(uerr.ErrUploadAvatarFailed, err)
 	}
 
-	// Upload big file asynchronously, to avoid the request timeout
-	// TODO: use message queue to handle big file upload.
-	go func() {
-		err := uc.repo.UploadVideoFile(userId, videoId, fh)
-		if err != nil {
-			uc.log.Error(err)
-		}
-	}()
-	return nil
+	return uc.repo.UploadVideoFile(ctx, userId, videoId, fh)
 }
 
 func (uc *VideoInfoUsecase) DownloadVideo(ctx context.Context, videoId int64) (*videoinfov1.FileResp, error) {

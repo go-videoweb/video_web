@@ -6,10 +6,10 @@ package model
 
 const TableNameVideoClass = "video_class"
 
-// VideoClass 视频分类表，存储每个视频的类别信息
+// VideoClass mapped from table <video_class>
 type VideoClass struct {
-	VideoID int64  `gorm:"column:video_id;type:bigint;primaryKey;comment:视频id，" json:"video_id"` // 视频id，
-	Class   string `gorm:"column:class;type:varchar(20);primaryKey;comment:视频分类" json:"class"`   // 视频分类
+	VideoID int64  `gorm:"column:video_id;type:bigint;primaryKey" json:"video_id"`
+	Class   string `gorm:"column:class;type:varchar(20);primaryKey" json:"class"`
 }
 
 // TableName VideoClass's table name

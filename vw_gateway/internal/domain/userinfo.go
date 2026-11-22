@@ -5,6 +5,7 @@ import (
 )
 
 type UserSummary struct {
+	UserID     int64
 	Username   string
 	Signature  string
 	Email      string

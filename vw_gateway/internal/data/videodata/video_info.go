@@ -3,7 +3,6 @@ package videodata
 import (
 	"context"
 	"fmt"
-	kerrors "github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
@@ -15,14 +14,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-	utilCtx "util/context"
 	"util/helper"
 	"vw_gateway"
 	videoinfov2 "vw_gateway/api/v1/video/videoinfo"
 	"vw_gateway/internal/biz/videobiz"
 	"vw_gateway/internal/domain"
-	errdef "vw_gateway/internal/pkg/ecode/errdef/verr"
+	"vw_gateway/internal/pkg/ecode/errdef"
+	"vw_gateway/internal/pkg/ecode/errdef/verr"
 	videoinfov1 "vw_video/api/v1/videoinfo"
 )
 
@@ -44,6 +42,30 @@ func (v *videoInfoRepo) GetVideoInfo(ctx context.Context, videoId, userId int64)
 		return nil, err
 	}
 	return domain.NewVideoDetail(resp), nil
+}
+
+// GetVideoUploadStatus 向视频 RPC 传递视频 ID 和可信访问者身份。
+func (v *videoInfoRepo) GetVideoUploadStatus(ctx context.Context, videoId, userId int64) (*videoinfov1.GetVideoUploadStatusResp, error) {
+	return v.data.videoInfoClient.GetVideoUploadStatus(ctx, &videoinfov1.GetVideoUploadStatusReq{VideoId: videoId, UserId: userId})
+}
+
+// GetFavoriteVideos 仅传递网关鉴权确认的身份，不以客户端参数作为访问者。
+func (v *videoInfoRepo) GetFavoriteVideos(ctx context.Context, userId, favoritesId int64, pageNum, pageSize int32) (*videoinfov1.GetFavoriteVideosResp, error) {
+	resp, err := v.data.videoInfoClient.GetFavoriteVideos(ctx, &videoinfov1.GetFavoriteVideosReq{
+		UserId: userId, FavoritesId: favoritesId, PageNum: pageNum, PageSize: pageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, errdef.ErrFavoriteVideosMissing
+	}
+	for _, item := range resp.Videos {
+		if item.GetVideo() == nil {
+			return nil, errdef.ErrFavoriteVideoInvalid
+		}
+	}
+	return resp, nil
 }
 
 func (v *videoInfoRepo) GetVideoList(ctx context.Context, class []string, num int32, size int32) ([]*videoinfov1.VideoSummary, error) {
@@ -76,7 +98,7 @@ func (v *videoInfoRepo) UploadVideoInfo(ctx context.Context, info *domain.VideoD
 		return 0, err
 	}
 	if resp.GetVideoId() <= 0 {
-		return 0, kerrors.InternalServer("VIDEO_ID_MISSING", "video service returned an invalid video ID; verify deployment before retrying")
+		return 0, errdef.ErrVideoIDMissing
 	}
 	return resp.VideoId, nil
 }
@@ -105,6 +127,10 @@ func (v *videoInfoRepo) UploadVideoCover(ctx context.Context, publisherId, video
 		},
 	})
 	if err != nil {
+		// 服务端可能在收到元信息后立即拒绝，Send 的 EOF 需要通过接收回执获取实际 RPC 错误。
+		if err == io.EOF {
+			_, err = stream.CloseAndRecv()
+		}
 		return err
 	}
 
@@ -125,6 +151,9 @@ func (v *videoInfoRepo) UploadVideoCover(ctx context.Context, publisherId, video
 			},
 		})
 		if err != nil {
+			if err == io.EOF {
+				_, err = stream.CloseAndRecv()
+			}
 			return err
 		}
 	}
@@ -135,9 +164,8 @@ func (v *videoInfoRepo) UploadVideoCover(ctx context.Context, publisherId, video
 	return nil
 }
 
-func (v *videoInfoRepo) UploadVideoFile(publisherId int64, videoId int64, fh *multipart.FileHeader) error {
-	ctx, cancel := utilCtx.WithTimeout(nil, 100*time.Second)
-	defer cancel()
+// UploadVideoFile 转发原片并等待落盘回执，使用调用方的取消和超时。
+func (v *videoInfoRepo) UploadVideoFile(ctx context.Context, publisherId int64, videoId int64, fh *multipart.FileHeader) error {
 	stream, err := v.data.videoInfoClient.UploadVideoFile(ctx)
 	if err != nil {
 		return err
@@ -161,10 +189,13 @@ func (v *videoInfoRepo) UploadVideoFile(publisherId int64, videoId int64, fh *mu
 		},
 	})
 	if err != nil {
+		if err == io.EOF {
+			_, err = stream.CloseAndRecv()
+		}
 		return err
 	}
 
-	// 3. Send the cover file data
+	// 3. Send the original video data
 	buf := make([]byte, 1*mb)
 	for {
 		n, err := f.Read(buf)
@@ -181,6 +212,9 @@ func (v *videoInfoRepo) UploadVideoFile(publisherId int64, videoId int64, fh *mu
 			},
 		})
 		if err != nil {
+			if err == io.EOF {
+				_, err = stream.CloseAndRecv()
+			}
 			return err
 		}
 	}
@@ -254,7 +288,7 @@ func (v *videoInfoRepo) GetVideoMpd(ctx context.Context, videoId int64) (*videoi
 		VideoId: videoId,
 	})
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoMpdFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoMpdFailed, err)
 	}
 
 	getFilenameFn := func(resp *videoinfov1.GetVideoMpdResp) (string, error) {
@@ -272,7 +306,7 @@ func (v *videoInfoRepo) GetVideoMpd(ctx context.Context, videoId int64) (*videoi
 
 	fileResp, err := receiveStreamFile(stream, getFilenameFn, getFileDataFn)
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoMpdFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoMpdFailed, err)
 	}
 
 	fileResp.Headers = map[string]*videoinfov2.FileResp_HeaderValues{
@@ -290,7 +324,7 @@ func (v *videoInfoRepo) GetVideoSegment(ctx context.Context, videoId int64, segm
 		SegmentName: segmentName,
 	})
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoSegmentFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoSegmentFailed, err)
 	}
 
 	getFilenameFn := func(resp *videoinfov1.GetVideoSegmentResp) (string, error) {
@@ -308,7 +342,7 @@ func (v *videoInfoRepo) GetVideoSegment(ctx context.Context, videoId int64, segm
 
 	fileResp, err := receiveStreamFile(stream, getFilenameFn, getFileDataFn)
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoSegmentFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoSegmentFailed, err)
 	}
 
 	return fileResp, nil
@@ -322,7 +356,7 @@ func (v *videoInfoRepo) GetVideoCover(ctx context.Context, videoId int64) (*vide
 		VideoId: videoId,
 	})
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoCoverFailed, err)
 	}
 
 	getFilenameFn := func(resp *videoinfov1.GetVideoCoverResp) (string, error) {
@@ -340,7 +374,7 @@ func (v *videoInfoRepo) GetVideoCover(ctx context.Context, videoId int64) (*vide
 
 	fileResp, err := receiveStreamFile(stream, getFilenameFn, getFileDataFn)
 	if err != nil {
-		return nil, helper.HandleError(errdef.ErrGetVideoCoverFailed, err)
+		return nil, helper.HandleError(verr.ErrGetVideoCoverFailed, err)
 	}
 
 	if contentType := mime.TypeByExtension(filepath.Ext(fileResp.Filename)); contentType != "" {

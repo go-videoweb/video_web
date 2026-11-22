@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	VideoInteract_GetBarrages_FullMethodName        = "/gateway.api.v1.video.interact.VideoInteract/GetBarrages"
 	VideoInteract_VideoUpvote_FullMethodName        = "/gateway.api.v1.video.interact.VideoInteract/VideoUpvote"
 	VideoInteract_VideoFavorite_FullMethodName      = "/gateway.api.v1.video.interact.VideoInteract/VideoFavorite"
 	VideoInteract_VideoThrowShells_FullMethodName   = "/gateway.api.v1.video.interact.VideoInteract/VideoThrowShells"
@@ -31,6 +32,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type VideoInteractClient interface {
+	GetBarrages(ctx context.Context, in *GetBarragesReq, opts ...grpc.CallOption) (*GetBarragesResp, error)
 	VideoUpvote(ctx context.Context, in *VideoUpvoteReq, opts ...grpc.CallOption) (*VideoUpvoteResp, error)
 	VideoFavorite(ctx context.Context, in *VideoFavoriteReq, opts ...grpc.CallOption) (*VideoFavoriteResp, error)
 	VideoThrowShells(ctx context.Context, in *VideoThrowShellsReq, opts ...grpc.CallOption) (*VideoThrowShellsResp, error)
@@ -45,6 +47,16 @@ type videoInteractClient struct {
 
 func NewVideoInteractClient(cc grpc.ClientConnInterface) VideoInteractClient {
 	return &videoInteractClient{cc}
+}
+
+func (c *videoInteractClient) GetBarrages(ctx context.Context, in *GetBarragesReq, opts ...grpc.CallOption) (*GetBarragesResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBarragesResp)
+	err := c.cc.Invoke(ctx, VideoInteract_GetBarrages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *videoInteractClient) VideoUpvote(ctx context.Context, in *VideoUpvoteReq, opts ...grpc.CallOption) (*VideoUpvoteResp, error) {
@@ -111,6 +123,7 @@ func (c *videoInteractClient) VideoUpvoteBarrage(ctx context.Context, in *VideoU
 // All implementations must embed UnimplementedVideoInteractServer
 // for forward compatibility.
 type VideoInteractServer interface {
+	GetBarrages(context.Context, *GetBarragesReq) (*GetBarragesResp, error)
 	VideoUpvote(context.Context, *VideoUpvoteReq) (*VideoUpvoteResp, error)
 	VideoFavorite(context.Context, *VideoFavoriteReq) (*VideoFavoriteResp, error)
 	VideoThrowShells(context.Context, *VideoThrowShellsReq) (*VideoThrowShellsResp, error)
@@ -127,6 +140,9 @@ type VideoInteractServer interface {
 // pointer dereference when methods are called.
 type UnimplementedVideoInteractServer struct{}
 
+func (UnimplementedVideoInteractServer) GetBarrages(context.Context, *GetBarragesReq) (*GetBarragesResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBarrages not implemented")
+}
 func (UnimplementedVideoInteractServer) VideoUpvote(context.Context, *VideoUpvoteReq) (*VideoUpvoteResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VideoUpvote not implemented")
 }
@@ -164,6 +180,24 @@ func RegisterVideoInteractServer(s grpc.ServiceRegistrar, srv VideoInteractServe
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&VideoInteract_ServiceDesc, srv)
+}
+
+func _VideoInteract_GetBarrages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBarragesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoInteractServer).GetBarrages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoInteract_GetBarrages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoInteractServer).GetBarrages(ctx, req.(*GetBarragesReq))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _VideoInteract_VideoUpvote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -281,6 +315,10 @@ var VideoInteract_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gateway.api.v1.video.interact.VideoInteract",
 	HandlerType: (*VideoInteractServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetBarrages",
+			Handler:    _VideoInteract_GetBarrages_Handler,
+		},
 		{
 			MethodName: "VideoUpvote",
 			Handler:    _VideoInteract_VideoUpvote_Handler,
