@@ -18,7 +18,7 @@ func AssertStatus(t *testing.T, response *Response, want int, message string) {
 		t.Fatalf("%s: 响应为空", message)
 	}
 	if response.StatusCode != want {
-		t.Fatalf("%s: HTTP 状态码=%d，期望=%d，body=%q", message, response.StatusCode, want, response.Text())
+		t.Fatalf("%s: 期望 HTTP=%d，%s", message, want, response.Diagnostic())
 	}
 }
 
@@ -32,7 +32,34 @@ func AssertHTTP2xx(t *testing.T, response *Response, message string) {
 		if response == nil {
 			t.Fatalf("%s: 响应为空", message)
 		}
-		t.Fatalf("%s: HTTP 状态码=%d，body=%q", message, response.StatusCode, response.Text())
+		t.Fatalf("%s: %s", message, response.Diagnostic())
+	}
+}
+
+// AssertAPIError 断言网关 HTTP 200 错误响应及稳定业务码。
+// 输入：reason 非空时同时严格匹配；不对 message 做易变文案匹配。
+// 输出：返回 metadata 供用例验证部分成功或刷新协议，失败日志不输出凭证。
+func AssertAPIError(t *testing.T, response *Response, code int32, reason string) *APIError {
+	t.Helper()
+	AssertStatus(t, response, 200, "业务错误响应")
+	apiErr, err := response.BusinessError()
+	if err != nil || apiErr == nil {
+		t.Fatalf("未返回有效业务错误: %s", response.Diagnostic())
+	}
+	if apiErr.Code != code || (reason != "" && apiErr.Reason != reason) {
+		t.Fatalf("业务错误不匹配，期望 code=%d: %s", code, response.Diagnostic())
+	}
+	return apiErr
+}
+
+// AssertAPIJSONSuccess 断言 JSON 响应为 HTTP 2xx 且没有 Kratos 错误。
+// 各接口的 statusCode、resp 和具体数据契约仍须由用例单独断言；不用于文件或 304 响应。
+func AssertAPIJSONSuccess(t *testing.T, response *Response) {
+	t.Helper()
+	AssertHTTP2xx(t, response, "JSON 业务响应")
+	apiErr, err := response.BusinessError()
+	if err != nil || apiErr != nil {
+		t.Fatalf("JSON 业务响应失败: %s", response.Diagnostic())
 	}
 }
 
@@ -51,7 +78,7 @@ func AssertJSONEqual(t *testing.T, got, want any, message string) {
 		t.Fatalf("%s: expected JSON 无法解析: %v", message, err)
 	}
 	if !reflect.DeepEqual(gotJSON, wantJSON) {
-		t.Fatalf("%s: JSON 不一致，actual=%v，expected=%v", message, gotJSON, wantJSON)
+		t.Fatalf("%s: JSON 结构或值不一致（正文已省略）", message)
 	}
 }
 
