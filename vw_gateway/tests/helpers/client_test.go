@@ -34,7 +34,7 @@ func TestAPIClient_DoJSON(t *testing.T) {
 	}))
 	defer server.Close()
 	client := NewAPIClient(TestConfig{BaseURL: server.URL})
-	client.SetToken(SessionToken, "session-token")
+	client.SetToken(AccessToken, "session-token")
 	response, err := client.DoJSON(context.Background(), http.MethodPost, "/v1/items", map[string]string{"name": "demo"})
 	if err != nil {
 		t.Fatalf("DoJSON() error = %v", err)
