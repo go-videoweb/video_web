@@ -61,8 +61,8 @@ func (c TestConfig) ValidateRemoteConfig() error {
 		return fmt.Errorf("API_TEST_BASE_URL 未设置")
 	}
 	u, err := url.Parse(c.BaseURL)
-	if err != nil || u.Scheme == "" || u.Host == "" {
-		return fmt.Errorf("API_TEST_BASE_URL 不是有效的绝对 URL: %q", c.BaseURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("API_TEST_BASE_URL 必须为不含凭据、查询或片段的 HTTP 绝对 URL")
 	}
 	if c.Username == "" || c.Password == "" {
 		return fmt.Errorf("API_TEST_USERNAME 和 API_TEST_PASSWORD 必须同时设置")

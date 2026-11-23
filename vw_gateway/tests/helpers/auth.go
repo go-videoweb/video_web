@@ -9,63 +9,63 @@ import (
 type TokenKind string
 
 const (
-	// AnonymousToken 表示匿名访问令牌。
-	AnonymousToken TokenKind = "anonymous"
-	// SessionToken 表示登录会话令牌。
-	SessionToken TokenKind = "session"
+	// AccessToken 对应 Authorization 请求头。
+	AccessToken TokenKind = "access"
+	// RefreshToken 对应 Refresh-Token 请求头。
+	RefreshToken TokenKind = "refresh"
 )
 
-// TokenStore 保存匿名令牌和会话令牌，客户端不会自动登录或刷新令牌。
+// TokenStore 分别保存双 Token；零值表示匿名，不自动补齐凭证或刷新。
 type TokenStore struct {
-	anonymous string
-	session   string
+	access  string
+	refresh string
 }
 
 // SetToken 设置指定类型的令牌。
-// 输入：kind 指定匿名令牌或会话令牌；token 为令牌文本，首尾空白会被移除。
+// 输入：kind 指定 access 或 refresh；token 的首尾空白会被移除。
 // 输出：无返回值；未知 kind 不修改已有令牌。
-// 示例：store.SetToken(helpers.SessionToken, "access-token")。
+// 示例：store.SetToken(helpers.AccessToken, "access-token")。
 func (s *TokenStore) SetToken(kind TokenKind, token string) {
 	token = strings.TrimSpace(token)
 	switch kind {
-	case AnonymousToken:
-		s.anonymous = token
-	case SessionToken:
-		s.session = token
+	case AccessToken:
+		s.access = token
+	case RefreshToken:
+		s.refresh = token
 	}
 }
 
 // ClearToken 清除指定类型的令牌。
-// 输入：kind 指定需要清除的匿名令牌或会话令牌。
+// 输入：kind 指定需要清除的 access 或 refresh。
 // 输出：无返回值；未知 kind 不修改已有令牌。
-// 示例：store.ClearToken(helpers.SessionToken)。
+// 示例：store.ClearToken(helpers.AccessToken)。
 func (s *TokenStore) ClearToken(kind TokenKind) { s.SetToken(kind, "") }
 
 // Token 返回指定类型的令牌。
 // 输入：kind 指定需要读取的令牌类型。
 // 输出：返回对应令牌；未知 kind 或未设置令牌时返回空字符串。
-// 示例：token := store.Token(helpers.AnonymousToken)。
+// 示例：token := store.Token(helpers.AccessToken)。
 func (s TokenStore) Token(kind TokenKind) string {
 	switch kind {
-	case AnonymousToken:
-		return s.anonymous
-	case SessionToken:
-		return s.session
+	case AccessToken:
+		return s.access
+	case RefreshToken:
+		return s.refresh
 	default:
 		return ""
 	}
 }
 
-// ApplyToRequest 将会话令牌优先写入请求；没有会话令牌时回退到匿名令牌。
-// 输入：req 为待添加 Authorization 头的 HTTP 请求，不能为 nil。
-// 输出：无返回值；有可用令牌时写入 Bearer 认证头，没有令牌时保持请求头不变。
+// ApplyToRequest 分别设置两个认证头，不做匿名令牌回退。
+// 输入：req 为请求；可单独设置一种凭证，以测试缺失或非法凭证。
+// 输出：空 Token 删除对应请求头，避免请求对象复用时残留身份。
 // 示例：store.ApplyToRequest(req)。
 func (s TokenStore) ApplyToRequest(req *http.Request) {
-	token := s.session
-	if token == "" {
-		token = s.anonymous
-	}
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+	for header, token := range map[string]string{"Authorization": s.access, "Refresh-Token": s.refresh} {
+		if token == "" {
+			req.Header.Del(header)
+		} else {
+			req.Header.Set(header, "Bearer "+token)
+		}
 	}
 }

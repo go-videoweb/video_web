@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -56,6 +57,10 @@ func (r *Response) DecodeJSON(dst any) error {
 	if err := decoder.Decode(dst); err != nil {
 		return fmt.Errorf("解析 JSON 响应失败: %w", err)
 	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return fmt.Errorf("JSON 响应包含多余数据")
+	}
 	return nil
 }
 
@@ -67,6 +72,9 @@ func (r *Response) JSONMap() (map[string]any, error) {
 	var value map[string]any
 	if err := r.DecodeJSON(&value); err != nil {
 		return nil, err
+	}
+	if value == nil {
+		return nil, fmt.Errorf("JSON 响应必须是对象")
 	}
 	return value, nil
 }
