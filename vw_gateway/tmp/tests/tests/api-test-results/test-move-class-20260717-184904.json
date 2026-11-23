@@ -1,0 +1,103 @@
+{"Time":"2026-07-17T18:49:32.3080521+08:00","Action":"start","Package":"yssim-go/tests/api"}
+{"Time":"2026-07-17T18:49:32.4435511+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"IP address: 192.168.121.114\n"}
+{"Time":"2026-07-17T18:49:32.5516955+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"连接mysql\n"}
+{"Time":"2026-07-17T18:49:32.5564041+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"Workspace not started before SMC-dependent request, restarting SMC...\n"}
+{"Time":"2026-07-17T18:49:33.8307421+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:33 INFO: [core] [Channel #7]Resolver state updated: {\n"}
+{"Time":"2026-07-17T18:49:33.8307421+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Addresses\": null,\n"}
+{"Time":"2026-07-17T18:49:33.8307421+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Endpoints\": [],\n"}
+{"Time":"2026-07-17T18:49:33.8307421+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"ServiceConfig\": null,\n"}
+{"Time":"2026-07-17T18:49:33.8307421+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Attributes\": null\n"}
+{"Time":"2026-07-17T18:49:33.8307421+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"} ()\n"}
+{"Time":"2026-07-17T18:49:33.8307421+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:33 INFO: [core] [Channel #7]Channel switches to new LB policy \"pick_first\"\n"}
+{"Time":"2026-07-17T18:49:33.8307421+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:33 INFO: [pick-first-leaf-lb] [pick-first-leaf-lb 0xc0005e4240] Received error from the name resolver: produced zero addresses\n"}
+{"Time":"2026-07-17T18:49:33.8307421+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:33 INFO: [core] [Channel #7]Channel Connectivity change to TRANSIENT_FAILURE\n"}
+{"Time":"2026-07-17T18:49:33.8307421+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:33 INFO: [core] error from balancer.UpdateClientConnState: bad resolver state\n"}
+{"Time":"2026-07-17T18:49:36.9276005+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:36 INFO: [core] [Channel #7]Resolver state updated: {\n"}
+{"Time":"2026-07-17T18:49:36.9276005+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Addresses\": null,\n"}
+{"Time":"2026-07-17T18:49:36.9276005+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Endpoints\": [],\n"}
+{"Time":"2026-07-17T18:49:36.9276005+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"ServiceConfig\": null,\n"}
+{"Time":"2026-07-17T18:49:36.9276005+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Attributes\": null\n"}
+{"Time":"2026-07-17T18:49:36.9276005+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"} ()\n"}
+{"Time":"2026-07-17T18:49:36.9276005+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:36 INFO: [pick-first-leaf-lb] [pick-first-leaf-lb 0xc0005e4240] Received error from the name resolver: produced zero addresses\n"}
+{"Time":"2026-07-17T18:49:36.9276005+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:36 INFO: [core] error from balancer.UpdateClientConnState: bad resolver state\n"}
+{"Time":"2026-07-17T18:49:40.3359965+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:40 INFO: [core] [Channel #7]Resolver state updated: {\n"}
+{"Time":"2026-07-17T18:49:40.3359965+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Addresses\": null,\n"}
+{"Time":"2026-07-17T18:49:40.3359965+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Endpoints\": [],\n"}
+{"Time":"2026-07-17T18:49:40.3359965+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"ServiceConfig\": null,\n"}
+{"Time":"2026-07-17T18:49:40.3359965+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Attributes\": null\n"}
+{"Time":"2026-07-17T18:49:40.3359965+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"} ()\n"}
+{"Time":"2026-07-17T18:49:40.3359965+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:40 INFO: [pick-first-leaf-lb] [pick-first-leaf-lb 0xc0005e4240] Received error from the name resolver: produced zero addresses\n"}
+{"Time":"2026-07-17T18:49:40.3359965+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:40 INFO: [core] error from balancer.UpdateClientConnState: bad resolver state\n"}
+{"Time":"2026-07-17T18:49:45.295257+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:45 INFO: [core] [Channel #7]Resolver state updated: {\n"}
+{"Time":"2026-07-17T18:49:45.295257+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Addresses\": null,\n"}
+{"Time":"2026-07-17T18:49:45.295257+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Endpoints\": [],\n"}
+{"Time":"2026-07-17T18:49:45.295257+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"ServiceConfig\": null,\n"}
+{"Time":"2026-07-17T18:49:45.295257+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"  \"Attributes\": null\n"}
+{"Time":"2026-07-17T18:49:45.295257+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"} ()\n"}
+{"Time":"2026-07-17T18:49:45.295257+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:45 INFO: [pick-first-leaf-lb] [pick-first-leaf-lb 0xc0005e4240] Received error from the name resolver: produced zero addresses\n"}
+{"Time":"2026-07-17T18:49:45.295257+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"2026/07/17 18:49:45 INFO: [core] error from balancer.UpdateClientConnState: bad resolver state\n"}
+{"Time":"2026-07-17T18:49:46.834475+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"[Suite.Setup] 校验环境变量\n"}
+{"Time":"2026-07-17T18:49:46.834475+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"[Suite.Setup] Setup 完成\n"}
+{"Time":"2026-07-17T18:49:46.834475+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass"}
+{"Time":"2026-07-17T18:49:46.834475+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass","Output":"=== RUN   TestMoveClass\n"}
+{"Time":"2026-07-17T18:49:46.9103812+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/模型节点上移"}
+{"Time":"2026-07-17T18:49:46.9103812+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/模型节点上移","Output":"=== RUN   TestMoveClass/模型节点上移\n"}
+{"Time":"2026-07-17T18:49:46.9126058+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/模型节点上移","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:46.9203854+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/模型节点下移"}
+{"Time":"2026-07-17T18:49:46.9203854+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/模型节点下移","Output":"=== RUN   TestMoveClass/模型节点下移\n"}
+{"Time":"2026-07-17T18:49:46.9224738+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/模型节点下移","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:46.9297586+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/package_节点置底"}
+{"Time":"2026-07-17T18:49:46.9297586+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/package_节点置底","Output":"=== RUN   TestMoveClass/package_节点置底\n"}
+{"Time":"2026-07-17T18:49:46.9325797+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/package_节点置底","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:46.9392811+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/package_节点置顶"}
+{"Time":"2026-07-17T18:49:46.9392811+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/package_节点置顶","Output":"=== RUN   TestMoveClass/package_节点置顶\n"}
+{"Time":"2026-07-17T18:49:46.941903+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/package_节点置顶","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:46.9496831+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/同位置移动幂等成功"}
+{"Time":"2026-07-17T18:49:46.9496831+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/同位置移动幂等成功","Output":"=== RUN   TestMoveClass/同位置移动幂等成功\n"}
+{"Time":"2026-07-17T18:49:46.9512402+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/同位置移动幂等成功","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:46.9586475+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/target_index_小于_0_返回业务错误"}
+{"Time":"2026-07-17T18:49:46.9586475+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/target_index_小于_0_返回业务错误","Output":"=== RUN   TestMoveClass/target_index_小于_0_返回业务错误\n"}
+{"Time":"2026-07-17T18:49:46.9596884+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/target_index_小于_0_返回业务错误","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:46.9596884+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/顶层模型库不支持排序"}
+{"Time":"2026-07-17T18:49:46.9596884+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/顶层模型库不支持排序","Output":"=== RUN   TestMoveClass/顶层模型库不支持排序\n"}
+{"Time":"2026-07-17T18:49:46.9607274+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/顶层模型库不支持排序","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:46.9607274+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/不存在的_package_id_返回业务错误"}
+{"Time":"2026-07-17T18:49:46.9607274+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/不存在的_package_id_返回业务错误","Output":"=== RUN   TestMoveClass/不存在的_package_id_返回业务错误\n"}
+{"Time":"2026-07-17T18:49:46.9618727+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/不存在的_package_id_返回业务错误","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:46.9618727+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/model_name_不属于当前_package_返回业务错误"}
+{"Time":"2026-07-17T18:49:46.9618727+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/model_name_不属于当前_package_返回业务错误","Output":"=== RUN   TestMoveClass/model_name_不属于当前_package_返回业务错误\n"}
+{"Time":"2026-07-17T18:49:46.9626486+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/model_name_不属于当前_package_返回业务错误","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:46.9626486+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/不存在的_model_name_返回业务错误"}
+{"Time":"2026-07-17T18:49:46.9626486+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/不存在的_model_name_返回业务错误","Output":"=== RUN   TestMoveClass/不存在的_model_name_返回业务错误\n"}
+{"Time":"2026-07-17T18:49:46.9652064+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/不存在的_model_name_返回业务错误","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:46.9652064+08:00","Action":"run","Package":"yssim-go/tests/api","Test":"TestMoveClass/缺少_target_index_返回_HTTP_400"}
+{"Time":"2026-07-17T18:49:46.9652064+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/缺少_target_index_返回_HTTP_400","Output":"=== RUN   TestMoveClass/缺少_target_index_返回_HTTP_400\n"}
+{"Time":"2026-07-17T18:49:46.966237+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/缺少_target_index_返回_HTTP_400","Output":"API_MARK role=primary method=POST path=/model/class/move\n"}
+{"Time":"2026-07-17T18:49:47.0628454+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass","Output":"--- PASS: TestMoveClass (0.23s)\n"}
+{"Time":"2026-07-17T18:49:47.0628454+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/模型节点上移","Output":"    --- PASS: TestMoveClass/模型节点上移 (0.01s)\n"}
+{"Time":"2026-07-17T18:49:47.0628454+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/模型节点上移","Elapsed":0.01}
+{"Time":"2026-07-17T18:49:47.0628454+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/模型节点下移","Output":"    --- PASS: TestMoveClass/模型节点下移 (0.01s)\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/模型节点下移","Elapsed":0.01}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/package_节点置底","Output":"    --- PASS: TestMoveClass/package_节点置底 (0.01s)\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/package_节点置底","Elapsed":0.01}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/package_节点置顶","Output":"    --- PASS: TestMoveClass/package_节点置顶 (0.01s)\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/package_节点置顶","Elapsed":0.01}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/同位置移动幂等成功","Output":"    --- PASS: TestMoveClass/同位置移动幂等成功 (0.01s)\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/同位置移动幂等成功","Elapsed":0.01}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/target_index_小于_0_返回业务错误","Output":"    --- PASS: TestMoveClass/target_index_小于_0_返回业务错误 (0.00s)\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/target_index_小于_0_返回业务错误","Elapsed":0}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/顶层模型库不支持排序","Output":"    --- PASS: TestMoveClass/顶层模型库不支持排序 (0.00s)\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/顶层模型库不支持排序","Elapsed":0}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/不存在的_package_id_返回业务错误","Output":"    --- PASS: TestMoveClass/不存在的_package_id_返回业务错误 (0.00s)\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/不存在的_package_id_返回业务错误","Elapsed":0}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/model_name_不属于当前_package_返回业务错误","Output":"    --- PASS: TestMoveClass/model_name_不属于当前_package_返回业务错误 (0.00s)\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/model_name_不属于当前_package_返回业务错误","Elapsed":0}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/不存在的_model_name_返回业务错误","Output":"    --- PASS: TestMoveClass/不存在的_model_name_返回业务错误 (0.00s)\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/不存在的_model_name_返回业务错误","Elapsed":0}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Test":"TestMoveClass/缺少_target_index_返回_HTTP_400","Output":"    --- PASS: TestMoveClass/缺少_target_index_返回_HTTP_400 (0.00s)\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass/缺少_target_index_返回_HTTP_400","Elapsed":0}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"pass","Package":"yssim-go/tests/api","Test":"TestMoveClass","Elapsed":0.23}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"PASS\n"}
+{"Time":"2026-07-17T18:49:47.063348+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"[Suite.Teardown] test suite finished\n"}
+{"Time":"2026-07-17T18:49:47.0684202+08:00","Action":"output","Package":"yssim-go/tests/api","Output":"ok  \tyssim-go/tests/api\t14.760s\n"}
+{"Time":"2026-07-17T18:49:47.0684202+08:00","Action":"pass","Package":"yssim-go/tests/api","Elapsed":14.76}
