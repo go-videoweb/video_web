@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 	apiClient = helpers.NewAPIClient(cfg)
 	code := m.Run()
 	if code == 0 && businessCasesRun.Load() == 0 {
-		fmt.Fprintln(os.Stderr, "未执行任何业务场景：配置检查不等于接口回归，当前仍为测试骨架")
+		fmt.Fprintln(os.Stderr, "未执行任何业务场景：配置检查不等于接口回归")
 		code = 1
 	}
 	os.Exit(code)
@@ -51,7 +51,7 @@ func runBusinessCase(t *testing.T, fn func(*testing.T)) {
 }
 
 // TestAPITestEnvironment 只校验远程 API 测试配置，不发起真实业务请求。
-// 具体接口用例在后续阶段按业务模块补充，并继续使用 api_test 构建标签。
+// 具体接口用例按业务模块维护，并继续使用 api_test 构建标签。
 func TestAPITestEnvironment(t *testing.T) {
 	cfg, err := helpers.LoadConfig()
 	if err != nil {

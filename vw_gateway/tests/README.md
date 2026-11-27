@@ -1,11 +1,12 @@
 # API 测试骨架
 
-本目录提供 `vw_gateway` 的接口测试基础设施，不包含真实业务用例、接口覆盖率工具或 TeamCity 配置。2026-11-22 已适配双 Token、统一业务错误、媒体条件请求和异步投稿轮询。
+本目录提供 `vw_gateway` 的接口测试基础设施和用户身份验证用例，尚未实现接口覆盖率工具或 TeamCity 配置。2026-11-22 已适配双 Token、统一业务错误、媒体条件请求和异步投稿轮询；2026-11-27 新增登录、注册、退出场景。
 
 ## 目录约定
 
-- `api/`：带 `api_test` 构建标签的远程 API 测试入口和后续业务用例。
+- `api/`：带 `api_test` 构建标签的远程 API 测试入口。
 - `helpers/`：HTTP 客户端、响应解析、断言、生命周期钩子和覆盖标记。
+- `identity/`：可复用的登录、注册、退出场景及本地 HTTP 接线测试，运行与覆盖边界见 [身份测试说明](identity/README.md)。
 - `resources/`：测试需要上传的固定资源文件。
 
 接口测试默认通过环境变量配置，不依赖 `tmp/tests` 中的外部环境、数据库或业务配置：
@@ -17,17 +18,17 @@ $env:API_TEST_PASSWORD = 'test-password'
 go test -mod=readonly -tags api_test -json -count=1 ./tests/api/...
 ```
 
-当前带标签入口会检查配置，但因为尚未增加业务用例，最终必须返回非零；这不是接口测试通过。没有配置、只选配置检查、零用例或全跳过都不能形成成功回归。当前入口不登录、不调用业务服务。后续业务测试通过 `runBusinessCase(t, fn)` 执行，只有未跳过的业务场景才计数。
+带标签入口检查配置后执行所选业务用例，会真实登录和注销专用测试账号。不要与人工操作或其他测试进程共享账号。没有配置、只选配置检查、零用例或全跳过都不能形成成功回归。业务测试通过 `runBusinessCase(t, fn)` 执行，只有未跳过的业务场景才计数。成功注册默认跳过，必须按身份测试说明显式启用；默认通过不代表成功注册已经验证。
 
 ## 离线验证
 
 在 vw_gateway module 内执行：
 
 ```text
-go test -mod=readonly -count=1 ./tests/helpers
+go test -mod=readonly -count=1 ./tests/helpers ./tests/identity
 ```
 
-helper 测试使用 httptest 本地回环服务，不需要 Redis、MySQL、Consul、DTM、SMTP 或实际媒体。当前不运行全模块测试，以免触发现有业务库和生成测试；普通运行不会激活带 api_test 标签的入口。
+本地测试使用 httptest 回环服务；身份测试沿用真实网关 HTTP 路由、JSON 编解码和 JWT，用户 RPC 仓储及 Redis 使用内存替身，不需要 MySQL、Consul、DTM、SMTP 或实际媒体。替身不证明用户服务校验、数据持久化或邮件链路正确。当前不运行全模块测试，以免触发现有业务库和生成测试；普通运行不会激活带 api_test 标签的入口。
 
 ## 请求与身份
 
@@ -81,7 +82,7 @@ WaitForVideoUpload 只请求发布者状态接口。ctx 必须有总截止时间
 
 | 范围 | 后续用例重点 |
 | --- | --- |
-| 登录/注册 | 双 Token、大 ID、注册会话部分失败，不自动重复注册 |
+| 登录/注册/退出 | 已有首批用例，详见 identity/README.md；故障注入与并发一致性仍待补充 |
 | 投稿 | 同名复用、原片前置封面、发布者权限、异步完成/失败、未完成不公开 |
 | 收藏/详情 | favorite=1/-1、取消必须携带 favoriteRecordId、重复操作、游客无个人状态 |
 | 评论/弹幕 | 游标绑定视频/楼层/排序，liked=false 与字段省略不同，不沿用旧停用预期 |
